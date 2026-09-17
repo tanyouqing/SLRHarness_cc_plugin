@@ -1,0 +1,20 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-plugin-manifest.json",
+  "name": "slr-harness",
+  "displayName": "SLR Harness",
+  "version": "0.1.0",
+  "description": "A human-gated, multi-agent literature review workflow with scoped research, durable notes, and a final report.",
+  "author": {
+    "name": "Ge Shi",
+    "email": "gegshi@amazon.com"
+  },
+  "homepage": "https://github.com/tanyouqing/SLRHarness_cc_plugin",
+  "repository": "https://github.com/tanyouqing/SLRHarness_cc_plugin",
+  "license": "MIT",
+  "keywords": [
+    "literature-review",
+    "research",
+    "systematic-review",
+    "multi-agent"
+  ]
+}

@@ -1,0 +1,4 @@
+schema_version: "1.1"
+name: max-rounds-finalizes-with-limitations
+context:
+  scaffold_script: fixture.sh

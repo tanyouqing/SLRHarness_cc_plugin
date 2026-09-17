@@ -1,0 +1,13 @@
+# Independent review repositories and generated evaluation output
+workspaces/
+evals/results/
+
+# Node tooling
+node_modules/
+npm-debug.log*
+
+# Editor and OS files
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

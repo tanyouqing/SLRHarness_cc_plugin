@@ -1,0 +1,4 @@
+schema_version: "1.1"
+name: revise-without-approval
+context:
+  scaffold_script: fixture.sh
