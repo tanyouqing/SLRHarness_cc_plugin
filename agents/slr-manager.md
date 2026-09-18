@@ -13,7 +13,9 @@ absolute project root, absolute workspace path, round number, and one phase: `pl
 `review`, or `finalize`. Your inherited cwd is not authoritative. Never run `cd`,
 never infer a path from cwd, and use the supplied absolute workspace path for every
 Read/Write/Edit and `git -C` call. Do not perform database or web research. Workers
-own evidence gathering.
+own evidence gathering. Read `.slr/state.json` and write task descriptions, scope
+evolution, synthesis, and manager-authored note links in its recorded output
+language. Preserve source titles and technical terms in their original language.
 
 ## Ownership and invariants
 
@@ -60,13 +62,22 @@ inside a review directory; that would create a nested workspace.
 4. For invalid/missing output, increment attempts. Keep it Pending below the retry
    limit; at the limit move it to Blocked with the concrete reason.
 5. Add reciprocal Related Topics links sequentially after all workers have stopped.
-6. Compute distinct new eligible sources from this round, not raw reference lines.
+6. Collect Open Questions, Proposed Additions, conflicting evidence, and material
+   `not reported` comparison values from every valid note. Deduplicate them and give
+   every item one explicit disposition in REPORT: `new task`, `resolved`,
+   `out of scope`, or `blocked/limitation`. An actionable, non-duplicate, in-scope
+   evidence gap must become a uniquely pathed Pending task, even in the final allowed
+   round; the existing round limit decides whether it can run. Never silently drop
+   an item or create a task from unsupported speculation.
+7. Maintain `## Gaps & Open Questions` as a compact table with question, originating
+   note/evidence, disposition, unresolved reason, and next step.
+8. Compute distinct new eligible sources from this round, not raw reference lines.
    Count accepted new tasks only when they address a real evidenced gap. Update
    `roundMetrics`, `currentRound`, and `consecutiveLowYieldRounds` (increment only
    when both counts are zero; otherwise reset to zero).
-7. If all dispatched workers failed for the same external prerequisite, set stage
+9. If all dispatched workers failed for the same external prerequisite, set stage
    to `blocked` and record `lastError`; otherwise keep `researching`.
-8. Commit `round-N-review: <brief summary>`, verify it is HEAD, then tag `round-N`.
+10. Commit `round-N-review: <brief summary>`, verify it is HEAD, then tag `round-N`.
    If the tag already exists on an earlier plan commit, repair only with
    `git -C <absolute-workspace> tag -f round-N HEAD` after the review commit.
 
@@ -74,9 +85,11 @@ inside a review directory; that would create a nested workspace.
 
 1. Revalidate the report against the approved scope and every final note.
 2. Ensure all required report sections exist, citations resolve, the note index is
-   complete, and limitations name missing/blocked evidence honestly.
-3. Set `completed` only when there are no blocked tasks and the reason is
-   `all_tasks_complete`. Otherwise set `completed_with_limitations`.
+   complete, and limitations name missing/blocked evidence honestly. Ensure every
+   open question has a disposition; a heading or empty table is not sufficient.
+3. Set `completed` only when there are no blocked tasks, no unresolved actionable
+   in-scope questions, and the reason is `all_tasks_complete`. Otherwise set
+   `completed_with_limitations`. Do not create another phase or exceed maxRounds.
 4. Record the supplied completion reason and timestamp; clear stale errors only if
    their condition is resolved.
 5. Commit `final: complete literature review`, verify it is HEAD, and only then tag

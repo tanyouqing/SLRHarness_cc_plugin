@@ -21,6 +21,10 @@ The scopers run in parallel: one covers terminology, queries, and databases; the
 other covers boundaries, prior reviews, comparison dimensions, and assumptions.
 The main skill merges their evidence with the bundled scoping guidance.
 
+New workspaces default to English output regardless of the topic's language. An
+explicit request selects Chinese instead. The choice is visible in the draft,
+recorded in state, may be revised before approval, and is frozen after approval.
+
 ## Human-gated lifecycle
 
 ```text
@@ -56,6 +60,13 @@ contain a summary, findings, comparison data, ranking scores where applicable,
 related topics, open questions, canonical sources, and full references. Unverified
 evidence is explicitly marked; it is never completed by invention.
 
+Open questions are evidence-driven rather than quota-filled. Workers normally
+produce two to five structured questions or explain why none are material. During
+the existing review phase, the manager deduplicates every question, proposal,
+material conflict, and decision-relevant missing value. Actionable in-scope gaps
+become pending tasks; all other items receive a traceable disposition in the report.
+This does not add a pipeline phase or relax the round limit.
+
 `REPORT.md` is updated after every review and contains Overview, Method & Coverage,
 Comparison Table, Findings by Group, Cross-Cutting Themes, Gaps, Limitations,
 References, and Notes Index.
@@ -70,7 +81,8 @@ Research stops when any condition holds:
 
 The manager then runs `finalize`, revalidates the report and notes, records unresolved
 work, commits the final state, and tags `slr-complete`. Any unresolved blocked work
-produces `completed_with_limitations`, not `completed`.
+or actionable in-scope question produces `completed_with_limitations`, not
+`completed`.
 
 ## Persistent state and recovery
 

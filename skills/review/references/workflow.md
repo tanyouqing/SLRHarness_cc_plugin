@@ -16,6 +16,9 @@ revision, approval, resume, status request, or omits a new topic.
 - A completed workspace is read-only unless the user explicitly asks for a new
   review or an incremental update. Incremental update is outside v1; create a new
   slug instead.
+- For every existing workspace, treat `.slr/state.json.language` as authoritative.
+  Do not infer a different language from the current message or silently translate
+  an approved review.
 
 Terminal stages are `completed` and `completed_with_limitations`.
 
@@ -24,6 +27,13 @@ Terminal stages are `completed` and `completed_with_limitations`.
 Derive a lowercase ASCII hyphenated slug from the topic. If it is empty, ask for a
 usable topic. If `workspaces/<slug>` already exists, do not overwrite it: offer
 resume when it is non-terminal or ask for a distinct slug when it is terminal.
+
+Choose the output language before writing state or launching scopers. Use `English`
+by default, including for a topic written in Chinese. Use `Chinese` only when the
+user explicitly asks for Chinese output; mentioning Chinese sources, language, or a
+Chinese-domain topic is not sufficient. Record exactly `English` or `Chinese` in
+state and use it for every generated artifact while preserving source titles and
+technical terms in their original language.
 
 Create the workspace and initialize an independent Git repository on branch `main`.
 Do not enter the workspace with `cd`: create and access every file by absolute path
@@ -43,7 +53,8 @@ Launch two `slr-harness:slr-scoper` agents in parallel:
 
 Tell both agents to return concise evidence-grounded advice and never write files.
 Use built-in WebSearch/WebFetch. If relevant academic MCP tools are already
-available, the scopers may use them; never require a particular provider.
+available, the scopers may use them; never require a particular provider. Include
+the selected output language in both delegations.
 
 Synthesize the reports with `scoping.md` into `SCOPE_DRAFT.md`. Do not put review
 findings or a handpicked included-paper list into the scope. Convert uncertainty
@@ -64,6 +75,9 @@ Only revise a workspace whose stage is `awaiting_scope_approval`.
 
 - Apply the user's feedback to `SCOPE_DRAFT.md` without silently weakening an
   unrelated criterion.
+- If and only if the user explicitly requests a language change, update
+  `.slr/state.json.language` and rewrite the complete draft in that language. A
+  Chinese revision message without such a request does not change the language.
 - Re-run a scoper only when the feedback introduces a domain, term, database, or
   boundary that requires fresh evidence.
 - Increment `scopeRevision`, update `updatedAt`, keep the stage unchanged, and commit
@@ -86,6 +100,9 @@ On successful approval:
    completion reason, and update the timestamp.
 5. Commit `round-0: approve scope and initialize review` and tag `round-0`.
 
+The recorded language is frozen at this point. Formal-research prompts must carry it
+forward; later messages do not switch artifact language within this workspace.
+
 Then immediately enter the formal loop below in the same turn.
 
 ## 5. Formal review loop
@@ -104,7 +121,8 @@ For `round = currentRound + 1` through `maxRounds`:
 
 Invoke `slr-harness:slr-manager` in the foreground. Include the absolute
 `${CLAUDE_PROJECT_DIR}`, absolute workspace path, round number, and `phase: plan`.
-State that inherited cwd is not authoritative and all tool paths must be absolute.
+Include the frozen output language. State that inherited cwd is not authoritative
+and all tool paths must be absolute.
 The agent must finish with a clean Git tree and a `round-N-plan` commit. It must not
 create a round tag during plan.
 
@@ -120,6 +138,7 @@ Select at most `maxWorkers` pending tasks in listed order. Launch one
 - absolute `${CLAUDE_PROJECT_DIR}` project root;
 - absolute workspace path;
 - round number;
+- frozen output language from state;
 - exact task line and description;
 - one unique absolute output path ending in `.md` under `topics/`;
 - an instruction that cwd is not authoritative and every Read/Write/Edit target
@@ -132,9 +151,12 @@ the file, not the parent context.
 ### Review pass
 
 Invoke `slr-harness:slr-manager` in the foreground with `phase: review`, the round
-number, absolute project/workspace roots, and the worker statuses. The manager
-validates files, centralizes reciprocal links, updates task attempts and REPORT,
+number, frozen output language, absolute project/workspace roots, and the worker
+statuses. The manager validates files, centralizes reciprocal links, updates task
+attempts and REPORT, triages every evidence-grounded open question or proposal,
 writes round metrics to state, and commits `round-N-review` before tagging `round-N`.
+Actionable in-scope gaps become Pending tasks before the manager returns; other
+questions remain in the report with an explicit disposition.
 If an existing `round-N` tag points to an earlier plan commit, repair it only after
 the review commit with `git -C <absolute-workspace> tag -f round-N HEAD`.
 
@@ -149,10 +171,12 @@ Read the new state and stop or continue according to this exact precedence:
 ### Finalize
 
 Invoke `slr-harness:slr-manager` with `phase: finalize`, the reason, and the
-absolute project/workspace roots. State again that cwd is not authoritative. A
-fully resolved review becomes `completed`; saturation, blocked tasks, or a round
-limit becomes `completed_with_limitations`. The manager creates a final commit,
-tags `slr-complete`, and leaves a clean tree.
+frozen output language and absolute project/workspace roots. State again that cwd
+is not authoritative. A fully resolved review becomes `completed`; saturation,
+blocked tasks, unresolved actionable in-scope questions, or a round limit becomes
+`completed_with_limitations`. Finalize classifies and reports unanswered legacy
+questions but does not create a new phase or exceed `maxRounds`. The manager creates
+a final commit, tags `slr-complete`, and leaves a clean tree.
 
 Report the terminal stage, completion reason, rounds, validated note count, known
 source count, blocked task count, and paths to `REPORT.md`, `topics/`, and the scope.

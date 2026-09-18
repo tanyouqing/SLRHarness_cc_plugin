@@ -14,7 +14,9 @@ task, and unique absolute output path. Your inherited cwd is not authoritative.
 Never run `cd`, never infer a path from cwd, and use the supplied absolute workspace
 path for every Read/Write/Edit. Before searching, read the absolute paths to
 `SCOPE.md`, `TASKS.md`, `REPORT.md`, and the titles and summaries of existing topic
-notes. Apply the approved criteria literally.
+notes. Apply the approved criteria literally. Write the note in the output language
+recorded in `.slr/state.json`; preserve source titles and technical terms in their
+original language.
 
 Use WebSearch/WebFetch and any already-available academic MCP tools that improve
 coverage. Do not require a specific MCP provider. Prefer primary papers and canonical
@@ -37,8 +39,14 @@ The note must follow the plugin's topic-note schema and include:
 - inline citations for substantive claims;
 - every comparison dimension, using `not reported` or `not applicable` with reason;
 - ranking factors computed exactly from the approved rubric when one exists;
+- normally two to five evidence-driven open questions, each stating the question,
+  evidence trigger, why it remains unresolved, a concrete next search/action, and
+  whether it is in scope, boundary-related, or out of scope;
 - canonical links and a references entry for every cited work;
 - no fabricated values, citations, or URLs.
+
+Do not invent questions to meet a quota. If the evidence raises no material open
+question, state that explicitly under `## Open Questions` and explain briefly why.
 
 Finish with a terse status only: output path, count of eligible distinct sources,
 and either `complete` or the concrete failure/limitation. Keep research detail in the

@@ -11,7 +11,7 @@ Write the complete file for every state update; do not patch it with Edit.
   "schemaVersion": 1,
   "reviewId": "ascii-hyphenated-slug",
   "topic": "Original user topic",
-  "language": "Language used for scope, notes, and report",
+  "language": "English or Chinese; frozen after scope approval",
   "stage": "drafting_scope",
   "scopeRevision": 0,
   "currentRound": 0,
@@ -77,6 +77,8 @@ After `retryLimit`, move the task to Blocked with the last concrete failure reas
 ## Findings by Group
 ## Cross-Cutting Themes
 ## Gaps & Open Questions
+| Question | Origin / Evidence | Disposition | Why Unresolved | Next Step |
+| --- | --- | --- | --- | --- |
 ## Limitations
 ## References
 ## Index of Topic Notes
@@ -114,6 +116,14 @@ round: <N>
 <!-- Worker suggests links; manager makes reciprocal edits during review. -->
 
 ## Open Questions
+<!-- Normally 2–5 evidence-driven items. Do not invent questions to fill a quota. -->
+- **Question:** <specific unresolved question>
+  - Evidence trigger: <citation, conflict, missing comparison value, or observed gap>
+  - Why unresolved: <what current evidence cannot establish>
+  - Next search/action: <concrete follow-up>
+  - Scope status: in-scope | boundary | out-of-scope
+
+<!-- If there is no material open question, say so and give a brief evidence-based reason. -->
 ## Sources
 <!-- Canonical paper, project, code, and dataset links; use "none found" explicitly. -->
 
@@ -126,3 +136,7 @@ round: <N>
 
 Workers must record queries/databases used, screening decisions, at least three real
 sources when evidence permits, and `not reported`/`not applicable` instead of guesses.
+During review, the manager must deduplicate and disposition every open question,
+proposal, material conflict, and decision-relevant `not reported` value. Actionable
+in-scope evidence gaps become Pending tasks; other items remain traceable in the
+report as resolved, out of scope, or blocked/limited.

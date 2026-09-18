@@ -93,6 +93,7 @@ Choose one depth:
 ```markdown
 # Scope: <theme>
 
+## Output Language
 ## Research Question
 ## Framework Decomposition
 ## Key Concepts & Search Terms
@@ -115,9 +116,15 @@ The assumptions section must make automatic choices visible: inferred population
 date/language defaults, publication types, evidence threshold, target depth, and
 anything intentionally excluded.
 
+`## Output Language` must be exactly `English` or `Chinese`. Default to English even
+when the topic is written in Chinese. Use Chinese only when the user explicitly asks
+for Chinese output. This choice governs the scope, task descriptions, topic notes,
+and report; source titles and technical terms remain in their original language.
+
 ## Approval checklist
 
 - Research question is one sentence and answerable.
+- Output language is explicit and matches the user's stated preference, if any.
 - Framework elements are explicit.
 - Each core concept has sufficient term variants.
 - Criteria are objectively decidable and non-contradictory.

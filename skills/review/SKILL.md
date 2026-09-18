@@ -34,10 +34,15 @@ Before taking action, read all of:
 - Parallel workers per round: 3
 - Task retry limit: 2
 - Saturation: two consecutive reviewed rounds with zero new eligible sources and zero accepted new tasks
-- Output language: the user's language; preserve source titles and technical terms in their original language
+- Output language: English unless the user explicitly asks for Chinese output.
+  A topic written in Chinese is not by itself a request for Chinese output. Preserve
+  source titles and technical terms in their original language.
 
 The user may override limits in ordinary language. Record overrides in `.slr/state.json`.
 Never overwrite an existing workspace. Follow the collision and resume rules in the workflow reference.
+Choose and record the output language when creating the scope. It may change through
+an explicit scope revision before approval, but is frozen after approval. When
+resuming, keep the workspace's recorded language.
 
 Whenever the main session writes `.slr/state.json`, replace the complete file and run
 `node "${CLAUDE_PLUGIN_ROOT}/scripts/state.mjs" validate <absolute-state-path>`

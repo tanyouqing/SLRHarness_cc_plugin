@@ -3,6 +3,7 @@
 These cases exercise the public `review` skill rather than internal scripts:
 
 - `scope-gate`: a natural-language topic must stop at scope approval.
+- `explicit-chinese`: an explicit Chinese-output request overrides the English default.
 - `slash-scope-gate`: the slash entry follows the same gate.
 - `ambiguous-approval`: positive but ambiguous feedback must not open the gate.
 - `scope-revision`: feedback creates another draft revision without research.
@@ -13,6 +14,8 @@ These cases exercise the public `review` skill rather than internal scripts:
   as complete research.
 - `partial-worker-failure`, `retry-exhausted`, and `saturation`: partial success is
   preserved, retry caps are honored, and low-yield research stops early.
+- `question-triage`: review classifies every evidence-grounded question, promotes
+  only actionable in-scope gaps, and still respects the existing round limit.
 
 Run all cases from the plugin root with Claude Code 2.1.274 or newer:
 

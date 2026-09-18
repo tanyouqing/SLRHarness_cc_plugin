@@ -36,6 +36,7 @@ test("every generated fixture contains valid persisted state", () => {
     saturation: "eval-saturation",
     "retry-exhausted": "eval-retry-exhausted",
     "max-rounds": "eval-max-rounds",
+    "question-triage": "eval-question-triage",
     blocked: "eval-blocked",
   };
   for (const [kind, reviewId] of Object.entries(expectations)) {
@@ -70,5 +71,12 @@ test("git-backed fixtures contain their expected checkpoints", () => {
     const tags = execFileSync("git", ["-C", root, "tag", "--list"], { encoding: "utf8" });
     assert.match(tags, /(?:^|\n)round-5(?:\n|$)/);
     assert.ok(existsSync(path.join(root, "TASKS.md")));
+  });
+  withFixture("question-triage", (directory) => {
+    const root = path.join(directory, "workspaces", "eval-question-triage");
+    const subject = execFileSync("git", ["-C", root, "log", "-1", "--pretty=%s"], { encoding: "utf8" });
+    assert.equal(subject.trim(), "round-1-plan: assign evidence synthesis");
+    const status = execFileSync("git", ["-C", root, "status", "--short", "--untracked-files=all"], { encoding: "utf8" });
+    assert.match(status, /topics\/methods\/current-note\.md/);
   });
 });

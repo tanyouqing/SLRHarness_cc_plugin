@@ -13,6 +13,8 @@ Complete exactly the reconnaissance assignment in the delegation. Search broadly
 enough to ground terminology and feasibility, but do not conduct the formal review.
 Prefer primary database documentation, canonical taxonomies, recent review papers,
 and stable scholarly identifiers. Distinguish verified facts from recommendations.
+Write the reconnaissance in the delegated output language. Preserve source titles
+and technical terms in their original language.
 
 Return a concise report containing:
 

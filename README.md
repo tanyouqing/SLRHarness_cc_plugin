@@ -51,6 +51,11 @@ Natural language works too:
 帮我调研长文档问答中的 RAG 方法、评测和局限
 ```
 
+New reviews default to English output even when the topic is written in Chinese.
+Ask explicitly for Chinese output when desired, for example `请使用中文撰写 scope、
+研究笔记和最终报告`. The language may be revised before scope approval and is
+then frozen for that workspace.
+
 The first response creates `workspaces/<slug>/SCOPE_DRAFT.md`, commits it as
 `scope-draft-1`, summarizes the scope in chat, and stops. Ask for revisions as many
 times as needed. Research begins only after an unambiguous approval such as
@@ -84,6 +89,11 @@ The accepted scope is tagged `round-0`. Every research round creates
 `round-N-plan` and `round-N-review` commits and a `round-N` tag. Finalization adds
 the `slr-complete` tag. Worker notes are the process record; `REPORT.md` is the
 primary deliverable.
+
+Workers normally record two to five evidence-driven open questions per note, or
+explain why none remain. During review the manager deduplicates and classifies each
+question. Actionable in-scope evidence gaps become pending tasks; resolved,
+out-of-scope, and blocked questions remain traceable in `REPORT.md`.
 
 ## Defaults and stopping
 

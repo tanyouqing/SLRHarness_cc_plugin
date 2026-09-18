@@ -1,0 +1,4 @@
+schema_version: "1.1"
+name: explicit-chinese-output-overrides-default
+context:
+  scaffold_script: fixture.sh
