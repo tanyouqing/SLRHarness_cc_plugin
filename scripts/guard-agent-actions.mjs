@@ -137,6 +137,57 @@ function tokenize(command) {
   return tokens;
 }
 
+function validPaperSearchYear(value) {
+  const match = /^(19|20)(\d{2})(?:-(19|20)(\d{2}))?$/.exec(value);
+  if (!match) return false;
+  if (match[3] === undefined) return true;
+  const start = Number(`${match[1]}${match[2]}`);
+  const end = Number(`${match[3]}${match[4]}`);
+  return start <= end;
+}
+
+function evaluatePaperSearchShell(command) {
+  if (typeof command !== "string" || command.trim() === "") {
+    return deny("paper-search shell command is empty");
+  }
+  if (/[;&|`$<>\r\n]/.test(command)) {
+    return deny("paper-search command contains chaining, substitution, redirection, or a newline");
+  }
+
+  const tokens = tokenize(command.trim());
+  if (!tokens || tokens.length === 0) return deny("paper-search command could not be parsed safely");
+  if (tokens[0] !== "paper-search") {
+    return deny("scopers and workers may run only the paper-search CLI through shell tools");
+  }
+  if (tokens.length === 2 && tokens[1] === "sources") return allow();
+  if (tokens[1] !== "search") {
+    return deny("paper-search access is limited to the sources and search subcommands");
+  }
+  if (tokens.length < 3 || tokens[2].trim() === "" || tokens[2].startsWith("-")) {
+    return deny("paper-search search requires one quoted, non-empty query argument");
+  }
+
+  const seen = new Set();
+  for (let index = 3; index < tokens.length; index += 2) {
+    const option = tokens[index];
+    const value = tokens[index + 1];
+    if (!new Set(["-n", "-s", "-y"]).has(option) || value === undefined || seen.has(option)) {
+      return deny("paper-search search allows each of -n, -s, and -y at most once");
+    }
+    seen.add(option);
+    if (option === "-n" && (!/^\d+$/.test(value) || Number(value) < 1 || Number(value) > 20)) {
+      return deny("paper-search -n must be an integer from 1 through 20");
+    }
+    if (option === "-s" && value !== "all" && !/^[a-z0-9][a-z0-9_-]*(?:,[a-z0-9][a-z0-9_-]*)*$/.test(value)) {
+      return deny("paper-search -s must be all or a comma-separated list of source identifiers");
+    }
+    if (option === "-y" && !validPaperSearchYear(value)) {
+      return deny("paper-search -y must be a year or ascending year range between 1900 and 2099");
+    }
+  }
+  return allow();
+}
+
 function isSafeWorkspacePath(cwd, candidate, projectRoot, allowedAreas = null) {
   const { location } = workspaceLocation(cwd, candidate, projectRoot);
   if (!location) return false;
@@ -297,8 +348,8 @@ export function evaluateHook(input) {
   );
 
   if (SHELL_TOOLS.has(toolName)) {
-    if (agent !== "slr-manager") return deny(`${agent} may not run shell commands`);
-    return evaluateManagerShell(cwd, toolInput.command, projectRoot);
+    if (agent === "slr-manager") return evaluateManagerShell(cwd, toolInput.command, projectRoot);
+    return evaluatePaperSearchShell(toolInput.command);
   }
 
   if (!WRITE_TOOLS.has(toolName)) return allow();

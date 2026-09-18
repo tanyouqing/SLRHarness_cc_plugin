@@ -146,6 +146,65 @@ test("scoper is read-only", () => {
   assert.match(decision.reason, /read-only/);
 });
 
+test("scopers and workers may run read-only paper-search commands through either shell tool", () => {
+  const { cwd } = fixture();
+  for (const agent of ["slr-harness:slr-scoper", "slr-harness:slr-worker"]) {
+    for (const tool of ["Bash", "PowerShell"]) {
+      const sources = hook({
+        cwd,
+        agent,
+        tool,
+        toolInput: { command: "paper-search sources" },
+      });
+      assert.equal(sources.allowed, true, sources.reason);
+
+      const search = hook({
+        cwd,
+        agent,
+        tool,
+        toolInput: {
+          command: 'paper-search search "recursive self-improvement" -n 5 -s arxiv,semantic,crossref -y 2020-2026',
+        },
+      });
+      assert.equal(search.allowed, true, search.reason);
+    }
+  }
+});
+
+test("paper-search shell access rejects mutation, installation, unsafe syntax, and invalid options", () => {
+  const { cwd } = fixture();
+  const rejected = [
+    "paper-search read arxiv 2106.12345",
+    "paper-search download arxiv 2106.12345",
+    "uv tool install paper-search-mcp",
+    "paper-search sources && echo bad",
+    "paper-search sources | more",
+    "paper-search sources > results.json",
+    'paper-search search "query" -n 0',
+    'paper-search search "query" -n 21',
+    'paper-search search "query" -s arxiv,Semantic',
+    'paper-search search "query" -y 2026-2020',
+    'paper-search search "query" --output results.json',
+  ];
+
+  for (const command of rejected) {
+    const decision = hook({ cwd, tool: "Bash", toolInput: { command } });
+    assert.equal(decision.allowed, false, command);
+  }
+});
+
+test("manager shell permissions do not expand to paper-search", () => {
+  const { cwd } = fixture();
+  const decision = hook({
+    cwd,
+    agent: "slr-harness:slr-manager",
+    tool: "Bash",
+    toolInput: { command: "paper-search sources" },
+  });
+  assert.equal(decision.allowed, false);
+  assert.match(decision.reason, /limited to allowlisted git/);
+});
+
 test("non-plugin agents are unaffected", () => {
   const { cwd } = fixture();
   const decision = hook({
