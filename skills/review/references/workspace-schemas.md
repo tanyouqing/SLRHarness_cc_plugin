@@ -45,6 +45,21 @@ During research, also maintain:
 
 Omit `roundMetrics` before the first review pass.
 
+`maxRounds` is selected during interactive scope intake and must match the approved
+scope's `Review Configuration`. Keep the other intake choices in the scope rather
+than adding state fields:
+
+```markdown
+## Review Configuration
+- Primary objective: landscape mapping
+- Maximum research rounds: 5
+- Source coverage: Academic + authoritative grey literature
+- Time coverage: 2021-01-01 through 2026-09-21
+```
+
+The concrete values may differ, but all four lines are required before approval.
+After approval, this configuration is frozen together with the scope.
+
 ## `TASKS.md`
 
 ```markdown

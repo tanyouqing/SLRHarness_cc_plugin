@@ -25,8 +25,9 @@ status and add reciprocal lines under `## Related Topics`; do not rewrite findin
 
 Never modify `SCOPE_ORIGINAL.md`. Before changing `SCOPE.md`, reread the original and
 preserve its research question verbatim, criteria, dimensions, and ranking/grouping
-rules. Only append evidence-motivated terms, dimensions, or refinements and record
-each under `## Scope Evolution Log` with round and rationale.
+rules. Treat `Review Configuration` and output language as frozen throughout formal
+research. Only append evidence-motivated terms, dimensions, or refinements and
+record each under `## Scope Evolution Log` with round and rationale.
 
 Write the complete `.slr/state.json` with Write rather than Edit. Keep its schema and
 legal transitions valid. Run Git with `git -C <absolute-workspace> ...`; do not use

@@ -3,6 +3,32 @@
 Use these rules to turn a vague topic into an agent-actionable protocol. A scope is
 a search and extraction contract, not a draft conclusion.
 
+## Review configuration
+
+Record the resolved intake choices exactly once and turn them into operational
+scope rules:
+
+- **Primary objective**: landscape mapping, method comparison, practical decision
+  support, or research gaps/novelty. Shape the research question, comparison
+  dimensions, and ordering around this objective.
+- **Maximum research rounds**: a positive integer that must equal state
+  `maxRounds`. It controls orchestration, not review depth.
+- **Source coverage**:
+  - **Academic only** admits peer-reviewed papers and preprints as evidence.
+    Non-academic pages may aid discovery or metadata verification but are not
+    eligible evidence.
+  - **Academic + authoritative grey literature** also admits technical reports,
+    standards, official documentation, white papers, and official research or
+    engineering blogs. State how these types are distinguished from scholarly
+    evidence.
+  - **Broad web evidence** additionally admits expert blogs, project posts, and
+    social or community discussions. Require source-type and provenance labels,
+    evidence-tier labeling, and cross-verification for substantive claims. Do not
+    present informal evidence as equivalent to peer-reviewed evidence.
+- **Time coverage**: turn recent-five-years or a custom range into exact dates. If
+  scopers recommend the range, record their concrete recommendation and rationale;
+  do not leave the final criterion as merely "scoper-recommended".
+
 ## Research question
 
 Choose one framework:
@@ -94,6 +120,11 @@ Choose one depth:
 # Scope: <theme>
 
 ## Output Language
+## Review Configuration
+- Primary objective: <landscape mapping | method comparison | practical decision support | research gaps/novelty>
+- Maximum research rounds: <positive integer>
+- Source coverage: <Academic only | Academic + authoritative grey literature | Broad web evidence>
+- Time coverage: <concrete range or no date limit>
 ## Research Question
 ## Framework Decomposition
 ## Key Concepts & Search Terms
@@ -116,6 +147,10 @@ The assumptions section must make automatic choices visible: inferred population
 date/language defaults, publication types, evidence threshold, target depth, and
 anything intentionally excluded.
 
+The inclusion and exclusion criteria must operationalize the selected source and
+time coverage. `Review Depth` remains an evidence-volume choice: use Targeted or
+Exhaustive according to the expected result set, independently of maximum rounds.
+
 `## Output Language` must be exactly `English` or `Chinese`. Default to English even
 when the topic is written in Chinese. Use Chinese only when the user explicitly asks
 for Chinese output. This choice governs the scope, task descriptions, topic notes,
@@ -125,6 +160,10 @@ and report; source titles and technical terms remain in their original language.
 
 - Research question is one sentence and answerable.
 - Output language is explicit and matches the user's stated preference, if any.
+- All four review configuration values are explicit; maximum rounds is a positive
+  integer matching state.
+- Source and time coverage are converted into decidable inclusion/exclusion rules;
+  broad web sources have provenance, evidence-tier, and cross-verification rules.
 - Framework elements are explicit.
 - Each core concept has sufficient term variants.
 - Criteria are objectively decidable and non-contradictory.

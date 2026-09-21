@@ -52,7 +52,7 @@ claude --plugin-dir ./slrharness
 claude \
   --plugin-dir ./example/SLRHarness \
   --permission-mode dontAsk \
-  --allowedTools "Read,Glob,Grep,Write,Edit,Bash,Agent,WebSearch,WebFetch,mcp__arxiv__*,mcp__tavily__*,mcp__scholar__*"
+  --allowedTools "AskUserQuestion,Read,Glob,Grep,Write,Edit,Bash,Agent,WebSearch,WebFetch,mcp__arxiv__*,mcp__tavily__*,mcp__scholar__*"
 ```
 
 ### Unattended runs
@@ -67,6 +67,7 @@ the plugin checkout):
   "permissions": {
     "defaultMode": "dontAsk",
     "allow": [
+      "AskUserQuestion",
       "Read",
       "Glob",
       "Grep",
@@ -120,9 +121,12 @@ cd /path/to/review-root
 claude
 ```
 
-Run `/slr-harness:review <topic>`, review the generated scope, and explicitly
-approve it before detaching with `Ctrl-b d`. Detaching before approval leaves the
-workflow correctly waiting at the scope gate. Reconnect later with:
+Run `/slr-harness:review <topic>`, answer any missing review-configuration questions,
+review the generated scope, and explicitly approve it before detaching with
+`Ctrl-b d`. For a fully unattended launch, include the four configuration choices
+in the initial request and wait through scope approval before detaching. Detaching
+earlier leaves the workflow correctly waiting for configuration or approval.
+Reconnect later with:
 
 ```bash
 tmux attach -t slr-review
@@ -156,9 +160,17 @@ Ask explicitly for Chinese output when desired, for example `请使用中文撰�
 研究笔记和最终报告`. The language may be revised before scope approval and is
 then frozen for that workspace.
 
-The first response creates `workspaces/<slug>/SCOPE_DRAFT.md`, commits it as
-`scope-draft-1`, summarizes the scope in chat, and stops. Ask for revisions as many
-times as needed. Research begins only after an unambiguous approval such as
+Before creating a workspace, the skill resolves four review settings: primary
+objective, maximum rounds, source coverage, and time coverage. It asks once for only
+the settings missing from the initial request. A fully specified request proceeds
+directly; “use defaults” selects landscape mapping, 5 rounds, academic plus
+authoritative grey literature, and a scoper-recommended time range. If the
+interactive question tool is unavailable, those same defaults apply.
+
+After configuration, the skill creates `workspaces/<slug>/SCOPE_DRAFT.md`, commits
+it as `scope-draft-1`, summarizes the scope in chat, and stops. Ask for revisions
+as many times as needed. A configuration answer is not approval. Research begins
+only after an unambiguous approval such as
 “我明确批准这个 scope，开始正式调研”. Phrases such as “看起来不错” do not approve it.
 
 Resume or inspect a review with:
@@ -197,7 +209,10 @@ out-of-scope, and blocked questions remain traceable in `REPORT.md`.
 
 ## Defaults and stopping
 
-- Five rounds maximum
+- Landscape mapping as the primary objective
+- Five rounds maximum (3 quick and 8 deep are offered, or use a custom positive integer)
+- Academic sources plus authoritative grey literature; academic-only and broad-web modes are available
+- A concrete time range recommended by the scopers
 - Three workers per round
 - Two attempts per task
 - Early completion when no pending task remains

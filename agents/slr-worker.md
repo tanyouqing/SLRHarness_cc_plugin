@@ -18,6 +18,15 @@ notes. Apply the approved criteria literally. Write the note in the output langu
 recorded in `.slr/state.json`; preserve source titles and technical terms in their
 original language.
 
+Treat `SCOPE.md`'s `Review Configuration` as frozen. Follow its source-coverage
+mode exactly. Under academic-only coverage, non-academic pages may support discovery
+or metadata checks but are not eligible evidence. When authoritative grey or broad
+web material is eligible, label each non-scholarly item in the existing Search &
+Screening and References sections with its source type, provenance, and evidence
+tier. Cross-verify substantive claims from informal sources and never present them
+as equivalent to peer-reviewed evidence; a sole-source exception is appropriate
+only when the page is itself the scoped primary artifact or an official announcement.
+
 Probe the optional `paper-search` CLI at most once with `paper-search sources`. If it
 is available, prefer targeted metadata discovery with commands of the form
 `paper-search search "<query>" -n <1-20> -s <source1,source2> -y <year-or-range>`.
@@ -47,6 +56,7 @@ a review directory; that would create a nested workspace.
 The note must follow the plugin's topic-note schema and include:
 
 - search sources and queries used, plus screening decisions;
+- source type, provenance, and evidence tier for every eligible non-scholarly item;
 - at least three distinct real sources when the evidence permits;
 - inline citations for substantive claims;
 - every comparison dimension, using `not reported` or `not applicable` with reason;

@@ -52,6 +52,12 @@ const draft = `
 ## Output Language
 English
 
+## Review Configuration
+- Primary objective: landscape mapping
+- Maximum research rounds: 5
+- Source coverage: Academic + authoritative grey literature
+- Time coverage: 2020-01-01 through 2026-09-17
+
 ## Research Questions
 - Which retrieval and context-management methods are used?
 
@@ -79,6 +85,11 @@ const approvedScope = `
 # Scope: Evaluation topic
 ## Output Language
 English
+## Review Configuration
+- Primary objective: landscape mapping
+- Maximum research rounds: 5
+- Source coverage: Academic + authoritative grey literature
+- Time coverage: No date limit
 ## Research Questions
 - What is known?
 ## Concepts and Synonyms
@@ -90,7 +101,7 @@ English
 ## Ranking and Grouping
 - Group by method and rank by evidence strength.
 ## Databases
-- Semantic Scholar
+- Semantic Scholar, OpenAlex
 ## Depth and Assumptions
 - Targeted review.
 `;
@@ -130,6 +141,23 @@ export function scaffold(kind) {
     const id = "eval-ambiguous";
     write(`workspaces/${id}/SCOPE_DRAFT.md`, draft);
     write(`workspaces/${id}/.slr/state.json`, state({ reviewId: id, topic: "RAG for long-document question answering", stage: "awaiting_scope_approval" }));
+    initGit(id, "scope-draft-1");
+    return;
+  }
+
+  if (kind === "legacy-scope") {
+    const id = "eval-legacy-scope";
+    const legacyDraft = draft.replace(
+      /\n## Review Configuration\n[\s\S]*?\n## Research Questions/,
+      "\n## Research Questions",
+    );
+    write(`workspaces/${id}/SCOPE_DRAFT.md`, legacyDraft);
+    write(`workspaces/${id}/.slr/state.json`, state({
+      reviewId: id,
+      topic: "Legacy scope awaiting approval",
+      stage: "awaiting_scope_approval",
+      maxRounds: 8,
+    }));
     initGit(id, "scope-draft-1");
     return;
   }

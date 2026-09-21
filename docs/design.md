@@ -2,10 +2,11 @@
 
 ## Goal
 
-SLR Harness converts a vague topic into a reproducible literature-review workspace
-with one mandatory human gate: the user must explicitly approve the generated scope
-before formal research. The plugin keeps orchestration in the main Claude Code
-session and delegates bounded work to native subagents.
+SLR Harness converts a vague topic into a reproducible literature-review workspace.
+The main session first resolves missing review configuration interactively, then
+enforces one mandatory human gate: the user must explicitly approve the generated
+scope before formal research. The plugin keeps orchestration in the main Claude
+Code session and delegates bounded work to native subagents.
 
 ## Components
 
@@ -25,10 +26,19 @@ New workspaces default to English output regardless of the topic's language. An
 explicit request selects Chinese instead. The choice is visible in the draft,
 recorded in state, may be revised before approval, and is frozen after approval.
 
+Before either scoper starts, the main skill resolves primary objective, maximum
+rounds, source coverage, and time coverage. Choices already present in the request
+are not asked again; all missing choices are collected in one `AskUserQuestion`.
+No workspace exists before this intake completes. The chosen maximum rounds uses
+the existing state field, while the other choices are recorded in the scope and
+translated into its question and eligibility criteria. This preserves the state
+schema and formal research pipeline.
+
 ## Human-gated lifecycle
 
 ```text
 topic
+  -> interactive configuration (only when settings are missing)
   -> drafting_scope
   -> awaiting_scope_approval
        -> revise scope -> awaiting_scope_approval
@@ -42,6 +52,14 @@ Only explicit approval intent opens the gate. Approval freezes the accepted draf
 byte-for-byte as `SCOPE_ORIGINAL.md`, copies it to the living `SCOPE.md`, initializes
 the formal artifacts, and tags `round-0`. During research, scope evolution is
 append-only and recorded in `## Scope Evolution Log`.
+
+The approved `Review Configuration` is frozen with the scope. Academic-only mode
+admits papers and preprints as evidence; the default additionally admits authoritative
+technical reports, standards, official documentation, white papers, and official
+research/engineering blogs. Broad-web mode can include expert blogs, project posts,
+and social discussion only with explicit provenance, evidence tier, and
+cross-verification. These modes change screening policy, not the worker-note or
+report templates.
 
 ## Research round
 
@@ -78,7 +96,7 @@ Research stops when any condition holds:
 
 - no pending task remains;
 - two consecutive rounds add neither an eligible source nor a valid task; or
-- five rounds have completed.
+- the configured maximum number of rounds has completed (5 by default).
 
 The manager then runs `finalize`, revalidates the report and notes, records unresolved
 work, commits the final state, and tags `slr-complete`. Any unresolved blocked work

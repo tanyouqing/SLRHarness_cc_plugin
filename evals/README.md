@@ -3,10 +3,19 @@
 These cases exercise the public `review` skill rather than internal scripts:
 
 - `scope-gate`: a natural-language topic must stop at scope approval.
+- `interactive-intake`: a vague topic asks once for all missing configuration before
+  any workspace or scoper exists.
+- `partial-intake`: values already given in the initial request are not asked again.
+- `default-intake`: “use defaults” proceeds without another question and records the
+  fixed default configuration.
+- `unavailable-interactive`: missing question tooling falls back to the same fixed
+  defaults instead of blocking.
 - `explicit-chinese`: an explicit Chinese-output request overrides the English default.
 - `slash-scope-gate`: the slash entry follows the same gate.
 - `ambiguous-approval`: positive but ambiguous feedback must not open the gate.
 - `scope-revision`: feedback creates another draft revision without research.
+- `legacy-scope-config`: an old draft gets one compatible configuration revision
+  and must be approved again.
 - `resume-status`: status is read-only and reports persisted state.
 - `slug-collision` and `multiple-active`: recovery never overwrites or guesses.
 - `one-round-review`: explicit approval runs a bounded end-to-end review.
@@ -24,7 +33,7 @@ These cases exercise the public `review` skill rather than internal scripts:
 Run all cases from the plugin root with Claude Code 2.1.274 or newer:
 
 ```bash
-claude plugin eval . --scaffold --allow-tools Write Edit Bash WebSearch WebFetch
+claude plugin eval . --scaffold --allow-tools AskUserQuestion Write Edit Bash WebSearch WebFetch
 ```
 
 The end-to-end case uses live web search; lack of network is expected to produce

@@ -28,6 +28,27 @@ Derive a lowercase ASCII hyphenated slug from the topic. If it is empty, ask for
 usable topic. If `workspaces/<slug>` already exists, do not overwrite it: offer
 resume when it is non-terminal or ask for a distinct slug when it is terminal.
 
+Before creating the workspace or launching either scoper, extract any configuration
+the user already stated and resolve exactly these four items:
+
+1. **Primary objective**: landscape mapping (default), method comparison, practical
+   decision support, or research gaps/novelty.
+2. **Maximum rounds**: 3 (quick), 5 (standard, default), 8 (deep), or a custom
+   positive integer.
+3. **Source coverage**: academic only; academic plus authoritative grey literature
+   (default); or broad web evidence.
+4. **Time coverage**: scoper-recommended (default), recent five years, no date
+   limit, or a custom range.
+
+Do not ask again for a choice already explicit in the initial request. If one or
+more choices are missing, use one `AskUserQuestion` call containing all missing
+questions. The question UI follows the conversation language and does not determine
+the artifact language. If the user says to use defaults, fill every missing choice
+with the defaults above. If `AskUserQuestion` is unavailable, apply the same
+defaults and disclose them in the scope. Validate a custom round count as a positive
+integer. Configuration answers do not count as scope approval. Do not create a
+workspace, write state, or launch a scoper until all four choices are resolved.
+
 Choose the output language before writing state or launching scopers. Use `English`
 by default, including for a topic written in Chinese. Use `Chinese` only when the
 user explicitly asks for Chinese output; mentioning Chinese sources, language, or a
@@ -41,7 +62,8 @@ under `${CLAUDE_PROJECT_DIR}/workspaces/<slug>` and initialize Git with `git -C`
 If Git has no usable author identity, set workspace-local `user.name` to
 `SLR Harness` and `user.email` to `slr-harness@local.invalid`; never modify global
 Git configuration. Create `.slr/state.json` with `stage: drafting_scope` using the
-schema reference and validate it with the bundled state validator.
+schema reference, set `maxRounds` to the resolved choice, and validate it with the
+bundled state validator. Do not add fields for the other three choices.
 
 Launch two `slr-harness:slr-scoper` agents in parallel:
 
@@ -54,11 +76,16 @@ Launch two `slr-harness:slr-scoper` agents in parallel:
 Tell both agents to return concise evidence-grounded advice and never write files.
 Use built-in WebSearch/WebFetch. If relevant academic MCP tools are already
 available, the scopers may use them; never require a particular provider. Include
-the selected output language in both delegations.
+the selected output language, primary objective, source coverage, and time strategy
+in both delegations.
 
-Synthesize the reports with `scoping.md` into `SCOPE_DRAFT.md`. Do not put review
-findings or a handpicked included-paper list into the scope. Convert uncertainty
-into explicit assumptions for human review.
+Synthesize the reports with `scoping.md` into `SCOPE_DRAFT.md`. Include a complete
+`Review Configuration` section. Resolve a scoper-recommended time strategy into a
+concrete recommended date criterion in the draft. Translate the primary objective,
+source coverage, and time coverage into the research question and operational
+inclusion/exclusion criteria. Do not put review findings or a handpicked included-
+paper list into the scope. Convert uncertainty into explicit assumptions for human
+review.
 
 Set the state to `awaiting_scope_approval`, set `scopeRevision` to 1, and commit:
 
@@ -66,8 +93,9 @@ Set the state to `awaiting_scope_approval`, set `scopeRevision` to 1, and commit
 scope-draft-1: create initial review scope
 ```
 
-Show the research question, important boundaries, databases, depth, and assumptions
-in chat, link the draft path, ask for explicit approval or revision, and stop.
+Show the resolved configuration, research question, important boundaries, databases,
+depth, and assumptions in chat, link the draft path, ask for explicit approval or
+revision, and stop.
 
 ## 3. Revise a scope
 
@@ -78,11 +106,24 @@ Only revise a workspace whose stage is `awaiting_scope_approval`.
 - If and only if the user explicitly requests a language change, update
   `.slr/state.json.language` and rewrite the complete draft in that language. A
   Chinese revision message without such a request does not change the language.
+- The user may revise any of the four configuration choices. Update the
+  `Review Configuration` section and all affected research questions, date criteria,
+  and source criteria. When maximum rounds changes, replace and validate the full
+  state file so `maxRounds` exactly matches the draft.
 - Re-run a scoper only when the feedback introduces a domain, term, database, or
   boundary that requires fresh evidence.
 - Increment `scopeRevision`, update `updatedAt`, keep the stage unchanged, and commit
   `scope-draft-N: revise review scope`.
-- Present the changed decisions and ask for explicit approval or more changes. Stop.
+- Present the changed decisions and ask for explicit approval or more changes. Stop,
+  unless the same message both requests the configuration/scope change and
+  unambiguously approves the resulting revision; in that case validate the revision
+  and continue directly to freezing it.
+
+For a legacy workspace at `awaiting_scope_approval` whose draft lacks
+`## Review Configuration`, infer the existing maximum rounds from state, use the
+standard defaults for choices not recoverable from the draft, create and commit one
+compatibility scope revision, and ask for approval again. Do not migrate workspaces
+that are already researching or terminal.
 
 ## 4. Approve a scope
 
@@ -90,6 +131,10 @@ Approval must be explicit and the stage must be `awaiting_scope_approval`.
 Validate every item in the scoping checklist before freezing. If the draft became
 invalid through user edits, explain the concrete defect and remain at the approval
 gate instead of starting research.
+
+The four configuration choices and output language freeze on approval. Confirm that
+the draft contains all four choices and that its maximum rounds matches state before
+freezing.
 
 On successful approval:
 
@@ -100,8 +145,9 @@ On successful approval:
    completion reason, and update the timestamp.
 5. Commit `round-0: approve scope and initialize review` and tag `round-0`.
 
-The recorded language is frozen at this point. Formal-research prompts must carry it
-forward; later messages do not switch artifact language within this workspace.
+The recorded language and review configuration are frozen at this point.
+Formal-research prompts must carry them forward; later messages do not switch
+artifact language or configuration within this workspace.
 
 Then immediately enter the formal loop below in the same turn.
 

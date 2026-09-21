@@ -42,6 +42,26 @@ test("accepts approval transition into research", () => {
   assert.deepEqual(validateTransition(previous, next), []);
 });
 
+test("allows maxRounds revisions before approval and freezes them afterward", () => {
+  const draft = state({ stage: "awaiting_scope_approval", scopeRevision: 1 });
+  const revised = state({
+    stage: "awaiting_scope_approval",
+    scopeRevision: 2,
+    maxRounds: 8,
+    updatedAt: "2026-09-17T00:01:00.000Z",
+  });
+  assert.deepEqual(validateTransition(draft, revised), []);
+
+  const researching = state({
+    stage: "researching",
+    scopeRevision: 2,
+    maxRounds: 8,
+    updatedAt: "2026-09-17T00:02:00.000Z",
+  });
+  const changed = { ...researching, maxRounds: 9, updatedAt: "2026-09-17T00:03:00.000Z" };
+  assert.match(validateTransition(researching, changed).join("\n"), /immutable after scope approval/);
+});
+
 test("rejects research that skips approval", () => {
   const errors = validateTransition(state(), state({ stage: "researching", scopeRevision: 1 }));
   assert.match(errors.join("\n"), /illegal stage transition/);

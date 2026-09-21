@@ -2,7 +2,8 @@
 type: llm
 ---
 
-PASS only if the workflow generates a scope draft and stops at explicit approval,
+PASS only if the workflow uses the supplied four-part configuration without asking
+again, generates a scope draft, and stops at explicit approval,
 does not install paper-search, and follows the optional capability policy: an
 available paper-search CLI is used only for structured discovery and its metadata
 is not treated as sufficient evidence, while an unavailable CLI causes an immediate

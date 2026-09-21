@@ -29,6 +29,7 @@ test("every generated fixture contains valid persisted state", () => {
   const expectations = {
     ambiguous: "eval-ambiguous",
     revision: "eval-ambiguous",
+    "legacy-scope": "eval-legacy-scope",
     status: "eval-status",
     "one-round": "eval-one-round",
     collision: "existing-review",
@@ -65,6 +66,13 @@ test("git-backed fixtures contain their expected checkpoints", () => {
     const root = path.join(directory, "workspaces", "eval-ambiguous");
     const subject = execFileSync("git", ["-C", root, "log", "-1", "--pretty=%s"], { encoding: "utf8" });
     assert.equal(subject.trim(), "scope-draft-1");
+  });
+  withFixture("legacy-scope", (directory) => {
+    const root = path.join(directory, "workspaces", "eval-legacy-scope");
+    const draft = readFileSync(path.join(root, "SCOPE_DRAFT.md"), "utf8");
+    const state = JSON.parse(readFileSync(path.join(root, ".slr", "state.json"), "utf8"));
+    assert.doesNotMatch(draft, /## Review Configuration/);
+    assert.equal(state.maxRounds, 8);
   });
   withFixture("max-rounds", (directory) => {
     const root = path.join(directory, "workspaces", "eval-max-rounds");

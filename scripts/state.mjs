@@ -173,6 +173,12 @@ export function validateTransition(previous, next) {
   if (next.scopeRevision < previous.scopeRevision) errors.push("scopeRevision cannot decrease");
   if (next.currentRound < previous.currentRound) errors.push("currentRound cannot decrease");
   if (next.currentRound > next.maxRounds) errors.push("currentRound cannot exceed maxRounds");
+  if (
+    !["drafting_scope", "awaiting_scope_approval"].includes(previous.stage)
+    && next.maxRounds !== previous.maxRounds
+  ) {
+    errors.push("maxRounds is immutable after scope approval");
+  }
   if (next.stage === "researching" && previous.stage === "awaiting_scope_approval" && next.scopeRevision < 1) {
     errors.push("research cannot start without an approved scope revision");
   }
