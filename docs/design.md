@@ -67,9 +67,10 @@ material conflict, and decision-relevant missing value. Actionable in-scope gaps
 become pending tasks; all other items receive a traceable disposition in the report.
 This does not add a pipeline phase or relax the round limit.
 
-`REPORT.md` is updated after every review and contains Overview, Method & Coverage,
-Comparison Table, Findings by Group, Cross-Cutting Themes, Gaps, Limitations,
-References, and Notes Index.
+`REPORT.md` is updated after every review and contains Overview, evidence-backed
+Terminology/Conceptual Distinctions/Field Boundaries, Significance and
+Upstream/Downstream Impact, Method & Coverage, Comparison Table, Findings by Group,
+Cross-Cutting Themes, Gaps, Limitations, References, and Notes Index.
 
 ## Completion policy
 

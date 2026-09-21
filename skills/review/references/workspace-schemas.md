@@ -72,6 +72,28 @@ After `retryLimit`, move the task to Blocked with the last concrete failure reas
 # Literature Review: <theme>
 
 ## Overview
+## Terminology, Conceptual Distinctions & Field Boundaries
+
+### Core Terminology
+| Term | Operational Definition | Commonly Confused With | Key Distinction | Evidence |
+| --- | --- | --- | --- | --- |
+
+### Field Boundaries
+| Boundary | In Scope | Out of Scope / Adjacent | Rationale | Evidence |
+| --- | --- | --- | --- | --- |
+
+## Significance & Upstream/Downstream Impact
+
+### Why the Field Matters
+
+### Upstream Dependencies
+| Upstream Area or Capability | Relationship | Why It Matters | Evidence |
+| --- | --- | --- | --- |
+
+### Downstream Tasks and Systems
+| Downstream Task or System | Impact Mechanism | Expected Consequence | Evidence Strength | Evidence |
+| --- | --- | --- | --- | --- |
+
 ## Method & Coverage
 ## Comparison Table
 ## Findings by Group
@@ -87,6 +109,11 @@ After `retryLimit`, move the task to Blocked with the last concrete failure reas
 The report is an evolving synthesis, not a concatenation of notes. Every substantive
 claim needs an inline citation that resolves to the References section. Rows and
 sections follow the approved ranking/grouping rules.
+
+The two framing sections after Overview must be synthesized from the approved scope
+and validated notes. Distinguish the review's operational definitions and boundaries
+from claims established by the literature. State insufficient evidence explicitly
+rather than inferring importance or impact from general knowledge.
 
 ## Topic note
 

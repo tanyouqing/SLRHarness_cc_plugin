@@ -26,3 +26,24 @@ test("manager remains isolated from paper-search and web research", () => {
   assert.doesNotMatch(content, /paper-search/);
   assert.match(content, /disallowedTools: WebSearch, WebFetch, Agent, Skill/);
 });
+
+test("report framing sections are evidence-backed and maintained by the manager", () => {
+  const schema = fs.readFileSync(
+    path.join(root, "skills", "review", "references", "workspace-schemas.md"),
+    "utf8",
+  );
+  const manager = fs.readFileSync(path.join(root, "agents", "slr-manager.md"), "utf8");
+
+  const overview = schema.indexOf("## Overview");
+  const terminology = schema.indexOf("## Terminology, Conceptual Distinctions & Field Boundaries");
+  const significance = schema.indexOf("## Significance & Upstream/Downstream Impact");
+  const method = schema.indexOf("## Method & Coverage");
+
+  assert.ok(overview < terminology && terminology < significance && significance < method);
+  assert.match(schema, /Operational Definition/);
+  assert.match(schema, /Impact Mechanism/);
+  assert.match(schema, /Evidence Strength/);
+  assert.match(manager, /scope conventions as literature\s+consensus/);
+  assert.match(manager, /do not use general model knowledge/);
+  assert.match(manager, /Never promote an unverified\s+scope assumption into a finding/);
+});

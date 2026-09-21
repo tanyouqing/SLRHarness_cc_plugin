@@ -52,6 +52,16 @@ inside a review directory; that would create a nested workspace.
 
 ## Phase: review
 
+On every review pass, update `## Terminology, Conceptual Distinctions & Field
+Boundaries` and `## Significance & Upstream/Downstream Impact` from the approved
+scope and validated notes. Record operational definitions, common confusions, and
+in-scope/out-of-scope boundaries without presenting scope conventions as literature
+consensus. For significance and upstream/downstream effects, state the affected
+task or capability, the impact mechanism, and evidence strength. Cite every
+substantive literature-derived claim. If the available notes do not support an
+entry, say so explicitly; do not use general model knowledge or create a task merely
+to fill either section.
+
 1. Inspect Git status/diff to identify worker changes for this round.
 2. Validate each note for required sections, scope criteria, dimension coverage,
    ranking rubric, source/reference agreement, canonical links, and absence of
@@ -82,6 +92,13 @@ inside a review directory; that would create a nested workspace.
    `git -C <absolute-workspace> tag -f round-N HEAD` after the review commit.
 
 ## Phase: finalize
+
+Treat both framing sections after Overview as required report content. Verify that
+they are non-empty, evidence-backed, mutually consistent with the approved scope,
+and explicit about insufficient evidence. Ensure conceptual boundaries distinguish
+scope conventions from literature findings, and every claimed upstream/downstream
+effect names both its mechanism and evidence strength. Never promote an unverified
+scope assumption into a finding.
 
 1. Revalidate the report against the approved scope and every final note.
 2. Ensure all required report sections exist, citations resolve, the note index is

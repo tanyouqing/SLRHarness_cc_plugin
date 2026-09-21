@@ -98,6 +98,21 @@ English
 const reportTemplate = `
 # Literature Review: Evaluation topic
 ## Overview
+## Terminology, Conceptual Distinctions & Field Boundaries
+### Core Terminology
+| Term | Operational Definition | Commonly Confused With | Key Distinction | Evidence |
+| --- | --- | --- | --- | --- |
+### Field Boundaries
+| Boundary | In Scope | Out of Scope / Adjacent | Rationale | Evidence |
+| --- | --- | --- | --- | --- |
+## Significance & Upstream/Downstream Impact
+### Why the Field Matters
+### Upstream Dependencies
+| Upstream Area or Capability | Relationship | Why It Matters | Evidence |
+| --- | --- | --- | --- |
+### Downstream Tasks and Systems
+| Downstream Task or System | Impact Mechanism | Expected Consequence | Evidence Strength | Evidence |
+| --- | --- | --- | --- | --- |
 ## Method & Coverage
 ## Comparison Table
 ## Findings by Group
