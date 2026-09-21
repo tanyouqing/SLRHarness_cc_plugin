@@ -16,6 +16,8 @@ Code session and delegates bounded work to native subagents.
 | `slr-scoper` | Performs two complementary scope reconnaissance passes | Read/Web only; no writes or agent delegation |
 | `slr-manager` | Plans, validates, synthesizes, updates state, and maintains Git | No Web or agent tools; cannot modify `SCOPE_ORIGINAL.md` |
 | `slr-worker` | Researches one narrow task and writes one assigned note | No shell, Git, agent tools, or control-file writes |
+| `paper` skill | Optionally turns a terminal workspace into a formal review manuscript | Explicit invocation only; never changes review state or resumes research |
+| `slr-paper-writer` | Synthesizes one manuscript from existing review artifacts | No Web, MCP, shell, agents, skills, or writes outside the fixed manuscript path |
 | PreToolUse guard | Enforces path, state-transition, and Git-command policy | Immediately allows non-plugin agents |
 
 The scopers run in parallel: one covers terminology, queries, and databases; the
@@ -90,6 +92,27 @@ Terminology/Conceptual Distinctions/Field Boundaries, Significance and
 Upstream/Downstream Impact, Method & Coverage, Comparison Table, Findings by Group,
 Cross-Cutting Themes, Gaps, Limitations, References, and Notes Index.
 
+## Optional manuscript workflow
+
+The paper workflow is a separate post-completion branch, not a fourth research
+phase. It is reachable only through `/slr-harness:paper` after state is `completed`
+or `completed_with_limitations` and `slr-complete` resolves. It does not invoke the
+review skill, manager, worker, or scoper and does not mutate state, scope, tasks,
+report, notes, assets, or review tags.
+
+One `slr-paper-writer` reads the immutable scope, living scope, every topic note,
+the report, tasks, and state. Final notes are the only factual evidence; draft notes
+can expose limitations but cannot support conclusions. The writer produces only
+`paper/REVIEW_PAPER.md`, with formal sections for abstract, foundations, documented
+methodology, taxonomy, thematic synthesis, comparison, discussion, open questions,
+limitations, conclusion, and original-source references. It cannot search or add
+facts from model memory.
+
+The public skill validates manuscript structure, citation/reference consistency,
+evidence boundaries, and a paper-only Git diff. Successful generation or revision
+creates a `paper:` commit after the existing `slr-complete` commit. No paper tag or
+new persistent state is introduced, so the research lifecycle remains unchanged.
+
 ## Completion policy
 
 Research stops when any condition holds:
@@ -122,6 +145,7 @@ invoked plugin agent and:
 
 - denies all writes from scopers;
 - limits workers to `topics/` and `assets/` inside the delegated workspace;
+- limits the paper writer to exactly `paper/REVIEW_PAPER.md` and denies it all shell access;
 - denies manager changes to `SCOPE_ORIGINAL.md` and `.git` internals;
 - validates complete state writes and legal stage transitions;
 - anchors workspace checks to `${CLAUDE_PROJECT_DIR}` while resolving relative

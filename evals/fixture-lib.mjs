@@ -136,6 +136,189 @@ const reportTemplate = `
 ## Index of Topic Notes
 `;
 
+const paperScope = `
+# Scope: Retrieval and long-context methods for long-document QA
+## Output Language
+English
+## Review Configuration
+- Primary objective: method comparison
+- Maximum research rounds: 1
+- Source coverage: Academic only
+- Time coverage: Through 2026-09-17
+## Research Questions
+- How do retrieval-augmented and long-context approaches differ in long-document question answering evidence?
+## Concepts and Synonyms
+- retrieval-augmented generation; RAG; long-context language model; long-document QA
+## Inclusion and Exclusion Criteria
+- Include verifiable papers with evaluated retrieval or long-context methods.
+- Exclude unsupported commentary and studies without relevant evaluation.
+## Comparison Dimensions
+- method family, context strategy, benchmark, reported result, limitation
+## Ranking and Grouping
+- Group by method family and compare evidence strength without a composite ranking.
+## Databases
+- Semantic Scholar, arXiv, ACL Anthology
+## Depth and Assumptions
+- Targeted review; English-language evidence.
+`;
+
+const paperReport = `
+# Literature Review: Retrieval and long-context methods for long-document QA
+## Overview
+The evidence set contrasts retrieval-augmented generation with evaluations of long-context behavior [Lewis et al., 2020; Liu et al., 2024; Bai et al., 2023].
+## Terminology, Conceptual Distinctions & Field Boundaries
+RAG retrieves external passages before generation, whereas long-context evaluation studies how models use supplied context.
+## Significance & Upstream/Downstream Impact
+Both method families affect evidence access and long-document question answering evaluation.
+## Method & Coverage
+The review used the approved targeted scope and screened scholarly sources recorded in the topic notes.
+## Comparison Table
+| Family | Evidence | Limitation |
+| --- | --- | --- |
+| Retrieval augmented | RAG formulation and evaluated tasks | Long-document comparison is incomplete |
+| Long context | Position and benchmark evaluations | Cross-benchmark robustness is incomplete |
+## Findings by Group
+Retrieval and long-context approaches address different parts of evidence access and use.
+## Cross-Cutting Themes
+Evaluation design and position sensitivity complicate direct comparison.
+## Gaps & Open Questions
+| Question | Origin / Evidence | Disposition | Why Unresolved | Next Step |
+| --- | --- | --- | --- | --- |
+| How robust are results across long-document datasets? | final note | blocked/limitation | Evidence set is small | Independent evaluation |
+## Limitations
+The targeted evidence set is small and does not support exhaustive conclusions.
+## References
+- Lewis et al. 2020; Liu et al. 2024; Bai et al. 2023.
+## Index of Topic Notes
+- topics/methods/evidence.md
+`;
+
+const paperFinalNote = `
+---
+title: "Retrieval and long-context evidence"
+tags: ["rag", "long-context"]
+status: final
+round: 1
+---
+# Retrieval and long-context evidence
+## Summary
+The eligible evidence describes retrieval-augmented generation and controlled evaluations of long-context behavior [Lewis et al., 2020; Liu et al., 2024; Bai et al., 2023].
+## Search & Screening
+Semantic Scholar, arXiv, and ACL Anthology were searched. Unsupported commentary was excluded.
+## Key Findings
+- RAG combines parametric generation with retrieved non-parametric memory [Lewis et al., 2020].
+- Relevant information position affects long-context task performance in the reported evaluation [Liu et al., 2024].
+- LongBench provides a bilingual multitask benchmark for long-context understanding [Bai et al., 2023].
+## Comparison Data
+| Dimension | Value | Evidence |
+| --- | --- | --- |
+| method family | retrieval augmented | Lewis et al., 2020 |
+| context strategy | long supplied context | Liu et al., 2024 |
+| benchmark | bilingual multitask | Bai et al., 2023 |
+| limitation | direct cross-family comparison not reported | all three sources |
+## Related Topics
+- none
+## Open Questions
+- **Question:** How robust are comparisons across long-document datasets?
+  - Evidence trigger: No common cross-family dataset is reported.
+  - Why unresolved: The sources evaluate different settings.
+  - Next search/action: Independent evaluation on shared datasets.
+  - Scope status: in-scope
+## Sources
+- https://arxiv.org/abs/2005.11401
+- https://arxiv.org/abs/2307.03172
+- https://arxiv.org/abs/2308.14508
+## References
+- Lewis, P. et al. 2020. Retrieval-Augmented Generation for Knowledge-Intensive NLP Tasks. NeurIPS. https://arxiv.org/abs/2005.11401
+- Liu, N. F. et al. 2024. Lost in the Middle: How Language Models Use Long Contexts. TACL. https://arxiv.org/abs/2307.03172
+- Bai, Y. et al. 2023. LongBench: A Bilingual, Multitask Benchmark for Long Context Understanding. arXiv. https://arxiv.org/abs/2308.14508
+`;
+
+function scaffoldPaperWorkspace(id, { limited = false, existingPaper = false } = {}) {
+  write(`workspaces/${id}/SCOPE_ORIGINAL.md`, paperScope);
+  write(`workspaces/${id}/SCOPE.md`, `${paperScope}\n## Scope Evolution Log\n- Round 1: no changes.`);
+  write(`workspaces/${id}/TASKS.md`, `
+# Tasks: Retrieval and long-context methods
+## Round 1
+### Pending
+### Blocked
+${limited ? "- [ ] topics/gaps/cross-dataset.md — evidence unavailable <!-- attempts: 2 -->" : ""}
+## Completed
+- [x] topics/methods/evidence.md — compare eligible evidence (round 1)
+## Backlog
+`);
+  write(`workspaces/${id}/REPORT.md`, paperReport);
+  write(`workspaces/${id}/topics/methods/evidence.md`, paperFinalNote);
+  if (limited) {
+    write(`workspaces/${id}/topics/gaps/unvalidated.md`, `
+---
+title: "Unvalidated claim"
+tags: ["gap"]
+status: draft
+round: 1
+---
+# Unvalidated claim
+## Summary
+The fictional Zeta benchmark proves every retrieval method fails. This statement has no eligible source and must not enter the paper.
+`);
+  }
+  write(`workspaces/${id}/.slr/state.json`, state({
+    reviewId: id,
+    topic: "Retrieval and long-context methods for long-document QA",
+    stage: limited ? "completed_with_limitations" : "completed",
+    scopeRevision: 1,
+    currentRound: 1,
+    maxRounds: 1,
+    completionReason: limited ? "max_rounds" : "all_tasks_complete",
+    updatedAt: "2026-09-17T06:00:00.000Z",
+    roundMetrics: {
+      round: 1,
+      dispatched: 1,
+      validatedNotes: 1,
+      newEligibleSources: 3,
+      acceptedNewTasks: limited ? 1 : 0,
+      failedWorkers: 0,
+    },
+  }));
+  mkdirSync(path.join(cwd, "workspaces", id, "assets"), { recursive: true });
+  initGit(id, "final: complete literature review", "slr-complete");
+
+  if (existingPaper) {
+    write(`workspaces/${id}/paper/REVIEW_PAPER.md`, `
+# Retrieval and Long-Context Methods: A Review
+## Abstract
+This draft synthesizes three eligible sources.
+## Keywords
+retrieval-augmented generation; long context; question answering
+## 1. Introduction
+The evidence concerns retrieval and long-context evaluation (Lewis et al., 2020).
+## 2. Scope, Terminology and Conceptual Foundations
+The scope contrasts retrieval with supplied-context use.
+## 3. Review Methodology
+The targeted review follows the recorded eligibility criteria.
+## 4. Taxonomy / Research Landscape
+The evidence separates retrieval-augmented and long-context families.
+## 5. Thematic Evidence Synthesis
+RAG combines generation with retrieval (Lewis et al., 2020).
+## 6. Comparative Analysis
+Direct comparison is limited.
+## 7. Cross-Cutting Discussion
+Evaluation design affects interpretation.
+## 8. Challenges, Open Questions and Future Directions
+Shared-dataset evaluation remains open.
+## 9. Limitations
+The evidence base is small.
+## 10. Conclusion
+The approaches are related but not interchangeable.
+## References
+- Lewis, P. et al. 2020. Retrieval-Augmented Generation for Knowledge-Intensive NLP Tasks. NeurIPS. https://arxiv.org/abs/2005.11401
+`);
+    const root = path.join(cwd, "workspaces", id);
+    execFileSync("git", ["-C", root, "add", "paper/REVIEW_PAPER.md"], { stdio: "ignore" });
+    execFileSync("git", ["-C", root, "commit", "-q", "-m", "paper: generate review manuscript"], { stdio: "ignore" });
+  }
+}
+
 export function scaffold(kind) {
   if (kind === "ambiguous" || kind === "revision") {
     const id = "eval-ambiguous";
@@ -159,6 +342,21 @@ export function scaffold(kind) {
       maxRounds: 8,
     }));
     initGit(id, "scope-draft-1");
+    return;
+  }
+
+  if (kind === "paper-ready") {
+    scaffoldPaperWorkspace("eval-paper-ready");
+    return;
+  }
+
+  if (kind === "paper-limited") {
+    scaffoldPaperWorkspace("eval-paper-limited", { limited: true });
+    return;
+  }
+
+  if (kind === "paper-revision") {
+    scaffoldPaperWorkspace("eval-paper-revision", { existingPaper: true });
     return;
   }
 

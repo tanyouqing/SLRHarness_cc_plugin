@@ -1,8 +1,9 @@
 # SLR Harness
 
-SLR Harness is a native Claude Code plugin for human-gated literature reviews. A
-single public skill turns a vague topic into an auditable scope, waits for explicit
-approval, and then runs a manager → parallel workers → manager review loop. Each
+SLR Harness is a native Claude Code plugin for human-gated literature reviews. Its
+primary review skill turns a vague topic into an auditable scope, waits for explicit
+approval, and then runs a manager → parallel workers → manager review loop. A
+separate optional skill turns a completed review into a formal manuscript. Each
 review lives in its own Git repository.
 
 This is a semi-automated rapid/scoping-review workflow, not a substitute for a
@@ -183,6 +184,31 @@ Resume or inspect a review with:
 When a new session has exactly one unfinished workspace, the skill resumes it
 automatically. If several are unfinished it lists them and asks which one to use.
 
+### Optional formal review paper
+
+After a workspace reaches `completed` or `completed_with_limitations`, explicitly
+request a formal review-paper draft with the independent paper skill:
+
+```text
+/slr-harness:paper <slug>
+/slr-harness:paper revise <slug> <feedback>
+```
+
+Natural-language requests such as “turn this completed review into a formal review
+paper” also work. The paper workflow never runs automatically and never resumes or
+changes the research workflow. For first generation it asks once for any missing
+audience, target length, and citation-style settings. Defaults are domain researchers,
+6,000–9,000 words excluding references, and author–year citations; language inherits
+the completed workspace unless explicitly overridden.
+
+The writer performs no new search and has no Web, MCP, Paper Search, shell, or agent
+tools. It reads the approved/living scope, report, tasks, state, and every topic note,
+while using only `status: final` notes as factual evidence. The output is
+`paper/REVIEW_PAPER.md`. Generation and revision create separate `paper:` commits
+after the existing `slr-complete` checkpoint, without moving that tag or changing
+review state. The manuscript does not claim undocumented systematic-review methods
+and does not fabricate missing citation metadata.
+
 ## Outputs
 
 Each `workspaces/<slug>/` directory is an independent Git repository containing:
@@ -195,12 +221,17 @@ TASKS.md              manager-owned task registry
 REPORT.md             incremental and final synthesis
 topics/               independent worker notes
 assets/               note-specific supporting artifacts
+paper/REVIEW_PAPER.md optional formal review-paper manuscript
 ```
 
 The accepted scope is tagged `round-0`. Every research round creates
 `round-N-plan` and `round-N-review` commits and a `round-N` tag. Finalization adds
 the `slr-complete` tag. Worker notes are the process record; `REPORT.md` is the
 primary deliverable.
+
+The optional manuscript is a prose-first scholarly synthesis derived from the
+completed evidence base. It is separate from `REPORT.md`, which remains the
+incremental operational synthesis and primary review-pipeline deliverable.
 
 Workers normally record two to five evidence-driven open questions per note, or
 explain why none remain. During review the manager deduplicates and classifies each

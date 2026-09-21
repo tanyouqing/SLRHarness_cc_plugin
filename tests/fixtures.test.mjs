@@ -30,6 +30,9 @@ test("every generated fixture contains valid persisted state", () => {
     ambiguous: "eval-ambiguous",
     revision: "eval-ambiguous",
     "legacy-scope": "eval-legacy-scope",
+    "paper-ready": "eval-paper-ready",
+    "paper-limited": "eval-paper-limited",
+    "paper-revision": "eval-paper-revision",
     status: "eval-status",
     "one-round": "eval-one-round",
     collision: "existing-review",
@@ -86,5 +89,20 @@ test("git-backed fixtures contain their expected checkpoints", () => {
     assert.equal(subject.trim(), "round-1-plan: assign evidence synthesis");
     const status = execFileSync("git", ["-C", root, "status", "--short", "--untracked-files=all"], { encoding: "utf8" });
     assert.match(status, /topics\/methods\/current-note\.md/);
+  });
+  withFixture("paper-ready", (directory) => {
+    const root = path.join(directory, "workspaces", "eval-paper-ready");
+    const tagged = execFileSync("git", ["-C", root, "rev-list", "-n", "1", "slr-complete"], { encoding: "utf8" });
+    const head = execFileSync("git", ["-C", root, "rev-parse", "HEAD"], { encoding: "utf8" });
+    assert.equal(tagged.trim(), head.trim());
+    assert.ok(existsSync(path.join(root, "topics", "methods", "evidence.md")));
+  });
+  withFixture("paper-revision", (directory) => {
+    const root = path.join(directory, "workspaces", "eval-paper-revision");
+    const subject = execFileSync("git", ["-C", root, "log", "-1", "--pretty=%s"], { encoding: "utf8" });
+    const tagged = execFileSync("git", ["-C", root, "rev-list", "-n", "1", "slr-complete"], { encoding: "utf8" });
+    const head = execFileSync("git", ["-C", root, "rev-parse", "HEAD"], { encoding: "utf8" });
+    assert.equal(subject.trim(), "paper: generate review manuscript");
+    assert.notEqual(tagged.trim(), head.trim());
   });
 });

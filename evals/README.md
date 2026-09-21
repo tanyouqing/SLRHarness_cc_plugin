@@ -29,6 +29,14 @@ These cases exercise the public `review` skill rather than internal scripts:
   bypassing evidence verification or the scope gate.
 - `paper-search-fallback`: a missing CLI falls back to existing search tools and
   never triggers an installation attempt or blocks a review by itself.
+- `paper-generate`: an explicitly requested manuscript is synthesized only from a
+  terminal workspace and committed after `slr-complete` without moving the tag.
+- `paper-nonterminal`: the paper workflow cannot approve, resume, or bypass an
+  unfinished review.
+- `paper-limitations`: draft notes and unresolved work cannot be promoted into
+  confident paper findings.
+- `paper-revision`: revision changes only the existing manuscript and uses its own
+  commit without repeating intake or research.
 
 Run all cases from the plugin root with Claude Code 2.1.274 or newer:
 

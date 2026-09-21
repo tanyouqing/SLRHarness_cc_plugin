@@ -337,7 +337,7 @@ function evaluateManagerStateWrite(location, input, toolName) {
 
 export function evaluateHook(input) {
   const agent = shortAgentName(input?.agent_type);
-  if (!new Set(["slr-scoper", "slr-worker", "slr-manager"]).has(agent)) return allow();
+  if (!new Set(["slr-scoper", "slr-worker", "slr-manager", "slr-paper-writer"]).has(agent)) return allow();
 
   const toolName = input?.tool_name;
   const toolInput = input?.tool_input ?? {};
@@ -348,6 +348,9 @@ export function evaluateHook(input) {
   );
 
   if (SHELL_TOOLS.has(toolName)) {
+    if (agent === "slr-paper-writer") {
+      return deny("slr-paper-writer has no shell or search-CLI access");
+    }
     if (agent === "slr-manager") return evaluateManagerShell(cwd, toolInput.command, projectRoot);
     return evaluatePaperSearchShell(toolInput.command);
   }
@@ -363,6 +366,13 @@ export function evaluateHook(input) {
     if (!resolved.location) return deny(`${agent}: ${resolved.error}`);
     const location = resolved.location;
     const area = location.workspaceParts[0];
+
+    if (agent === "slr-paper-writer") {
+      if (location.workspaceRelative !== path.join("paper", "REVIEW_PAPER.md")) {
+        return deny("slr-paper-writer may write only paper/REVIEW_PAPER.md");
+      }
+      continue;
+    }
 
     if (agent === "slr-worker") {
       if (!new Set(["topics", "assets"]).has(area)) {

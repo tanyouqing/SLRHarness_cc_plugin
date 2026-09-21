@@ -146,6 +146,48 @@ test("scoper is read-only", () => {
   assert.match(decision.reason, /read-only/);
 });
 
+test("paper writer may write only the fixed manuscript path", () => {
+  const { cwd: projectRoot, workspace } = fixture();
+  const agent = "slr-harness:slr-paper-writer";
+  const manuscript = hook({
+    cwd: workspace,
+    projectRoot,
+    agent,
+    toolInput: { file_path: path.join(workspace, "paper", "REVIEW_PAPER.md"), content: "# Paper" },
+  });
+  assert.equal(manuscript.allowed, true, manuscript.reason);
+
+  for (const target of [
+    path.join(workspace, "paper", "OUTLINE.md"),
+    path.join(workspace, "REPORT.md"),
+    path.join(workspace, "topics", "note.md"),
+    path.join(workspace, "paper", "..", "SCOPE.md"),
+    path.join(projectRoot, "outside.md"),
+  ]) {
+    const decision = hook({
+      cwd: workspace,
+      projectRoot,
+      agent,
+      toolInput: { file_path: target, content: "x" },
+    });
+    assert.equal(decision.allowed, false, target);
+  }
+});
+
+test("paper writer has no shell or paper-search access", () => {
+  const { cwd } = fixture();
+  for (const tool of ["Bash", "PowerShell"]) {
+    const decision = hook({
+      cwd,
+      agent: "slr-harness:slr-paper-writer",
+      tool,
+      toolInput: { command: "paper-search sources" },
+    });
+    assert.equal(decision.allowed, false);
+    assert.match(decision.reason, /no shell or search-CLI access/);
+  }
+});
+
 test("scopers and workers may run read-only paper-search commands through either shell tool", () => {
   const { cwd } = fixture();
   for (const agent of ["slr-harness:slr-scoper", "slr-harness:slr-worker"]) {
