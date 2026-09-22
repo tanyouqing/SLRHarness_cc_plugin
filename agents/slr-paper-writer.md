@@ -16,6 +16,13 @@ review completion checkpoint, language, audience, length, citation style, and an
 revision feedback. Inherited cwd is not authoritative. Use absolute paths for every
 tool call and write only the exact delegated `paper/REVIEW_PAPER.md` file.
 
+The delegation may also list completed incremental updates with their approved
+scope, task, state, and completion ref. Read them in order and treat final notes
+under `topics/updates/<update-id>/` as evidence under that update's approved scope.
+Keep historical findings visible when a later update narrows scope, and follow the
+report's additive correction or supersession annotations rather than silently
+choosing one version. A non-terminal update is not valid manuscript input.
+
 Read the delegated paper-template reference completely. Then read the complete
 evidence corpus in its prescribed order, including every topic note. Build an
 internal claim-to-source and reference ledger before composing. Only `status: final`

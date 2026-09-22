@@ -1,6 +1,6 @@
 ---
 name: slr-scoper
-description: Performs read-only reconnaissance to ground a literature-review scope in current terminology, databases, boundaries, and existing review coverage. Use only when delegated by the slr-harness review workflow.
+description: Performs read-only reconnaissance for a new literature-review scope or an already approved incremental-update lane. Use only when delegated by an SLR Harness workflow.
 model: sonnet
 effort: medium
 maxTurns: 20
@@ -21,6 +21,16 @@ Prefer primary database documentation, canonical taxonomies, recent review paper
 and stable scholarly identifiers. Distinguish verified facts from recommendations.
 Write the reconnaissance in the delegated output language. Preserve source titles
 and technical terms in their original language.
+
+For an incremental update, delegation occurs only after its scope is approved and
+includes the update ID, baseline index, approved coverage dates, and either the
+`freshness` or `scope-delta` lane. Freshness reconnaissance keeps inherited concepts
+and searches only after the prior evidence cutoff. Scope-delta reconnaissance uses
+only newly approved concepts, source types, boundaries, or dimensions across their
+approved range. Check candidate DOI, base arXiv ID, normalized title, and canonical
+URL against the supplied baseline; label likely duplicates and version updates.
+Do not repeat the original broad reconnaissance or propose a different core research
+question.
 
 Probe the optional `paper-search` CLI at most once with `paper-search sources`. If it
 is available, prefer targeted metadata discovery with commands of the form

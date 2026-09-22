@@ -4,10 +4,12 @@ import { execFileSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 
 import { parseAndValidateState } from "./state.mjs";
+import { parseAndValidateUpdateState } from "./update-state.mjs";
 
 const WRITE_TOOLS = new Set(["Write", "Edit", "MultiEdit", "NotebookEdit"]);
 const SHELL_TOOLS = new Set(["Bash", "PowerShell"]);
 const REVIEW_SLUG = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
+const UPDATE_ID = /^update-\d{3}$/;
 const TERMINAL_STAGES = new Set(["completed", "completed_with_limitations"]);
 
 function shortAgentName(agentType) {
@@ -202,6 +204,45 @@ function gitOutput(workspace, args) {
   }).trim();
 }
 
+function updateStatePath(workspace, updateId) {
+  return path.join(workspace, ".slr", "updates", updateId, "state.json");
+}
+
+function readUpdateState(workspace, updateId) {
+  return JSON.parse(fs.readFileSync(updateStatePath(workspace, updateId), "utf8"));
+}
+
+function activeUpdateIds(workspace) {
+  const root = path.join(workspace, ".slr", "updates");
+  if (!fs.existsSync(root)) return [];
+  const active = [];
+  for (const entry of fs.readdirSync(root, { withFileTypes: true })) {
+    if (!entry.isDirectory() || !UPDATE_ID.test(entry.name)) continue;
+    try {
+      const state = readUpdateState(workspace, entry.name);
+      if (!TERMINAL_STAGES.has(state.stage)) {
+        active.push(entry.name);
+      } else {
+        try {
+          gitOutput(workspace, ["rev-parse", "--verify", `${entry.name}-complete`]);
+        } catch {
+          active.push(entry.name);
+        }
+      }
+    } catch {
+      active.push(entry.name);
+    }
+  }
+  return active.sort();
+}
+
+function baselineReport(workspace, baselineRef) {
+  return execFileSync("git", ["-C", workspace, "show", `${baselineRef}:REPORT.md`], {
+    encoding: "utf8",
+    stdio: ["ignore", "pipe", "pipe"],
+  });
+}
+
 function validateRoundTag(workspace, tag) {
   const match = /^round-([1-9][0-9]*)$/.exec(tag);
   if (!match) return deny("manager may create only round-N tags for N >= 1");
@@ -243,6 +284,67 @@ function validateFinalTag(workspace) {
   return allow();
 }
 
+function validateUpdateStartTag(workspace, tag) {
+  const match = /^(update-\d{3})-start$/.exec(tag);
+  if (!match) return deny("update start tag must match update-NNN-start");
+  const updateId = match[1];
+  try {
+    if (gitOutput(workspace, ["status", "--porcelain"]) !== "") {
+      return deny(`${tag} requires a clean workspace after the start commit`);
+    }
+    const subject = gitOutput(workspace, ["log", "-1", "--pretty=%s"]);
+    const state = readUpdateState(workspace, updateId);
+    if (!subject.startsWith(`${updateId}-start:`)) return deny(`${tag} must point to an ${updateId}-start commit`);
+    if (state.stage !== "researching" || state.currentRound !== 0) {
+      return deny(`${tag} requires an approved researching update before round 1`);
+    }
+    return allow();
+  } catch (error) {
+    return deny(`cannot verify ${tag}: ${error.message}`);
+  }
+}
+
+function validateUpdateRoundTag(workspace, tag) {
+  const match = /^(update-\d{3})-round-([1-9][0-9]*)$/.exec(tag);
+  if (!match) return deny("update round tag must match update-NNN-round-N");
+  const [, updateId, roundText] = match;
+  const round = Number(roundText);
+  try {
+    if (gitOutput(workspace, ["status", "--porcelain"]) !== "") {
+      return deny(`${tag} requires a clean workspace after the update review commit`);
+    }
+    const subject = gitOutput(workspace, ["log", "-1", "--pretty=%s"]);
+    const state = readUpdateState(workspace, updateId);
+    if (!subject.startsWith(`${updateId}-round-${round}-review:`)) {
+      return deny(`${tag} must point to an ${updateId}-round-${round}-review commit`);
+    }
+    if (state.currentRound !== round || state.roundMetrics?.round !== round) {
+      return deny(`${tag} requires update currentRound and roundMetrics.round to equal ${round}`);
+    }
+    return allow();
+  } catch (error) {
+    return deny(`cannot verify ${tag}: ${error.message}`);
+  }
+}
+
+function validateUpdateCompleteTag(workspace, tag) {
+  const match = /^(update-\d{3})-complete$/.exec(tag);
+  if (!match) return deny("update completion tag must match update-NNN-complete");
+  const updateId = match[1];
+  try {
+    if (gitOutput(workspace, ["status", "--porcelain"]) !== "") {
+      return deny(`${tag} requires a clean workspace after the update final commit`);
+    }
+    const subject = gitOutput(workspace, ["log", "-1", "--pretty=%s"]);
+    const state = readUpdateState(workspace, updateId);
+    if (!subject.startsWith(`${updateId}-final:`)) return deny(`${tag} must point to an ${updateId}-final commit`);
+    if (!TERMINAL_STAGES.has(state.stage)) return deny(`${tag} requires a terminal update state`);
+    return allow();
+  } catch (error) {
+    return deny(`cannot verify ${tag}: ${error.message}`);
+  }
+}
+
 function evaluateManagerTag(workspace, tokens) {
   if (tokens.length === 5 && tokens[4] === "--list") return allow();
 
@@ -254,6 +356,18 @@ function evaluateManagerTag(workspace, tokens) {
     return validateRoundTag(workspace, tokens[4]);
   }
 
+  if (tokens.length === 5 && /^update-\d{3}-start$/.test(tokens[4])) {
+    return validateUpdateStartTag(workspace, tokens[4]);
+  }
+
+  if (tokens.length === 5 && /^update-\d{3}-round-/.test(tokens[4])) {
+    return validateUpdateRoundTag(workspace, tokens[4]);
+  }
+
+  if (tokens.length === 5 && /^update-\d{3}-complete$/.test(tokens[4])) {
+    return validateUpdateCompleteTag(workspace, tokens[4]);
+  }
+
   if (
     tokens.length === 7 &&
     tokens[4] === "-f" &&
@@ -263,7 +377,16 @@ function evaluateManagerTag(workspace, tokens) {
     return validateRoundTag(workspace, tokens[5]);
   }
 
-  return deny("manager may list tags, create a verified round-N/slr-complete tag, or repair round-N with tag -f round-N HEAD");
+  if (
+    tokens.length === 7 &&
+    tokens[4] === "-f" &&
+    /^update-\d{3}-round-/.test(tokens[5]) &&
+    tokens[6] === "HEAD"
+  ) {
+    return validateUpdateRoundTag(workspace, tokens[5]);
+  }
+
+  return deny("manager may create only verified review or update checkpoints; only round tags may be repaired with -f <tag> HEAD");
 }
 
 function evaluateManagerShell(cwd, command, projectRoot) {
@@ -335,6 +458,38 @@ function evaluateManagerStateWrite(location, input, toolName) {
   return allow();
 }
 
+function evaluateManagerUpdateStateWrite(location, input, toolName) {
+  if (toolName !== "Write") return deny("update state.json must be replaced atomically with Write, not patched with Edit");
+  if (typeof input?.content !== "string") return deny("update state.json Write requires complete JSON content");
+  let previous = null;
+  if (fs.existsSync(location.absolute)) {
+    try {
+      previous = JSON.parse(fs.readFileSync(location.absolute, "utf8"));
+    } catch {
+      return deny("existing update state.json is invalid; stop for manual recovery");
+    }
+  }
+  const result = parseAndValidateUpdateState(input.content, previous);
+  if (result.errors.length > 0) return deny(`invalid update state: ${result.errors.join("; ")}`);
+  return allow();
+}
+
+function evaluateUpdateReportWrite(location, input, toolName, updateId) {
+  if (toolName !== "Write" || typeof input?.content !== "string") {
+    return deny("update mode requires a complete REPORT.md Write so its historical prefix can be verified");
+  }
+  try {
+    const state = readUpdateState(location.reviewRoot, updateId);
+    const baseline = baselineReport(location.reviewRoot, state.baselineRef);
+    if (!input.content.startsWith(baseline)) {
+      return deny(`REPORT.md must preserve the exact ${state.baselineRef} report as its prefix`);
+    }
+  } catch (error) {
+    return deny(`cannot verify update report preservation: ${error.message}`);
+  }
+  return allow();
+}
+
 export function evaluateHook(input) {
   const agent = shortAgentName(input?.agent_type);
   if (!new Set(["slr-scoper", "slr-worker", "slr-manager", "slr-paper-writer"]).has(agent)) return allow();
@@ -378,6 +533,17 @@ export function evaluateHook(input) {
       if (!new Set(["topics", "assets"]).has(area)) {
         return deny("slr-worker may write only under topics/ or assets/");
       }
+      const activeIds = activeUpdateIds(location.reviewRoot);
+      if (activeIds.length > 1) return deny("multiple active updates make worker ownership ambiguous");
+      if (activeIds.length === 1) {
+        const updateId = activeIds[0];
+        const expected = area === "topics"
+          ? ["topics", "updates", updateId]
+          : ["assets", "updates", updateId];
+        if (!expected.every((part, index) => location.workspaceParts[index] === part)) {
+          return deny(`active ${updateId}: worker may write only its incremental topics/assets subtree`);
+        }
+      }
       continue;
     }
 
@@ -385,6 +551,40 @@ export function evaluateHook(input) {
       return deny("SCOPE_ORIGINAL.md is immutable");
     }
     if (location.workspaceParts.includes(".git")) return deny("direct writes to Git metadata are forbidden");
+
+    const activeIds = activeUpdateIds(location.reviewRoot);
+    if (activeIds.length > 1) return deny("multiple active updates make manager ownership ambiguous");
+    const activeUpdate = activeIds[0] ?? null;
+    if (activeUpdate) {
+      const isReport = location.workspaceRelative === "REPORT.md";
+      const isUpdateTask =
+        location.workspaceParts.length === 3 &&
+        area === "updates" &&
+        location.workspaceParts[1] === activeUpdate &&
+        location.workspaceParts[2] === "TASKS.md";
+      const isUpdateState =
+        location.workspaceParts.length === 4 &&
+        area === ".slr" &&
+        location.workspaceParts[1] === "updates" &&
+        location.workspaceParts[2] === activeUpdate &&
+        location.workspaceParts[3] === "state.json";
+      const isUpdateTopic =
+        new Set(["topics", "assets"]).has(area) &&
+        location.workspaceParts[1] === "updates" &&
+        location.workspaceParts[2] === activeUpdate;
+      if (!(isReport || isUpdateTask || isUpdateState || isUpdateTopic)) {
+        return deny(`active ${activeUpdate}: manager may change only its task/state/output subtree and REPORT.md`);
+      }
+      if (isReport) {
+        const result = evaluateUpdateReportWrite(location, toolInput, toolName, activeUpdate);
+        if (!result.allowed) return result;
+      }
+      if (isUpdateState) {
+        const result = evaluateManagerUpdateStateWrite(location, toolInput, toolName);
+        if (!result.allowed) return result;
+      }
+      continue;
+    }
 
     const rootAllowed = new Set(["SCOPE.md", "TASKS.md", "REPORT.md"]);
     const rootName = location.workspaceParts.length === 1 ? location.workspaceParts[0] : null;

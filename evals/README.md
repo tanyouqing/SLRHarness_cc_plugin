@@ -37,6 +37,12 @@ These cases exercise the public `review` skill rather than internal scripts:
   confident paper findings.
 - `paper-revision`: revision changes only the existing manuscript and uses its own
   commit without repeating intake or research.
+- `update-scope-review`: the first update call is a read-only presentation of the
+  effective scope and proposed delta configuration.
+- `update-ambiguous` and `update-scope-revision`: update research remains gated
+  while feedback revises only update-local scope/state.
+- `update-major-change`: a fundamentally different research question is routed to
+  a new review rather than corrupting the longitudinal evidence base.
 
 Run all cases from the plugin root with Claude Code 2.1.274 or newer:
 

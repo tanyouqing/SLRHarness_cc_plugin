@@ -7,6 +7,7 @@ import test from "node:test";
 import { fileURLToPath } from "node:url";
 
 import { validateState } from "../scripts/state.mjs";
+import { validateUpdateState } from "../scripts/update-state.mjs";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const runner = path.resolve(here, "../evals/fixture-runner.mjs");
@@ -33,6 +34,8 @@ test("every generated fixture contains valid persisted state", () => {
     "paper-ready": "eval-paper-ready",
     "paper-limited": "eval-paper-limited",
     "paper-revision": "eval-paper-revision",
+    "update-awaiting": "eval-update-awaiting",
+    "update-researching": "eval-update-researching",
     status: "eval-status",
     "one-round": "eval-one-round",
     collision: "existing-review",
@@ -48,6 +51,24 @@ test("every generated fixture contains valid persisted state", () => {
       const statePath = path.join(directory, "workspaces", reviewId, ".slr", "state.json");
       const state = JSON.parse(readFileSync(statePath, "utf8"));
       assert.deepEqual(validateState(state), []);
+    });
+  }
+});
+
+test("update fixtures contain valid independent update state", () => {
+  for (const [kind, reviewId, stage] of [
+    ["update-awaiting", "eval-update-awaiting", "awaiting_scope_approval"],
+    ["update-researching", "eval-update-researching", "researching"],
+  ]) {
+    withFixture(kind, (directory) => {
+      const update = JSON.parse(readFileSync(
+        path.join(directory, "workspaces", reviewId, ".slr", "updates", "update-001", "state.json"),
+        "utf8",
+      ));
+      assert.deepEqual(validateUpdateState(update), []);
+      assert.equal(update.stage, stage);
+      const root = JSON.parse(readFileSync(path.join(directory, "workspaces", reviewId, ".slr", "state.json"), "utf8"));
+      assert.ok(["completed", "completed_with_limitations"].includes(root.stage));
     });
   }
 });

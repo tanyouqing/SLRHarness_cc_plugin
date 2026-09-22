@@ -3,8 +3,9 @@
 SLR Harness is a native Claude Code plugin for human-gated literature reviews. Its
 primary review skill turns a vague topic into an auditable scope, waits for explicit
 approval, and then runs a manager → parallel workers → manager review loop. A
-separate optional skill turns a completed review into a formal manuscript. Each
-review lives in its own Git repository.
+separate update skill incrementally refreshes completed evidence without deleting
+prior work, and an optional paper skill turns the corpus into a formal manuscript.
+Each review lives in its own Git repository.
 
 This is a semi-automated rapid/scoping-review workflow, not a substitute for a
 dual-reviewer, preregistered systematic review.
@@ -184,6 +185,35 @@ Resume or inspect a review with:
 When a new session has exactly one unfinished workspace, the skill resumes it
 automatically. If several are unfinished it lists them and asks which one to use.
 
+### Incrementally update a completed review
+
+Months later, refresh a completed workspace without reopening its original state:
+
+```text
+/slr-harness:update <slug>
+/slr-harness:update resume <slug> [update-id]
+/slr-harness:update status <slug> [update-id]
+```
+
+The first call is read-only: it presents the current effective scope, prior
+coverage, unresolved questions, proposed date window, and the default three update
+rounds. It does not search or launch an agent. Keep the scope or request compatible
+changes, then explicitly approve the displayed update scope. A materially different
+core research question must use a new review workspace.
+
+Each update has its own scope, state, tasks, notes, rounds, and Git tags. Existing
+topic notes, root state/scope/tasks, report text, references, and `slr-complete` are
+never removed or overwritten. Freshness searches cover newly published work;
+scope-delta searches cover newly approved concepts; backfill extracts only newly
+approved dimensions from known sources. DOI, arXiv ID, normalized title, and
+canonical URL are checked against a generated evidence baseline.
+
+The manager appends an `Evidence Updates` suffix to `REPORT.md`. Older findings that
+fall outside the latest scope remain in the main report and are explicitly marked
+as historical evidence outside the current update scope. Update checkpoints use
+`update-NNN-start`, `update-NNN-round-N`, and `update-NNN-complete`; the original
+`slr-complete` tag never moves.
+
 ### Optional formal review paper
 
 After a workspace reaches `completed` or `completed_with_limitations`, explicitly
@@ -215,11 +245,13 @@ Each `workspaces/<slug>/` directory is an independent Git repository containing:
 
 ```text
 .slr/state.json       persisted workflow state
+.slr/updates/         independent incremental-update states
 SCOPE_ORIGINAL.md     immutable approved scope
 SCOPE.md              append-only living scope
 TASKS.md              manager-owned task registry
 REPORT.md             incremental and final synthesis
 topics/               independent worker notes
+updates/              approved update scopes, baselines, and task registries
 assets/               note-specific supporting artifacts
 paper/REVIEW_PAPER.md optional formal review-paper manuscript
 ```
@@ -228,6 +260,10 @@ The accepted scope is tagged `round-0`. Every research round creates
 `round-N-plan` and `round-N-review` commits and a `round-N` tag. Finalization adds
 the `slr-complete` tag. Worker notes are the process record; `REPORT.md` is the
 primary deliverable.
+
+Incremental update notes live under `topics/updates/update-NNN/`. Each update uses
+an independent default of three rounds while retaining the normal three-worker,
+two-retry, and two-low-yield-round limits.
 
 The optional manuscript is a prose-first scholarly synthesis derived from the
 completed evidence base. It is separate from `REPORT.md`, which remains the
@@ -259,7 +295,7 @@ report when evidence is unavailable.
 ```bash
 node --test tests/*.test.mjs
 claude plugin validate --strict .
-claude plugin eval . --scaffold --allow-tools Write Edit Bash WebSearch WebFetch
+claude plugin eval . --scaffold --allow-tools AskUserQuestion Write Edit Bash Agent WebSearch WebFetch
 ```
 
 See [docs/design.md](docs/design.md) for the architecture, state machine, ownership

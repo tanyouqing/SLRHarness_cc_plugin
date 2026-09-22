@@ -13,9 +13,9 @@ revision, approval, resume, status request, or omits a new topic.
 - In a new conversation, if exactly one non-terminal workspace exists, use it.
 - If several non-terminal workspaces exist and the user did not identify one, list
   their slugs, topics, and stages and ask the user to choose. Do not mutate any.
-- A completed workspace is read-only unless the user explicitly asks for a new
-  review or an incremental update. Incremental update is outside v1; create a new
-  slug instead.
+- A completed workspace is read-only to this skill. Route an explicit request to
+  refresh or incrementally extend its evidence to `/slr-harness:update`; use a new
+  review slug only when the core research question materially changes.
 - For every existing workspace, treat `.slr/state.json.language` as authoritative.
   Do not infer a different language from the current message or silently translate
   an approved review.

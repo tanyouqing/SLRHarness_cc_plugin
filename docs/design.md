@@ -13,6 +13,7 @@ Code session and delegates bounded work to native subagents.
 | Component | Responsibility | Important restrictions |
 | --- | --- | --- |
 | `review` skill | Routes new, revise, approve, resume, and status requests; orchestrates rounds | Must stop after every unapproved draft |
+| `update` skill | Reviews scope and incrementally refreshes a terminal workspace | No search before update-scope approval; never reopens root state |
 | `slr-scoper` | Performs two complementary scope reconnaissance passes | Read/Web only; no writes or agent delegation |
 | `slr-manager` | Plans, validates, synthesizes, updates state, and maintains Git | No Web or agent tools; cannot modify `SCOPE_ORIGINAL.md` |
 | `slr-worker` | Researches one narrow task and writes one assigned note | No shell, Git, agent tools, or control-file writes |
@@ -113,6 +114,32 @@ evidence boundaries, and a paper-only Git diff. Successful generation or revisio
 creates a `paper:` commit after the existing `slr-complete` commit. No paper tag or
 new persistent state is introduced, so the research lifecycle remains unchanged.
 
+## Incremental update workflow
+
+`/slr-harness:update` is a separate post-completion branch. Its first invocation is
+read-only and shows the latest effective scope, original-scope differences, evidence
+cutoff, unresolved gaps, and proposed update limits. Compatible scope changes are
+saved in an update-local draft and require the same explicit approval semantics as
+the original review. A new core research question is routed to a new review.
+
+Each `update-NNN` owns an approved scope, evidence baseline, task registry, state,
+and notes under `topics/updates/update-NNN/`. Root state, both root scope files, root
+tasks, and all legacy notes remain unchanged. A deterministic Node helper indexes
+final-note and report references by DOI, base arXiv ID, normalized title, and
+canonical URL so workers can distinguish new sources, version updates, duplicates,
+and backfill.
+
+After approval, two read-only scopers cover freshness and scope-delta lanes. The
+existing manager/worker round architecture then runs with update-local paths and a
+default limit of three rounds. REPORT is rewritten only as its complete baseline
+text plus an update suffix; the guard verifies the baseline tag's REPORT is an exact
+prefix. Corrections, superseded findings, and historical items outside the latest
+scope are additive annotations rather than deletions.
+
+The original `slr-complete` tag never moves. Updates use `update-NNN-start`,
+`update-NNN-round-N`, and `update-NNN-complete`, and can resume independently from
+their persisted update state.
+
 ## Completion policy
 
 Research stops when any condition holds:
@@ -138,6 +165,9 @@ workspace is resumed automatically; multiple candidates require a user choice.
 Existing slugs are never overwritten. A task is retried at most twice before moving
 to Blocked.
 
+Update recovery uses `.slr/updates/update-NNN/state.json`; it does not alter the
+root review state or consume the original review's round budget.
+
 ## Safety model
 
 `hooks/hooks.json` registers a dependency-free Node PreToolUse hook. It checks the
@@ -145,6 +175,10 @@ invoked plugin agent and:
 
 - denies all writes from scopers;
 - limits workers to `topics/` and `assets/` inside the delegated workspace;
+- while an update is active, narrows worker writes to that update's topics/assets
+  subtree and manager writes to update-local controls plus REPORT;
+- validates update state and update Git checkpoints, and requires REPORT writes to
+  preserve the exact baseline report prefix;
 - limits the paper writer to exactly `paper/REVIEW_PAPER.md` and denies it all shell access;
 - denies manager changes to `SCOPE_ORIGINAL.md` and `.git` internals;
 - validates complete state writes and legal stage transitions;

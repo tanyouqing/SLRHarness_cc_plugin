@@ -31,6 +31,11 @@ Read and validate `.slr/state.json`. Require `SCOPE_ORIGINAL.md`, `SCOPE.md`,
 `TASKS.md`, `REPORT.md`, `topics/`, and a resolvable `slr-complete` tag. The tag is
 the immutable research-completion checkpoint and must never be moved.
 
+When completed `.slr/updates/update-NNN/state.json` files exist, also read every
+corresponding approved update scope, update task registry, and update note. Treat
+only final update notes as evidence. A non-terminal update is a blocker because the
+evidence corpus is changing; tell the user to resume or finish `/slr-harness:update`.
+
 Inspect `git -C <absolute-workspace> status --porcelain --untracked-files=all`.
 Proceed only when the tree is clean or every dirty entry resolves to the single
 path `paper/REVIEW_PAPER.md`, which represents a recoverable prior paper attempt.
@@ -73,6 +78,8 @@ Create `paper/` if necessary, without entering the workspace. Invoke exactly one
 - absolute output path `paper/REVIEW_PAPER.md`;
 - generate or revise mode and the complete revision feedback;
 - terminal stage and the commit resolved by `slr-complete`;
+- absolute paths for every completed update's approved scope, state, and task file,
+  plus its `update-NNN-complete` ref; omit this item when no update exists;
 - paper language, audience, target length, and citation style;
 - absolute path to the paper-template reference.
 

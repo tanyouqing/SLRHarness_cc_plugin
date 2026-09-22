@@ -99,3 +99,35 @@ test("report framing sections are evidence-backed and maintained by the manager"
   assert.match(manager, /do not use general model knowledge/);
   assert.match(manager, /Never promote an unverified\s+scope assumption into a finding/);
 });
+
+test("update skill gates retrieval and preserves the longitudinal evidence base", () => {
+  const skill = fs.readFileSync(path.join(root, "skills", "update", "SKILL.md"), "utf8");
+  const workflow = fs.readFileSync(
+    path.join(root, "skills", "update", "references", "workflow.md"),
+    "utf8",
+  );
+  const schemas = fs.readFileSync(
+    path.join(root, "skills", "update", "references", "update-schemas.md"),
+    "utf8",
+  );
+  assert.match(skill, /first update request[\s\S]*Do not create files, search, or invoke any agent/);
+  assert.match(skill, /explicit approval/);
+  assert.match(workflow, /freshness reconnaissance/i);
+  assert.match(workflow, /scope-delta reconnaissance/i);
+  assert.match(workflow, /legacy-note change or\s+deletion blocks finalization/);
+  assert.match(workflow, /Never create, delete, or move `slr-complete`/);
+  assert.match(schemas, /EVIDENCE_BASELINE\.json/);
+  assert.match(schemas, /Historical Evidence Outside Current Update Scope/);
+});
+
+test("agents distinguish update lanes and preserve legacy artifacts", () => {
+  const manager = fs.readFileSync(path.join(root, "agents", "slr-manager.md"), "utf8");
+  const worker = fs.readFileSync(path.join(root, "agents", "slr-worker.md"), "utf8");
+  const scoper = fs.readFileSync(path.join(root, "agents", "slr-scoper.md"), "utf8");
+  assert.match(manager, /baselineRef.*exact byte-for-byte prefix/s);
+  assert.match(manager, /never modify.*pre-existing topic note/is);
+  assert.match(worker, /new\s+source, version update, duplicate, or backfill/);
+  assert.match(worker, /topics\/updates\/<update-id>/);
+  assert.match(scoper, /Freshness reconnaissance/i);
+  assert.match(scoper, /Scope-delta reconnaissance/i);
+});

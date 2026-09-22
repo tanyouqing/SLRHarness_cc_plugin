@@ -35,6 +35,34 @@ function state(overrides) {
   );
 }
 
+function updateState(overrides = {}) {
+  return JSON.stringify(
+    {
+      schemaVersion: 1,
+      updateId: overrides.updateId ?? "update-001",
+      reviewId: overrides.reviewId,
+      baselineRef: overrides.baselineRef ?? "slr-complete",
+      language: overrides.language ?? "English",
+      stage: overrides.stage ?? "awaiting_scope_approval",
+      scopeRevision: overrides.scopeRevision ?? 1,
+      coverageStart: overrides.coverageStart ?? "2026-09-18",
+      coverageEnd: overrides.coverageEnd ?? "2026-09-22",
+      currentRound: overrides.currentRound ?? 0,
+      maxRounds: overrides.maxRounds ?? 3,
+      maxWorkers: 3,
+      consecutiveLowYieldRounds: overrides.consecutiveLowYieldRounds ?? 0,
+      retryLimit: 2,
+      completionReason: overrides.completionReason ?? null,
+      createdAt: "2026-09-22T00:00:00.000Z",
+      updatedAt: overrides.updatedAt ?? "2026-09-22T00:00:00.000Z",
+      ...(overrides.lastError ? { lastError: overrides.lastError } : {}),
+      ...(overrides.roundMetrics ? { roundMetrics: overrides.roundMetrics } : {}),
+    },
+    null,
+    2,
+  );
+}
+
 function initGit(reviewId, message, tag = null) {
   const root = path.join(cwd, "workspaces", reviewId);
   const git = (...args) => execFileSync("git", ["-C", root, ...args], { stdio: "ignore" });
@@ -319,6 +347,58 @@ The approaches are related but not interchangeable.
   }
 }
 
+function scaffoldUpdateWorkspace(id, { stage = "awaiting_scope_approval" } = {}) {
+  scaffoldPaperWorkspace(id);
+  const updateId = "update-001";
+  write(`workspaces/${id}/updates/${updateId}/SCOPE_DRAFT.md`, `${paperScope}
+## Update Identity
+- Update ID: ${updateId}
+- Baseline ref: slr-complete
+## Changes from Previous Scope
+### Added
+- Evidence published after 2026-09-17.
+### Modified
+- None.
+### Narrowed
+- None.
+### Unchanged
+- Core research question and comparison dimensions.
+## Incremental Search Lanes
+### Freshness Lane
+- Search 2026-09-18 through 2026-09-22.
+### Scope-Delta Lane
+- None.
+### Backfill Policy
+- No backfill unless an approved dimension is missing.
+`);
+  write(`workspaces/${id}/.slr/updates/${updateId}/state.json`, updateState({
+    reviewId: id,
+    stage,
+  }));
+  if (stage === "researching") {
+    write(`workspaces/${id}/updates/${updateId}/SCOPE_APPROVED.md`, `${paperScope}
+## Update Identity
+- Update ID: ${updateId}
+- Baseline ref: slr-complete
+`);
+    write(`workspaces/${id}/updates/${updateId}/EVIDENCE_BASELINE.json`, JSON.stringify({ schemaVersion: 1, reviewId: id, sourceCount: 3, sources: [] }, null, 2));
+    write(`workspaces/${id}/updates/${updateId}/TASKS.md`, `# Update Tasks: ${updateId}
+## Round 1
+### Pending
+- [ ] topics/updates/${updateId}/freshness.md — [freshness] find new evidence <!-- attempts: 0 -->
+### Blocked
+## Completed
+## Backlog
+`);
+  }
+  const root = path.join(cwd, "workspaces", id);
+  execFileSync("git", ["-C", root, "add", "-A"], { stdio: "ignore" });
+  execFileSync("git", ["-C", root, "commit", "-q", "-m", stage === "researching"
+    ? `${updateId}-start: approve incremental scope and baseline`
+    : `${updateId}-scope-draft-1`], { stdio: "ignore" });
+  if (stage === "researching") execFileSync("git", ["-C", root, "tag", `${updateId}-start`], { stdio: "ignore" });
+}
+
 export function scaffold(kind) {
   if (kind === "ambiguous" || kind === "revision") {
     const id = "eval-ambiguous";
@@ -357,6 +437,16 @@ export function scaffold(kind) {
 
   if (kind === "paper-revision") {
     scaffoldPaperWorkspace("eval-paper-revision", { existingPaper: true });
+    return;
+  }
+
+  if (kind === "update-awaiting") {
+    scaffoldUpdateWorkspace("eval-update-awaiting");
+    return;
+  }
+
+  if (kind === "update-researching") {
+    scaffoldUpdateWorkspace("eval-update-researching", { stage: "researching" });
     return;
   }
 
