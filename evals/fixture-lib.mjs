@@ -74,6 +74,26 @@ function initGit(reviewId, message, tag = null) {
   if (tag) git("tag", tag);
 }
 
+const rankingConfig = [
+  "```slr-ranking-config",
+  JSON.stringify({
+    scoreVersion: 1,
+    dimensions: {
+      methodologicalRigor: { label: "Methodological rigor", group: "ess", weight: 0.35 },
+      validationBreadth: { label: "Validation breadth", group: "ess", weight: 0.25 },
+      reproducibility: { label: "Reproducibility", group: "ess", weight: 0.20 },
+      transparency: { label: "Transparency", group: "ess", weight: 0.20 },
+      scopeRelevance: { label: "Scope relevance", group: "rus", weight: 0.35 },
+      contributionCentrality: { label: "Contribution centrality", group: "rus", weight: 0.25 },
+      comparisonCompleteness: { label: "Comparison completeness", group: "rus", weight: 0.20 },
+      objectiveFit: { label: "Objective fit", group: "rus", weight: 0.20 },
+    },
+    overallWeights: { ess: 0.45, rus: 0.55 },
+    scale: { min: 0, max: 4, neutralImputation: 2 },
+  }, null, 2),
+  "```",
+].join("\n");
+
 const draft = `
 # Scope: RAG for long-document question answering
 
@@ -99,8 +119,12 @@ English
 ## Comparison Dimensions
 - retrieval unit, context strategy, dataset, metric, limitations
 
-## Ranking and Grouping
-- Group by retrieval architecture; compare evidence strength before headline score.
+## Ranking & Grouping Criteria
+- Group by retrieval architecture.
+- Score every eligible item with mandatory ESS/RUS/ORS using the default rubric.
+- Order by ORS, ESS, year, verified citations, then title.
+### Scoring rubric
+${rankingConfig}
 
 ## Databases
 - Semantic Scholar, OpenAlex, ACL Anthology, arXiv
@@ -126,8 +150,12 @@ English
 - Include verifiable studies; exclude unsupported claims.
 ## Comparison Dimensions
 - method, evidence, limitation
-## Ranking and Grouping
-- Group by method and rank by evidence strength.
+## Ranking & Grouping Criteria
+- Group by method.
+- Score every eligible item with mandatory ESS/RUS/ORS using the default rubric.
+- Order by ORS, ESS, year, verified citations, then title.
+### Scoring rubric
+${rankingConfig}
 ## Databases
 - Semantic Scholar, OpenAlex
 ## Depth and Assumptions
@@ -153,7 +181,10 @@ const reportTemplate = `
 | Downstream Task or System | Impact Mechanism | Expected Consequence | Evidence Strength | Evidence |
 | --- | --- | --- | --- | --- |
 ## Method & Coverage
+### Ranking Method
 ## Comparison Table
+| Work | Evidence Tier | ESS | RUS | ORS | Tier | Confidence | Recommendation Rationale |
+| --- | --- | ---: | ---: | ---: | --- | --- | --- |
 ## Findings by Group
 ## Cross-Cutting Themes
 ## Gaps & Open Questions

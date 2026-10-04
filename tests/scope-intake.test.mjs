@@ -55,3 +55,22 @@ test("legacy drafts receive a compatibility revision without migrating research"
   assert.match(workflow, /create and commit one\s+compatibility scope revision, and ask for approval again/);
   assert.match(workflow, /Do not migrate workspaces\s+that are already researching or terminal/);
 });
+
+test("every new scope carries the mandatory default recommendation rubric", () => {
+  const scoping = read("skills", "review", "references", "scoping.md");
+  for (const phrase of [
+    "Evidence Strength Score (ESS)",
+    "methodological rigor 35%",
+    "Review Utility Score (RUS)",
+    "scope relevance 35%",
+    "0.45 * ESS + 0.55 * RUS",
+    "neutral score",
+    "2/4",
+    "Scoring cannot be disabled",
+  ]) {
+    assert.match(scoping, new RegExp(phrase.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i"));
+  }
+  assert.match(scoping, /ORS descending[\s\S]*ESS descending[\s\S]*publication year descending/);
+  assert.match(scoping, /```slr-ranking-config/);
+  assert.match(scoping, /each group and the overall weights must sum to 1/);
+});

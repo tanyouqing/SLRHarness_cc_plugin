@@ -120,8 +120,9 @@ Only revise a workspace whose stage is `awaiting_scope_approval`.
   and continue directly to freezing it.
 
 For a legacy workspace at `awaiting_scope_approval` whose draft lacks
-`## Review Configuration`, infer the existing maximum rounds from state, use the
-standard defaults for choices not recoverable from the draft, create and commit one
+`## Review Configuration` or the mandatory scoring rubric, infer the existing
+maximum rounds from state, use the standard defaults for choices not recoverable
+from the draft, insert the default ESS/RUS/ORS rubric, create and commit one
 compatibility scope revision, and ask for approval again. Do not migrate workspaces
 that are already researching or terminal.
 
@@ -131,6 +132,10 @@ Approval must be explicit and the stage must be `awaiting_scope_approval`.
 Validate every item in the scoping checklist before freezing. If the draft became
 invalid through user edits, explain the concrete defect and remain at the approval
 gate instead of starting research.
+
+Run the bundled ranking validator in `config` mode against `SCOPE_DRAFT.md`; exactly
+one valid `slr-ranking-config` block is required. Do not freeze or start research if
+the JSON, dimension groups, weights, or fixed 0–4/neutral-2 scale fail validation.
 
 The four configuration choices and output language freeze on approval. Confirm that
 the draft contains all four choices and that its maximum rounds matches state before
@@ -166,7 +171,8 @@ For `round = currentRound + 1` through `maxRounds`:
 ### Plan pass
 
 Invoke `slr-harness:slr-manager` in the foreground. Include the absolute
-`${CLAUDE_PROJECT_DIR}`, absolute workspace path, round number, and `phase: plan`.
+`${CLAUDE_PROJECT_DIR}`, absolute `${CLAUDE_PLUGIN_ROOT}`, absolute workspace path,
+round number, and `phase: plan`.
 Include the frozen output language. State that inherited cwd is not authoritative
 and all tool paths must be absolute.
 The agent must finish with a clean Git tree and a `round-N-plan` commit. It must not
@@ -197,7 +203,7 @@ the file, not the parent context.
 ### Review pass
 
 Invoke `slr-harness:slr-manager` in the foreground with `phase: review`, the round
-number, frozen output language, absolute project/workspace roots, and the worker
+number, frozen output language, absolute project/plugin/workspace roots, and the worker
 statuses. The manager validates files, centralizes reciprocal links, updates task
 attempts and REPORT, triages every evidence-grounded open question or proposal,
 writes round metrics to state, and commits `round-N-review` before tagging `round-N`.
@@ -217,7 +223,7 @@ Read the new state and stop or continue according to this exact precedence:
 ### Finalize
 
 Invoke `slr-harness:slr-manager` with `phase: finalize`, the reason, and the
-frozen output language and absolute project/workspace roots. State again that cwd
+frozen output language and absolute project/plugin/workspace roots. State again that cwd
 is not authoritative. A fully resolved review becomes `completed`; saturation,
 blocked tasks, unresolved actionable in-scope questions, or a round limit becomes
 `completed_with_limitations`. Finalize classifies and reports unanswered legacy

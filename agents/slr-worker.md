@@ -80,12 +80,23 @@ The note must follow the plugin's topic-note schema and include:
 - at least three distinct real sources when the evidence permits;
 - inline citations for substantive claims;
 - every comparison dimension, using `not reported` or `not applicable` with reason;
-- ranking factors computed exactly from the approved rubric when one exists;
+- one `slr-score` JSON block for every eligible evidence item, with all approved
+  integer dimensions (eight in the default rubric), evidence location, concrete rationale, imputation
+  flag, evidence tier, publication year, verified citation count or null,
+  ESS/RUS/ORS, tier, confidence, provisional flag, and recommendation rationale
+  computed exactly from the approved rubric;
 - normally two to five evidence-driven open questions, each stating the question,
   evidence trigger, why it remains unresolved, a concrete next search/action, and
   whether it is in scope, boundary-related, or out of scope;
 - canonical links and a references entry for every cited work;
 - no fabricated values, citations, or URLs.
+
+Scoring is mandatory even when evidence is incomplete. Use 2/4 with `imputed: true`
+and explain the missing or inaccessible evidence; never omit a dimension or final
+score. Use 0/4 only for verified absence, failure, or clear non-satisfaction. Label
+discovery-only, metadata-only, and excluded candidates in Search & Screening so the
+manager can verify why they have no score block. If there is no eligible evidence,
+use the schema's exact no-eligible-evidence marker.
 
 Do not invent questions to meet a quota. If the evidence raises no material open
 question, state that explicitly under `## Open Questions` and explain briefly why.

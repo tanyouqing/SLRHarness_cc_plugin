@@ -29,6 +29,11 @@ internal claim-to-source and reference ledger before composing. Only `status: fi
 notes may support claims; other notes may inform limitations. REPORT and scope files
 are navigation and methodological records, not citable literature.
 
+ESS/RUS/ORS values may guide which works receive synthesis attention, but they are
+reviewer-derived appraisal metadata, not claims made by the cited sources. Do not
+present a plugin score as a literature finding or use it as a substitute for the
+underlying evidence and limitations.
+
 Do not call WebSearch, WebFetch, MCP tools, shell tools, other agents, skills, or any
 search CLI. Do not use general model memory to add domain facts, citations, metadata,
 or examples. Preserve uncertainty and contradictions. Never fabricate a review

@@ -77,9 +77,16 @@ Each round has three sequential phases:
    round.
 
 Centralizing cross-links in review avoids concurrent sibling-note edits. Notes must
-contain a summary, findings, comparison data, ranking scores where applicable,
+contain a summary, findings, comparison data, mandatory per-source ranking scores,
 related topics, open questions, canonical sources, and full references. Unverified
 evidence is explicitly marked; it is never completed by invention.
+
+Every eligible evidence item receives eight integer 0–4 component scores. ESS
+combines rigor, validation breadth, reproducibility, and transparency; RUS combines
+scope relevance, contribution centrality, comparison completeness, and objective
+fit; ORS combines ESS and RUS. Missing evidence is neutrally imputed at 2/4 with a
+reason and lower confidence, never omitted. A bundled read-only Node validator
+recomputes composites during manager review without adding a pipeline phase.
 
 Open questions are evidence-driven rather than quota-filled. Workers normally
 produce two to five structured questions or explain why none are material. During
@@ -92,6 +99,8 @@ This does not add a pipeline phase or relax the round limit.
 Terminology/Conceptual Distinctions/Field Boundaries, Significance and
 Upstream/Downstream Impact, Method & Coverage, Comparison Table, Findings by Group,
 Cross-Cutting Themes, Gaps, Limitations, References, and Notes Index.
+The comparison table exposes ESS, RUS, ORS, tier, confidence, and a concise
+recommendation rationale; full dimension-level reasons remain in topic notes.
 
 ## Optional manuscript workflow
 
@@ -135,6 +144,11 @@ default limit of three rounds. REPORT is rewritten only as its complete baseline
 text plus an update suffix; the guard verifies the baseline tag's REPORT is an exact
 prefix. Corrections, superseded findings, and historical items outside the latest
 scope are additive annotations rather than deletions.
+
+When a legacy effective scope lacks scoring, update approval adds the default rubric
+as a compatible delta and backfills only works already in the baseline comparison
+table or named as principal Findings-by-Group subjects. Scores and reasons live in
+new update notes and the additive report suffix; legacy notes remain immutable.
 
 The original `slr-complete` tag never moves. Updates use `update-NNN-start`,
 `update-NNN-round-N`, and `update-NNN-complete`, and can resume independently from

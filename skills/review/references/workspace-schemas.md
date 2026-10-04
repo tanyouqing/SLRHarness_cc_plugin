@@ -110,7 +110,11 @@ After `retryLimit`, move the task to Blocked with the last concrete failure reas
 | --- | --- | --- | --- | --- |
 
 ## Method & Coverage
+### Ranking Method
+<!-- State the approved ESS/RUS/ORS rubric, imputation policy, confidence rules, and ordering. -->
 ## Comparison Table
+| Work | Evidence Tier | ESS | RUS | ORS | Tier | Confidence | Recommendation Rationale |
+| --- | --- | ---: | ---: | ---: | --- | --- | --- |
 ## Findings by Group
 ## Cross-Cutting Themes
 ## Gaps & Open Questions
@@ -122,8 +126,10 @@ After `retryLimit`, move the task to Blocked with the last concrete failure reas
 ```
 
 The report is an evolving synthesis, not a concatenation of notes. Every substantive
-claim needs an inline citation that resolves to the References section. Rows and
-sections follow the approved ranking/grouping rules.
+claim needs an inline citation that resolves to the References section. Every
+eligible evidence item must have ESS, RUS, ORS, recommendation tier, confidence,
+and a concise recommendation rationale. Rows and sections follow the approved
+grouping and mandatory score order. Full per-dimension reasons remain in notes.
 
 The two framing sections after Overview must be synthesized from the approved scope
 and validated notes. Distinguish the review's operational definitions and boundaries
@@ -152,7 +158,48 @@ round: <N>
 | --- | --- | --- |
 
 ## Ranking Scores
-<!-- Required only when SCOPE.md defines a scoring rubric. -->
+<!-- Required for every review. Add one machine-readable block per eligible evidence item. -->
+
+```slr-score
+{
+  "scoreVersion": 1,
+  "sourceId": "S1",
+  "title": "Exact source title",
+  "role": "eligible",
+  "evidenceTier": "peer-reviewed",
+  "publicationYear": 2025,
+  "verifiedCitationCount": null,
+  "primarySourceVerified": true,
+  "scores": {
+    "methodologicalRigor": { "score": 3, "imputed": false, "evidence": "[S1], Methods", "rationale": "Concrete reason" },
+    "validationBreadth": { "score": 2, "imputed": false, "evidence": "[S1], Evaluation", "rationale": "Concrete reason" },
+    "reproducibility": { "score": 2, "imputed": true, "evidence": "No artifact located", "rationale": "Neutral default because evidence is unavailable" },
+    "transparency": { "score": 3, "imputed": false, "evidence": "[S1], Limitations", "rationale": "Concrete reason" },
+    "scopeRelevance": { "score": 4, "imputed": false, "evidence": "[S1], system description", "rationale": "Concrete reason" },
+    "contributionCentrality": { "score": 3, "imputed": false, "evidence": "[S1], contributions", "rationale": "Concrete reason" },
+    "comparisonCompleteness": { "score": 2, "imputed": false, "evidence": "Comparison Data above", "rationale": "Concrete reason" },
+    "objectiveFit": { "score": 4, "imputed": false, "evidence": "Approved primary objective", "rationale": "Concrete reason" }
+  },
+  "ess": 63.8,
+  "rus": 83.8,
+  "ors": 74.8,
+  "tier": "B",
+  "confidence": "High",
+  "provisional": false,
+  "recommendationRationale": "One concise evidence-grounded explanation of its review priority."
+}
+```
+
+The numeric example is illustrative; compute values from the approved
+`slr-ranking-config` and use exactly its dimension keys. Use stable source IDs that
+resolve to References. Discovery-only, metadata-only, and
+excluded records are labeled as such under Search & Screening and do not receive a
+score block. If a task produces no eligible evidence, write exactly:
+`No eligible evidence items; no scores computed.`
+
+The manager deduplicates score records by DOI, base arXiv ID, normalized title, and
+canonical URL. Repeated records are reconciled from their evidence and rationale,
+not by choosing the highest score, and appear once in the report.
 
 ## Related Topics
 <!-- Worker suggests links; manager makes reciprocal edits during review. -->

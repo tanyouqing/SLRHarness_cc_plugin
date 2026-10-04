@@ -49,7 +49,9 @@ Before acting, read:
 - Retry limit: 2
 - Saturation: two consecutive reviewed rounds with zero new eligible sources and
   zero accepted new tasks
-- Language, source mode, ranking, and evidence tiers: inherit the latest approved scope
+- Language, source mode, ranking, and evidence tiers: inherit the latest approved
+  scope; if it predates mandatory scoring, propose the default ESS/RUS/ORS rubric
+  and core-item backfill in the update draft
 - Coverage end: today
 - Coverage start: the latest explicit evidence cutoff; otherwise the most recent
   completion-tag date, disclosed as an assumption
@@ -58,6 +60,12 @@ Validate every update-state replacement with:
 
 ```text
 node "${CLAUDE_PLUGIN_ROOT}/scripts/update-state.mjs" validate <absolute-update-state-path>
+```
+
+Before approving an update scope, validate its rubric with:
+
+```text
+node "${CLAUDE_PLUGIN_ROOT}/scripts/validate-ranking-scores.mjs" config <absolute-update-scope-path>
 ```
 
 Create the baseline after approval with:

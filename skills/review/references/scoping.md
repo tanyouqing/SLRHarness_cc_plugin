@@ -88,9 +88,61 @@ target literature is unlikely to report.
 Pick one primary grouping: method family, application, evidence type, relation to a
 reference, or a flat list. Specify an ordering and tiebreaker.
 
-Numeric orderings must name the dimension, direction, and missing-value handling.
-A subjective composite must define factors, weights, and a deterministic 0–1 rubric.
-Weights should sum to 1.0. Never rank by undefined quality, impact, novelty, or taste.
+Every review must score every eligible evidence item. Scoring cannot be disabled,
+although the user may revise dimensions or weights before scope approval. Use this
+default rubric unless an approved draft explicitly replaces it:
+
+- **Evidence Strength Score (ESS)**: methodological rigor 35%, validation breadth
+  25%, reproducibility 20%, and transparency 20%.
+- **Review Utility Score (RUS)**: scope relevance 35%, contribution centrality 25%,
+  comparison completeness 20%, and objective fit 20%.
+- **Overall Recommendation Score (ORS)**: `0.45 * ESS + 0.55 * RUS`.
+
+Score every dimension with an integer from 0 through 4 and normalize ESS/RUS/ORS to
+0–100 with one decimal place. Objective fit means representativeness for landscape
+mapping, comparability for method comparison, deployment value for practical
+decision support, and gap-revealing value for research gaps/novelty.
+
+Missing, inaccessible, or genuinely undecidable evidence receives the neutral score
+2/4, `imputed: yes`, and a concrete reason. Verified absence, failure, or clear
+non-satisfaction receives 0/4; weak or indirect evidence 1/4; partial evidence 2/4;
+solid evidence 3/4; and strong multi-faceted evidence 4/4. Never omit a score or use
+`not reported`, an empty value, or `N/A` in a scoring field. Adapt methodological
+rigor to the source design instead of treating a survey, conceptual paper, technical
+report, or grey artifact as structurally unscorable.
+
+Confidence is High for 0–1 imputed dimensions with a verified primary source,
+Medium for 2–3, and Low for 4 or more or whenever the primary/full source is not
+verified. Recommendation tiers are A for 80–100, B for 65–79.9, C for 50–64.9,
+and D below 50. Low-confidence scores remain present and are labeled provisional.
+
+Within each approved group order eligible items by ORS descending, ESS descending,
+publication year descending, verified citation count descending, then title. Year,
+citation count, venue, and evidence tier remain metadata/tiebreakers and never enter
+the default score. Never rank by undefined quality, impact, novelty, or taste.
+
+Under `### Scoring rubric`, include exactly one machine-readable block. The user may
+change dimension keys, labels, ESS/RUS membership, or weights before approval, but
+each group and the overall weights must sum to 1 and the integer 0–4 scale with
+neutral imputation 2 is fixed:
+
+```slr-ranking-config
+{
+  "scoreVersion": 1,
+  "dimensions": {
+    "methodologicalRigor": { "label": "Methodological rigor", "group": "ess", "weight": 0.35 },
+    "validationBreadth": { "label": "Validation breadth", "group": "ess", "weight": 0.25 },
+    "reproducibility": { "label": "Reproducibility", "group": "ess", "weight": 0.20 },
+    "transparency": { "label": "Transparency", "group": "ess", "weight": 0.20 },
+    "scopeRelevance": { "label": "Scope relevance", "group": "rus", "weight": 0.35 },
+    "contributionCentrality": { "label": "Contribution centrality", "group": "rus", "weight": 0.25 },
+    "comparisonCompleteness": { "label": "Comparison completeness", "group": "rus", "weight": 0.20 },
+    "objectiveFit": { "label": "Objective fit", "group": "rus", "weight": 0.20 }
+  },
+  "overallWeights": { "ess": 0.45, "rus": 0.55 },
+  "scale": { "min": 0, "max": 4, "neutralImputation": 2 }
+}
+```
 
 ## Database selection
 
@@ -169,7 +221,10 @@ and report; source titles and technical terms remain in their original language.
 - Criteria are objectively decidable and non-contradictory.
 - Every dimension has description and type; dimensions are not redundant.
 - At least two target databases are selected.
-- Review depth, grouping, ordering, tiebreaker, and any scoring rubric are complete.
+- Review depth, grouping, ordering, tiebreaker, and the mandatory scoring rubric are complete.
+- Exactly one `slr-ranking-config` block parses successfully; ESS and RUS dimension
+  weights each sum to 1, overall weights sum to 1, and the scale remains 0–4 with
+  neutral imputation 2.
 - A human could execute the protocol without inventing missing policy.
 
 Do not place findings, conclusions, implementation details, or a predetermined list

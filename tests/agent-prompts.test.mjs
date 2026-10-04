@@ -131,3 +131,32 @@ test("agents distinguish update lanes and preserve legacy artifacts", () => {
   assert.match(scoper, /Freshness reconnaissance/i);
   assert.match(scoper, /Scope-delta reconnaissance/i);
 });
+
+test("workers and managers require complete evidence-grounded recommendation scores", () => {
+  const worker = fs.readFileSync(path.join(root, "agents", "slr-worker.md"), "utf8");
+  const manager = fs.readFileSync(path.join(root, "agents", "slr-manager.md"), "utf8");
+  const schema = fs.readFileSync(
+    path.join(root, "skills", "review", "references", "workspace-schemas.md"),
+    "utf8",
+  );
+
+  assert.match(worker, /one `slr-score` JSON block for every eligible evidence item/);
+  assert.match(worker, /Use 2\/4 with `imputed: true`/);
+  assert.match(manager, /validate-ranking-scores\.mjs/);
+  assert.match(manager, /missing dimension, reason, eligible item/);
+  assert.match(manager, /ESS, RUS, ORS, tier,[\s\S]*confidence/);
+  assert.match(schema, /Recommendation Rationale/);
+  assert.match(schema, /```slr-score/);
+});
+
+test("legacy updates backfill only core report works and preserve legacy notes", () => {
+  const workflow = fs.readFileSync(
+    path.join(root, "skills", "update", "references", "workflow.md"),
+    "utf8",
+  );
+  const manager = fs.readFileSync(path.join(root, "agents", "slr-manager.md"), "utf8");
+  assert.match(workflow, /Comparison Table or named as principal subjects in Findings by\s+Group/);
+  assert.match(workflow, /Do not include works that appear only in References/);
+  assert.match(manager, /new update notes, never legacy notes/);
+  assert.match(manager, /Update Ranking Table/);
+});

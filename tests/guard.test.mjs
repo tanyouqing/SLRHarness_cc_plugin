@@ -3,8 +3,11 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
+import { fileURLToPath } from "node:url";
 
 import { evaluateHook } from "../scripts/guard-agent-actions.mjs";
+
+const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 
 function fixture() {
   const cwd = fs.mkdtempSync(path.join(os.tmpdir(), "slr-guard-"));
@@ -244,7 +247,53 @@ test("manager shell permissions do not expand to paper-search", () => {
     toolInput: { command: "paper-search sources" },
   });
   assert.equal(decision.allowed, false);
-  assert.match(decision.reason, /limited to allowlisted git/);
+  assert.match(decision.reason, /ranking validator, allowlisted git/);
+});
+
+test("manager may run only the bundled ranking validator against a workspace topic note", () => {
+  const { cwd: projectRoot, workspace } = fixture();
+  const validator = path.resolve(root, "scripts", "validate-ranking-scores.mjs");
+  const note = path.join(workspace, "topics", "scored.md");
+  const scope = path.join(workspace, "SCOPE.md");
+  const allowed = hook({
+    cwd: workspace,
+    projectRoot,
+    agent: "slr-harness:slr-manager",
+    tool: "Bash",
+    toolInput: { command: `node "${validator}" "${scope}" "${note}"` },
+  });
+  assert.equal(allowed.allowed, true, allowed.reason);
+
+  const updateScope = path.join(workspace, "updates", "update-001", "SCOPE_APPROVED.md");
+  const updateNote = path.join(workspace, "topics", "updates", "update-001", "scored.md");
+  const updateAllowed = hook({
+    cwd: workspace,
+    projectRoot,
+    agent: "slr-harness:slr-manager",
+    tool: "PowerShell",
+    toolInput: { command: `node "${validator}" "${updateScope}" "${updateNote}"` },
+  });
+  assert.equal(updateAllowed.allowed, true, updateAllowed.reason);
+
+  for (const target of [path.join(workspace, "REPORT.md"), path.join(projectRoot, "outside.md")]) {
+    const denied = hook({
+      cwd: workspace,
+      projectRoot,
+      agent: "slr-harness:slr-manager",
+      tool: "Bash",
+      toolInput: { command: `node "${validator}" "${scope}" "${target}"` },
+    });
+    assert.equal(denied.allowed, false, target);
+  }
+
+  const arbitrary = hook({
+    cwd: workspace,
+    projectRoot,
+    agent: "slr-harness:slr-manager",
+    tool: "Bash",
+    toolInput: { command: `node "${path.join(projectRoot, "other.mjs")}" "${scope}" "${note}"` },
+  });
+  assert.equal(arbitrary.allowed, false);
 });
 
 test("non-plugin agents are unaffected", () => {

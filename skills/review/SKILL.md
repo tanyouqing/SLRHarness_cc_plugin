@@ -43,6 +43,10 @@ Before taking action, read all of:
 - Parallel workers per round: 3
 - Task retry limit: 2
 - Saturation: two consecutive reviewed rounds with zero new eligible sources and zero accepted new tasks
+- Mandatory recommendation scoring: every eligible evidence item receives the
+  default ESS/RUS/ORS rubric, component reasons, confidence, and deterministic
+  within-group ordering. Missing evidence uses neutral 2/4 imputation with a reason;
+  it never suppresses the score.
 - Output language: English unless the user explicitly asks for Chinese output.
   A topic written in Chinese is not by itself a request for Chinese output. Preserve
   source titles and technical terms in their original language.
@@ -58,3 +62,7 @@ resuming, keep the workspace's recorded language.
 Whenever the main session writes `.slr/state.json`, replace the complete file and run
 `node "${CLAUDE_PLUGIN_ROOT}/scripts/state.mjs" validate <absolute-state-path>`
 before committing. Stop for recovery if validation fails.
+
+Before freezing any scope, validate its machine-readable scoring rubric with
+`node "${CLAUDE_PLUGIN_ROOT}/scripts/validate-ranking-scores.mjs" config <absolute-scope-path>`.
+Remain at the approval gate if dimensions, weights, scale, or JSON are invalid.

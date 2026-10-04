@@ -11,6 +11,8 @@ const SHELL_TOOLS = new Set(["Bash", "PowerShell"]);
 const REVIEW_SLUG = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 const UPDATE_ID = /^update-\d{3}$/;
 const TERMINAL_STAGES = new Set(["completed", "completed_with_limitations"]);
+const PLUGIN_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+const RANKING_VALIDATOR = path.join(PLUGIN_ROOT, "scripts", "validate-ranking-scores.mjs");
 
 function shortAgentName(agentType) {
   if (typeof agentType !== "string") return null;
@@ -202,6 +204,43 @@ function gitOutput(workspace, args) {
     encoding: "utf8",
     stdio: ["ignore", "pipe", "pipe"],
   }).trim();
+}
+
+function samePath(left, right) {
+  const a = path.resolve(left);
+  const b = path.resolve(right);
+  return process.platform === "win32" ? a.toLowerCase() === b.toLowerCase() : a === b;
+}
+
+function evaluateRankingValidator(cwd, tokens, projectRoot) {
+  if (tokens.length !== 4 || tokens[0] !== "node" || !samePath(tokens[1], RANKING_VALIDATOR)) {
+    return deny("manager may invoke only the bundled ranking validator with one approved scope and one topic note");
+  }
+  const scopeResult = workspaceLocation(cwd, tokens[2], projectRoot);
+  const noteResult = workspaceLocation(cwd, tokens[3], projectRoot);
+  if (scopeResult.error || !scopeResult.location) {
+    return deny(`ranking validator scope path is invalid: ${scopeResult.error}`);
+  }
+  if (noteResult.error || !noteResult.location) {
+    return deny(`ranking validator note path is invalid: ${noteResult.error}`);
+  }
+  if (!samePath(scopeResult.location.reviewRoot, noteResult.location.reviewRoot)) {
+    return deny("ranking validator scope and note must belong to the same workspace");
+  }
+  const scopeParts = scopeResult.location.workspaceParts;
+  const isRootScope = scopeParts.length === 1 && scopeParts[0] === "SCOPE.md";
+  const isUpdateScope =
+    scopeParts.length === 3 &&
+    scopeParts[0] === "updates" &&
+    UPDATE_ID.test(scopeParts[1]) &&
+    scopeParts[2] === "SCOPE_APPROVED.md";
+  if (!(isRootScope || isUpdateScope)) {
+    return deny("ranking validator scope must be SCOPE.md or updates/update-NNN/SCOPE_APPROVED.md");
+  }
+  if (noteResult.location.workspaceParts[0] !== "topics" || path.extname(noteResult.location.absolute).toLowerCase() !== ".md") {
+    return deny("ranking validator target must be one Markdown note under workspace topics/");
+  }
+  return allow();
 }
 
 function updateStatePath(workspace, updateId) {
@@ -397,6 +436,8 @@ function evaluateManagerShell(cwd, command, projectRoot) {
   const tokens = tokenize(command.trim());
   if (!tokens || tokens.length === 0) return deny("manager shell command could not be parsed safely");
 
+  if (tokens[0] === "node") return evaluateRankingValidator(cwd, tokens, projectRoot);
+
   if (tokens[0] === "git") {
     if (tokens.length < 4 || tokens[1] !== "-C") return deny("manager Git commands must use git -C <workspace>");
     if (!isReviewRoot(cwd, tokens[2], projectRoot)) {
@@ -439,7 +480,7 @@ function evaluateManagerShell(cwd, command, projectRoot) {
     return allow();
   }
 
-  return deny("manager shell access is limited to allowlisted git -C and mkdir commands");
+  return deny("manager shell access is limited to the ranking validator, allowlisted git -C, and mkdir commands");
 }
 
 function evaluateManagerStateWrite(location, input, toolName) {

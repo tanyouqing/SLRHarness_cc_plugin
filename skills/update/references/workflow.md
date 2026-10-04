@@ -31,6 +31,8 @@ baseline commit date. Present a compact but complete scope review:
 - inclusion/exclusion and source coverage;
 - existing and proposed time coverage;
 - comparison dimensions and grouping/ranking;
+- the active ESS/RUS/ORS rubric, or the proposed default rubric plus core-item
+  backfill when the effective scope predates mandatory scoring;
 - unresolved actionable gaps;
 - differences from the original scope;
 - proposed default three rounds.
@@ -46,6 +48,12 @@ update directories, state, and a complete `SCOPE_DRAFT.md`. Do not run scopers: 
 retrieval is allowed before approval. Explain every scope difference under Added,
 Modified, Narrowed, or Unchanged.
 
+If the effective scope has no mandatory scoring rubric, add the default rubric as a
+compatible scope delta. Define core backfill as unique works already present in the
+baseline REPORT Comparison Table or named as principal subjects in Findings by
+Group. Do not include works that appear only in References. This scoring addition
+still requires explicit update-scope approval.
+
 Reject a revision that replaces the core population/interest/context or changes the
 review into a materially different question. Recommend `/slr-harness:review` with a
 new slug instead. Compatible revisions increment `scopeRevision`, keep the update at
@@ -56,7 +64,9 @@ stop. Vague approval keeps the gate closed.
 
 After explicit approval:
 
-1. Copy the accepted draft byte-for-byte to `SCOPE_APPROVED.md`; never modify it later.
+1. Validate the accepted draft's `slr-ranking-config`, then copy it byte-for-byte to
+   `SCOPE_APPROVED.md`; never modify it later. Invalid scoring JSON or weights keep
+   the update at the approval gate.
 2. Set update state to `researching`, leaving root state unchanged.
 3. Build `EVIDENCE_BASELINE.json` with the bundled script from all final notes and
    report references. Stop if generation or JSON parsing fails.
@@ -79,14 +89,17 @@ Invoke two `slr-scoper` agents in parallel after approval:
   dimensions across their approved full range.
 
 Pass both results to `slr-manager` with `runKind: update`, absolute paths, update ID,
-baseline ref, approved update scope, update tasks/state, baseline index, and round.
+baseline ref, approved update scope, update tasks/state, baseline index, round, and
+the absolute plugin root for the fixed read-only ranking-score validator.
 
 For each round from `currentRound + 1` through update `maxRounds`:
 
 1. On the first call, manager `plan` first creates the start checkpoint described
    above. It then writes only update tasks and commits
    `update-NNN-round-R-plan: <summary>`. Every task is freshness, scope-delta, or
-   backfill and has a unique update-note path.
+   backfill and has a unique update-note path. When scoring was newly added, create
+   core-scoring backfill tasks without reopening broad search; use existing reports
+   and notes, and apply neutral 2/4 imputation where evidence is absent.
 2. Dispatch at most three Pending tasks in parallel to `slr-worker`. Delegations
    include update mode, approved scope, baseline index, lane, and exact output path.
 3. Manager `review` validates new notes, classifies candidates as new source,
@@ -109,7 +122,8 @@ extra round.
 
 Manager `finalize` verifies the baseline report is an exact prefix, legacy notes are
 unchanged, new notes are final or traceably blocked, all update questions have a
-disposition, and report update references resolve. It sets update state to:
+disposition, all new and core-backfilled eligible items have validated scores and
+rationales, and report update references resolve. It sets update state to:
 
 - `completed` only when all actionable update work is resolved;
 - `completed_with_limitations` otherwise.

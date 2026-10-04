@@ -175,6 +175,18 @@ as many times as needed. A configuration answer is not approval. Research begins
 only after an unambiguous approval such as
 “我明确批准这个 scope，开始正式调研”. Phrases such as “看起来不错” do not approve it.
 
+Every new review includes mandatory evidence scoring by default. Each eligible
+paper or grey-literature item receives an Evidence Strength Score (ESS), Review
+Utility Score (RUS), Overall Recommendation Score (ORS), recommendation tier, and
+confidence label. Workers record a reason and evidence location for every component;
+missing or inaccessible evidence receives the neutral score 2/4 with an explicit
+imputation reason rather than causing the item to remain unscored. The manager
+mechanically validates formulas, summarizes recommendation reasons in `REPORT.md`,
+and orders items within each approved group by ORS, ESS, year, verified citations,
+then title. Year, citations, venue, and evidence tier are not score inputs.
+The complete machine-readable rubric is frozen in the approved scope; its dimensions
+or weights may be revised before approval, but scoring itself cannot be disabled.
+
 Resume or inspect a review with:
 
 ```text
@@ -207,6 +219,11 @@ never removed or overwritten. Freshness searches cover newly published work;
 scope-delta searches cover newly approved concepts; backfill extracts only newly
 approved dimensions from known sources. DOI, arXiv ID, normalized title, and
 canonical URL are checked against a generated evidence baseline.
+
+If an older review predates mandatory scoring, its next approved update adds the
+default rubric and backfills only works already compared in the report or treated as
+principal Findings-by-Group subjects. Reference-only works are not backfilled, and
+legacy notes remain byte-for-byte unchanged.
 
 The manager appends an `Evidence Updates` suffix to `REPORT.md`. Older findings that
 fall outside the latest scope remain in the main report and are explicitly marked
@@ -268,6 +285,8 @@ two-retry, and two-low-yield-round limits.
 The optional manuscript is a prose-first scholarly synthesis derived from the
 completed evidence base. It is separate from `REPORT.md`, which remains the
 incremental operational synthesis and primary review-pipeline deliverable.
+Scores may guide manuscript emphasis but are reviewer-derived appraisal metadata,
+not claims made by the cited literature.
 
 Workers normally record two to five evidence-driven open questions per note, or
 explain why none remain. During review the manager deduplicates and classifies each

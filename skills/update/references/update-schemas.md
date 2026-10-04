@@ -110,7 +110,10 @@ to reject any modification, rename, or deletion of legacy notes.
 ```
 
 Each task has exactly one lane. Backfill may revisit a known source only to extract
-a newly approved dimension and never counts as a new eligible source.
+a newly approved dimension and never counts as a new eligible source. Adding the
+mandatory scoring rubric to a legacy review creates backfill tasks only for unique
+works in the baseline Comparison Table or named as principal Findings-by-Group
+subjects; reference-only works remain outside the backfill set.
 
 ## Update note additions
 
@@ -138,6 +141,9 @@ suffix shaped as:
 #### Changes from Previous Scope
 #### New Evidence and Version Updates
 #### Backfilled Comparisons
+#### Update Ranking Table
+| Work | Evidence Tier | ESS | RUS | ORS | Tier | Confidence | Recommendation Rationale |
+| --- | --- | ---: | ---: | ---: | --- | --- | --- |
 #### Updated Findings and Corrections
 #### Historical Evidence Outside Current Update Scope
 #### Update Gaps and Limitations
