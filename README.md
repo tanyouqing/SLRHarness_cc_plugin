@@ -53,9 +53,14 @@ claude --plugin-dir ./slrharness
 
 claude \
   --plugin-dir ./example/SLRHarness \
-  --permission-mode dontAsk \
+  --permission-mode acceptEdits \
   --allowedTools "AskUserQuestion,Read,Glob,Grep,Write,Edit,Bash,Agent,WebSearch,WebFetch,mcp__arxiv__*,mcp__tavily__*,mcp__scholar__*"
 ```
+
+`acceptEdits` is the recommended mode for the interactive intake and scope gate.
+It automatically accepts workspace file edits, while the explicit allowlist
+pre-approves the remaining tools used by the normal review pipeline. An unexpected
+tool can still request permission instead of being rejected immediately.
 
 ### Unattended runs
 
@@ -67,7 +72,7 @@ the plugin checkout):
 {
   "$schema": "https://json.schemastore.org/claude-code-settings.json",
   "permissions": {
-    "defaultMode": "dontAsk",
+    "defaultMode": "acceptEdits",
     "allow": [
       "AskUserQuestion",
       "Read",
@@ -88,16 +93,27 @@ the plugin checkout):
 }
 ```
 
-`dontAsk` approves matching rules and rejects unmatched tool calls instead of
-waiting for a permission prompt. Remove MCP entries that are not installed and
-add equivalent `mcp__<server>__*` entries for other search servers. Keeping this
-file project-local avoids granting broad `Bash`, write, and agent permissions to
-unrelated Claude Code projects.
+With this allowlist, the review can normally run unattended after the user has
+explicitly approved the scope. `acceptEdits` alone is not an unattended mode: it
+does not automatically approve arbitrary shell, Agent, Web, or MCP calls. The
+allow rules above pre-approve those expected calls; an unexpected call waits for
+permission, so detach from `tmux` only after the scope is approved and formal
+research has begun. Remove MCP entries that are not installed and add equivalent
+`mcp__<server>__*` entries for other search servers. Keeping this file project-local
+avoids granting broad `Bash`, write, and agent permissions to unrelated Claude Code
+projects.
 
-The broad `Bash` rule above already covers `paper-search` on Linux. If your own
-policy narrows shell access, add `Bash(paper-search *)`; native Windows sessions
-can use the shown `PowerShell(paper-search *)` rule. The plugin guard still limits
-SLR scopers and workers to the read-only `sources` and `search` subcommands.
+For a deliberately locked-down headless environment, `dontAsk` remains available:
+change only `defaultMode` after confirming that the allowlist covers every required
+tool. In that mode an unmatched call is rejected rather than prompting, which can
+block the review but will not leave it waiting for a human permission response.
+
+The optional Paper Search integration is a CLI invocation, not an automatically
+approved consequence of `acceptEdits`. The broad `Bash` rule above covers
+`paper-search` on Linux. If your own policy narrows shell access, add
+`Bash(paper-search *)`; native Windows sessions can use the shown
+`PowerShell(paper-search *)` rule. The plugin guard still limits SLR scopers and
+workers to the read-only `sources` and `search` subcommands.
 
 After marketplace installation, start Claude Code from the intended review root
 without permission flags:
