@@ -1,2 +1,2 @@
 #!/usr/bin/env bash
-node "$(dirname "$0")/../fixture-runner.mjs" one-round
+node "$(dirname "$0")/../fixture-runner.mjs" active

@@ -1,0 +1,47 @@
+\documentclass{article}
+% Compile with XeLaTeX. Set true for Chinese prose.
+\newif\ifsurveychinese
+\surveychinesefalse
+% Numeric mode: uncomment before loading the style, and use unsrtnat below.
+% \PassOptionsToPackage{numbers,sort&compress}{natbib}
+\usepackage[preprint]{neurips_2026}
+\usepackage{fontspec}
+\ifsurveychinese
+  \usepackage[UTF8,fontset=fandol,scheme=plain]{ctex}
+\fi
+\usepackage{amsmath,amsfonts}
+\usepackage{booktabs,tabularx}
+\usepackage{graphicx}
+\usepackage{microtype}
+\usepackage{xcolor}
+\usepackage{url}
+\usepackage{hyperref}
+\title{Survey Title}
+\author{}
+\begin{document}
+\maketitle
+\begin{abstract}
+% Context, scope, evidence base, synthesis and limitations.
+\end{abstract}
+\section{Introduction}\label{sec:introduction}
+% Motivation, previous surveys, scope, contributions and reading guide.
+% Include documented search/screening methods in a short subsection.
+% Choose ONE title: Background OR Preliminaries. Do not print both.
+\section{Background}\label{sec:background}
+% Define necessary tasks, notation and foundations with citations.
+% Choose ONE title: Taxonomy OR Unified Framework. Do not print both.
+\section{Taxonomy}\label{sec:taxonomy}
+% Explain classification criteria, boundaries and links to topic chapters.
+% Expand this topic block once per topic in the initial reconnaissance-based
+% Survey Outline recorded in scope. There is no fixed topic count.
+\section{Topic Name}\label{sec:topic-slug}
+% Synthesize problems, methods, progression, conditions and limitations.
+\section{Comparative Analysis and Evaluation}\label{sec:comparison}
+% Explicit task/data/metric/budget conditions, coverage, conflicts and limitations.
+\section{Challenges and Future Directions}\label{sec:challenges}
+% Link challenges to evidenced gaps; distinguish inference from source claims.
+\section{Conclusion}\label{sec:conclusion}
+% Supported insights and boundaries, without new evidence.
+\bibliographystyle{plainnat}
+\bibliography{references}
+\end{document}

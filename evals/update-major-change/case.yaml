@@ -1,4 +1,0 @@
-schema_version: "1.1"
-name: incompatible-update-scope-routes-to-new-review
-context:
-  scaffold_script: fixture.sh

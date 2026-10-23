@@ -1,4 +1,4 @@
 schema_version: "1.1"
-name: limited-review-produces-honest-paper
+name: paper-limitations
 context:
   scaffold_script: fixture.sh

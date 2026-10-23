@@ -1,4 +1,0 @@
-schema_version: "1.1"
-name: unresolved-external-failure-stays-blocked
-context:
-  scaffold_script: fixture.sh

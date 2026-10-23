@@ -1,68 +1,34 @@
 ---
 name: review
-description: Plan, run, resume, or inspect a structured literature review. Use when the user asks for a literature review, related-work survey, systematic/scoping review, research landscape, review scope, or wants to revise or approve an SLR Harness scope.
+description: Scope, run, resume or inspect a hierarchical literature review with 3–5 topic managers, per-paper evidence notes, independent chapter checks, LaTeX/PDF writing and final manuscript review with bounded repair.
 argument-hint: <topic | resume <slug> | status <slug>>
 ---
 
-# SLR Harness workflow
+# Hierarchical literature review
 
-Operate a two-gate literature-review workflow rooted at `${CLAUDE_PROJECT_DIR}/workspaces/`.
-The user's text after the command is: `$ARGUMENTS`.
+Read references/workflow.md, workspace-schemas.md and scoping.md before acting.
+Main-session orchestration owns global state, paper identities, budgets and Git.
+Use absolute paths under ${CLAUDE_PROJECT_DIR}/workspaces/<slug>. Never overwrite
+an existing workspace. Use pipeline.mjs for state changes, not direct state writes.
 
-Treat `${CLAUDE_PROJECT_DIR}` as an immutable project root. Never run `cd` or rely
-on the session's current working directory. Derive one absolute workspace path as
-`${CLAUDE_PROJECT_DIR}/workspaces/<slug>`, use absolute paths for every Read/Write/Edit,
-and run Git only as `git -C <absolute-workspace> ...`.
+Resolve primary objective, maximum rounds, source coverage and time coverage in one
+question containing only missing choices. Defaults: landscape mapping, five global
+rounds, academic plus authoritative grey sources, and a scoper-recommended date
+range. English is default unless Chinese output is explicitly requested. A topic
+written in Chinese alone does not choose output language. No workspace or scoper
+starts before intake completes. Missing interactive tooling uses disclosed defaults.
 
-Before taking action, read all of:
+Scopers read related surveys and initial sources, propose 3–5 major topics and scope.
+Present the draft and stop for explicit human approval. Configuration answers and
+vague praise are not approval. After approval run within budgets to honest completion
+or a concrete blocker. Final review pauses after three failing repairs and requires explicit continuation. Every accepted research
+completion proceeds automatically to paper writing and final review without new intake.
 
-- [workflow.md](${CLAUDE_SKILL_DIR}/references/workflow.md) for routing, approval semantics, orchestration, recovery, and stopping rules.
-- [workspace-schemas.md](${CLAUDE_SKILL_DIR}/references/workspace-schemas.md) before creating or changing workspace files.
-- [scoping.md](${CLAUDE_SKILL_DIR}/references/scoping.md) before drafting or revising a scope.
+Defaults: global maxWorkers 9, task attempts 2 per phase, two low-yield rounds,
+and at most two chapter repair cycles. Topic managers may launch leased workers.
+Status is always read-only. Legacy workspaces support status and completed-corpus
+paper generation only; no legacy research resume, update or implicit migration.
 
-## Non-negotiable gates
-
-1. Before creating a new workspace or launching a scoper, resolve the four review
-   configuration items in the workflow reference. Ask once for only the items the
-   user has not already specified.
-2. A completed configuration answer is not scope approval. A new topic then creates
-   or revises `SCOPE_DRAFT.md` only. Do not create research tasks or launch research
-   workers yet.
-3. Stop after presenting the draft and ask the user to explicitly approve it or request changes.
-4. Start formal research only after an unambiguous approval such as "approve the scope", "scope approved", "批准 scope", or "按这个 scope 开始正式调研".
-5. Praise, acknowledgements, and vague positives such as "looks good", "不错", or "可以看看" are not approval. Ask for explicit approval and stop.
-6. After explicit approval, run the formal review to a terminal state without planned user pauses. Ask again only for a genuine collision, permission/authentication failure, unavailable required search capability, or ambiguity that would materially change the review.
-
-## Defaults
-
-- Primary objective: landscape mapping
-- Maximum rounds: 5 (standard; alternatives offered during intake are 3 quick and
-  8 deep, with a custom positive integer allowed)
-- Source coverage: academic sources plus authoritative grey literature
-- Time coverage: let the scopers recommend a range
-- Parallel workers per round: 3
-- Task retry limit: 2
-- Saturation: two consecutive reviewed rounds with zero new eligible sources and zero accepted new tasks
-- Mandatory recommendation scoring: every eligible evidence item receives the
-  default ESS/RUS/ORS rubric, component reasons, confidence, and deterministic
-  within-group ordering. Missing evidence uses neutral 2/4 imputation with a reason;
-  it never suppresses the score.
-- Output language: English unless the user explicitly asks for Chinese output.
-  A topic written in Chinese is not by itself a request for Chinese output. Preserve
-  source titles and technical terms in their original language.
-
-The user may override limits in ordinary language. Record the chosen maximum rounds
-in `.slr/state.json`; record the other intake choices in `SCOPE_DRAFT.md` without
-adding state fields.
-Never overwrite an existing workspace. Follow the collision and resume rules in the workflow reference.
-Choose and record the output language when creating the scope. It may change through
-an explicit scope revision before approval, but is frozen after approval. When
-resuming, keep the workspace's recorded language.
-
-Whenever the main session writes `.slr/state.json`, replace the complete file and run
-`node "${CLAUDE_PLUGIN_ROOT}/scripts/state.mjs" validate <absolute-state-path>`
-before committing. Stop for recovery if validation fails.
-
-Before freezing any scope, validate its machine-readable scoring rubric with
-`node "${CLAUDE_PLUGIN_ROOT}/scripts/validate-ranking-scores.mjs" config <absolute-scope-path>`.
-Remain at the approval gate if dimensions, weights, scale, or JSON are invalid.
+For resume, inspect `.slr/final-review.json` through final-review.mjs status before
+normal research routing. Follow ../paper/references/final-review.md for active repairs,
+pending assessments or pauses. Do not reset original research budgets or move tags.

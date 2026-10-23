@@ -1,4 +1,0 @@
-schema_version: "1.1"
-name: nonterminal-review-cannot-generate-paper
-context:
-  scaffold_script: fixture.sh

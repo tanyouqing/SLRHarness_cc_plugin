@@ -1,217 +1,42 @@
-# SLR Harness plugin design
+# Hierarchical survey pipeline
 
-## Goal
+Schema 2 is defined in scripts/pipeline.mjs and skills/review/references/workspace-schemas.md. Main is the only state writer; mutations use a serialized lock, a validated transition and atomic JSON replacement. Existing schema-1 state remains readable via state.mjs and the read-only evidence baseline utility. The update skill has no mutation route.
 
-SLR Harness converts a vague topic into a reproducible literature-review workspace.
-The main session first resolves missing review configuration interactively, then
-enforces one mandatory human gate: the user must explicitly approve the generated
-scope before formal research. The plugin keeps orchestration in the main Claude
-Code session and delegates bounded work to native subagents.
+The approved scope defines 3–5 stable major topics. Managers choose subtopics dynamically, preserving task IDs and recording supersession reasons. Discovery and reading are separate phases: main resolves aliases and versions before assigning stable paper IDs and one writing owner. Sharing across topics reuses those IDs. Supplements return to one assigned owner and invalidate dependent chapter acceptance.
 
-## Components
+Runtime Agent IDs are bound after a READY handshake. Main reserves global Worker leases before Managers can delegate. The guard permits only the allocated Worker type and precise write paths; Managers may invoke only the narrow bind-worker shell helper. Worker shell access is limited to read-only paper-search. Checker and writer cannot retrieve or delegate. Main dispatch is the explicit fallback if host nesting is unavailable. This is a cooperative orchestration boundary, not an operating-system sandbox for untrusted code.
 
-| Component | Responsibility | Important restrictions |
-| --- | --- | --- |
-| `review` skill | Routes new, revise, approve, resume, and status requests; orchestrates rounds | Must stop after every unapproved draft |
-| `update` skill | Reviews scope and incrementally refreshes a terminal workspace | No search before update-scope approval; never reopens root state |
-| `slr-scoper` | Performs two complementary scope reconnaissance passes | Read/Web only; no writes or agent delegation |
-| `slr-manager` | Plans, validates, synthesizes, updates state, and maintains Git | No Web or agent tools; cannot modify `SCOPE_ORIGINAL.md` |
-| `slr-worker` | Researches one narrow task and writes one assigned note | No shell, Git, agent tools, or control-file writes |
-| `paper` skill | Optionally turns a terminal workspace into a formal review manuscript | Explicit invocation only; never changes review state or resumes research |
-| `slr-paper-writer` | Synthesizes one manuscript from existing review artifacts | No Web, MCP, shell, agents, skills, or writes outside the fixed manuscript path |
-| PreToolUse guard | Enforces path, state-transition, and Git-command policy | Immediately allows non-plugin agents |
+Five rounds, nine concurrent Workers and two attempts per phase are defaults. Low yield means no newly accepted papers or chapters. New task creation cannot reset saturation. Pending work can be closed only with a recorded reason. Checkers return evidence-linked major/minor issues; passing with substantive errors is forbidden. At most two repair cycles follow an initial chapter review. No failed topic is silently omitted.
 
-The scopers run in parallel: one covers terminology, queries, and databases; the
-other covers boundaries, prior reviews, comparison dimensions, and assumptions.
-The main skill merges their evidence with the bundled scoping guidance.
+Managers write chapter.md plus synthesis.md to provide introductory terminology, scope relationships, comparison conditions and open questions without forcing the Paper Agent to load every note. Paper reads these materials and selectively checks primary notes. All major topics are assembled into the LaTeX template; the writer directly proofreads wording, transitions and minor inconsistencies before compilation. Remaining concerns are passed to the final Reviewer after compilation. Writer proofreading stays lightweight; final Reviewer separately compares authored surveys and scores the complete manuscript.
 
-New workspaces default to English output regardless of the topic's language. An
-explicit request selects Chinese instead. The choice is visible in the draft,
-recorded in state, may be revised before approval, and is frozen after approval.
+Initial completion creates immutable slr-complete before automatic paper handoff. A failing final assessment may authorize a scoped research revision while preserving that original checkpoint. Paper sidecars track writer bindings without mutating research state. Build uses isolated directories, disabled shell escape and source/PDF hashes. Failure preserves sources and historical PDF bytes but marks delivery non-current. Historical Markdown is retained. Authored evidence claims and visual quality still require model/human review; schema and build validation cannot establish scientific correctness.
 
-Before either scoper starts, the main skill resolves primary objective, maximum
-rounds, source coverage, and time coverage. Choices already present in the request
-are not asked again; all missing choices are collected in one `AskUserQuestion`.
-No workspace exists before this intake completes. The chosen maximum rounds uses
-the existing state field, while the other choices are recorded in the scope and
-translated into its question and eligibility criteria. This preserves the state
-schema and formal research pipeline.
 
-## Human-gated lifecycle
+## Final manuscript assessment
 
-```text
-topic
-  -> interactive configuration (only when settings are missing)
-  -> drafting_scope
-  -> awaiting_scope_approval
-       -> revise scope -> awaiting_scope_approval
-       -> explicit approval -> researching
-  -> completed | completed_with_limitations
+scripts/final-review.mjs owns a separate state machine: not_started → awaiting_review
+→ passed, comparison_pending or revision_required. Three completed failing repairs
+pause; explicit continuation opens another batch. Operational pauses retain the
+active revision and do not count as a completed reassessment. Status is read-only.
 
-researching <-> blocked (resume after the prerequisite is restored)
-```
+Each submission snapshots exact sources, style, PDF, scopes, task/plan material,
+canonical records and registry with content hashes. Results are immutable; changed
+inputs invalidate acceptance. The fixed survey-1 rubric has twenty integer 0–5
+items. Arithmetic and 70-point threshold are checked deterministically; semantic
+scores and full-text relevance remain model judgments. Critical issues do not add
+an extra veto. Comparison validity and quality passing are recorded separately.
 
-Only explicit approval intent opens the gate. Approval freezes the accepted draft
-byte-for-byte as `SCOPE_ORIGINAL.md`, copies it to the living `SCOPE.md`, initializes
-the formal artifacts, and tags `round-0`. During research, scope evolution is
-append-only and recorded in `## Scope Evolution Log`.
+Main opens an issue-derived revision through final-review control under the shared
+workspace lock. A persisted repair intent supports recovery before the research
+state write. revisionContext authorizes affected topics and one extra round without
+changing initial counters. Unique paper ownership, nine active leases and two task
+attempts continue to apply. Shared supplements expand affected topics and invalidate
+chapter checks. Old task attempts are not reset. Fresh accepted evidence is committed
+before Paper writer rebuilds the manuscript; the initial completion tag never moves.
 
-The approved `Review Configuration` is frozen with the scope. Academic-only mode
-admits papers and preprints as evidence; the default additionally admits authoritative
-technical reports, standards, official documentation, white papers, and official
-research/engineering blogs. Broad-web mode can include expert blogs, project posts,
-and social discussion only with explicit provenance, evidence tier, and
-cross-verification. These modes change screening policy, not the worker-note or
-report templates.
-
-## Research round
-
-Each round has three sequential phases:
-
-1. `slr-manager` in `plan` phase updates `TASKS.md`, assigns unique note paths, and
-   commits `round-N-plan`.
-2. The skill selects at most three pending tasks and launches one `slr-worker` per
-   task in parallel. Each worker writes only its assigned note and related assets.
-3. `slr-manager` in `review` phase validates notes, adds reciprocal links
-   sequentially, updates tasks/state/report, commits `round-N-review`, and tags the
-   round.
-
-Centralizing cross-links in review avoids concurrent sibling-note edits. Notes must
-contain a summary, findings, comparison data, mandatory per-source ranking scores,
-related topics, open questions, canonical sources, and full references. Unverified
-evidence is explicitly marked; it is never completed by invention.
-
-Every eligible evidence item receives eight integer 0–4 component scores. ESS
-combines rigor, validation breadth, reproducibility, and transparency; RUS combines
-scope relevance, contribution centrality, comparison completeness, and objective
-fit; ORS combines ESS and RUS. Missing evidence is neutrally imputed at 2/4 with a
-reason and lower confidence, never omitted. A bundled read-only Node validator
-recomputes composites during manager review without adding a pipeline phase.
-
-Open questions are evidence-driven rather than quota-filled. Workers normally
-produce two to five structured questions or explain why none are material. During
-the existing review phase, the manager deduplicates every question, proposal,
-material conflict, and decision-relevant missing value. Actionable in-scope gaps
-become pending tasks; all other items receive a traceable disposition in the report.
-This does not add a pipeline phase or relax the round limit.
-
-`REPORT.md` is updated after every review and contains Overview, evidence-backed
-Terminology/Conceptual Distinctions/Field Boundaries, Significance and
-Upstream/Downstream Impact, Method & Coverage, Comparison Table, Findings by Group,
-Cross-Cutting Themes, Gaps, Limitations, References, and Notes Index.
-The comparison table exposes ESS, RUS, ORS, tier, confidence, and a concise
-recommendation rationale; full dimension-level reasons remain in topic notes.
-
-## Optional manuscript workflow
-
-The paper workflow is a separate post-completion branch, not a fourth research
-phase. It is reachable only through `/slr-harness:paper` after state is `completed`
-or `completed_with_limitations` and `slr-complete` resolves. It does not invoke the
-review skill, manager, worker, or scoper and does not mutate state, scope, tasks,
-report, notes, assets, or review tags.
-
-One `slr-paper-writer` reads the immutable scope, living scope, every topic note,
-the report, tasks, and state. Final notes are the only factual evidence; draft notes
-can expose limitations but cannot support conclusions. The writer produces only
-`paper/REVIEW_PAPER.md`, with formal sections for abstract, foundations, documented
-methodology, taxonomy, thematic synthesis, comparison, discussion, open questions,
-limitations, conclusion, and original-source references. It cannot search or add
-facts from model memory.
-
-The public skill validates manuscript structure, citation/reference consistency,
-evidence boundaries, and a paper-only Git diff. Successful generation or revision
-creates a `paper:` commit after the existing `slr-complete` commit. No paper tag or
-new persistent state is introduced, so the research lifecycle remains unchanged.
-
-## Incremental update workflow
-
-`/slr-harness:update` is a separate post-completion branch. Its first invocation is
-read-only and shows the latest effective scope, original-scope differences, evidence
-cutoff, unresolved gaps, and proposed update limits. Compatible scope changes are
-saved in an update-local draft and require the same explicit approval semantics as
-the original review. A new core research question is routed to a new review.
-
-Each `update-NNN` owns an approved scope, evidence baseline, task registry, state,
-and notes under `topics/updates/update-NNN/`. Root state, both root scope files, root
-tasks, and all legacy notes remain unchanged. A deterministic Node helper indexes
-final-note and report references by DOI, base arXiv ID, normalized title, and
-canonical URL so workers can distinguish new sources, version updates, duplicates,
-and backfill.
-
-After approval, two read-only scopers cover freshness and scope-delta lanes. The
-existing manager/worker round architecture then runs with update-local paths and a
-default limit of three rounds. REPORT is rewritten only as its complete baseline
-text plus an update suffix; the guard verifies the baseline tag's REPORT is an exact
-prefix. Corrections, superseded findings, and historical items outside the latest
-scope are additive annotations rather than deletions.
-
-When a legacy effective scope lacks scoring, update approval adds the default rubric
-as a compatible delta and backfills only works already in the baseline comparison
-table or named as principal Findings-by-Group subjects. Scores and reasons live in
-new update notes and the additive report suffix; legacy notes remain immutable.
-
-The original `slr-complete` tag never moves. Updates use `update-NNN-start`,
-`update-NNN-round-N`, and `update-NNN-complete`, and can resume independently from
-their persisted update state.
-
-## Completion policy
-
-Research stops when any condition holds:
-
-- no pending task remains;
-- two consecutive rounds add neither an eligible source nor a valid task; or
-- the configured maximum number of rounds has completed (5 by default).
-
-The manager then runs `finalize`, revalidates the report and notes, records unresolved
-work, commits the final state, and tags `slr-complete`. Any unresolved blocked work
-or actionable in-scope question produces `completed_with_limitations`, not
-`completed`.
-
-## Persistent state and recovery
-
-`.slr/state.json` is the routing authority. Its fixed fields and task/note schemas
-are documented in `skills/review/references/workspace-schemas.md` and validated by
-`scripts/state.mjs`. Every update is a complete atomic Write so the guard can reject
-illegal transitions.
-
-Within a session, the active workspace is reused. Across sessions, one unfinished
-workspace is resumed automatically; multiple candidates require a user choice.
-Existing slugs are never overwritten. A task is retried at most twice before moving
-to Blocked.
-
-Update recovery uses `.slr/updates/update-NNN/state.json`; it does not alter the
-root review state or consume the original review's round budget.
-
-## Safety model
-
-`hooks/hooks.json` registers a dependency-free Node PreToolUse hook. It checks the
-invoked plugin agent and:
-
-- denies all writes from scopers;
-- limits workers to `topics/` and `assets/` inside the delegated workspace;
-- while an update is active, narrows worker writes to that update's topics/assets
-  subtree and manager writes to update-local controls plus REPORT;
-- validates update state and update Git checkpoints, and requires REPORT writes to
-  preserve the exact baseline report prefix;
-- limits the paper writer to exactly `paper/REVIEW_PAPER.md` and denies it all shell access;
-- denies manager changes to `SCOPE_ORIGINAL.md` and `.git` internals;
-- validates complete state writes and legal stage transitions;
-- anchors workspace checks to `${CLAUDE_PROJECT_DIR}` while resolving relative
-  targets from the agent's real cwd, so project-root and review-root execution are
-  both safe and duplicated `workspaces/<slug>` prefixes are rejected;
-- limits manager shell use to workspace-local directory creation and an explicit
-  non-destructive Git allowlist;
-- permits round/final tags only after the matching committed state and commit
-  subject exist, with one guarded `tag -f round-N HEAD` repair path;
-- passes through calls from every unrelated agent.
-
-Node and Git are the only external runtime prerequisites. Optional scholarly MCP
-servers can improve retrieval, but workers always have Claude Code WebSearch and
-WebFetch and the plugin does not depend on a vendor.
-
-## Verification
-
-`npm test` covers legal and illegal state transitions, traversal, cross-workspace
-writes, immutable scope, non-plugin pass-through, and Git allowlisting. `evals/`
-contains model-level scope gate, ambiguous approval, status/resume, and bounded
-end-to-end cases. Distribution requires strict plugin and marketplace validation.
+The final Reviewer can use read-only scholarly retrieval and return results, with no
+workspace writes or delegation. Main persists separate Scoper/Manager/Worker candidate
+advice with source-linked differences, conditional actions and attribution uncertainty.
+Reference match may be same, overlapping or adjacent; adjacent surveys cannot justify
+field-specific coverage deductions. Historical workspaces do not enter this repair loop.

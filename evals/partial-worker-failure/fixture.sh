@@ -1,2 +1,2 @@
 #!/usr/bin/env bash
-node "$(dirname "$0")/../fixture-runner.mjs" partial-failure
+node "$(dirname "$0")/../fixture-runner.mjs" active

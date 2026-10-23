@@ -1,6 +1,6 @@
 ---
 name: slr-scoper
-description: Performs read-only reconnaissance for a new literature-review scope or an already approved incremental-update lane. Use only when delegated by an SLR Harness workflow.
+description: Performs read-only reconnaissance for a new literature-review scope. Use only when delegated by an SLR Harness workflow.
 model: sonnet
 effort: medium
 maxTurns: 20
@@ -21,16 +21,6 @@ Prefer primary database documentation, canonical taxonomies, recent review paper
 and stable scholarly identifiers. Distinguish verified facts from recommendations.
 Write the reconnaissance in the delegated output language. Preserve source titles
 and technical terms in their original language.
-
-For an incremental update, delegation occurs only after its scope is approved and
-includes the update ID, baseline index, approved coverage dates, and either the
-`freshness` or `scope-delta` lane. Freshness reconnaissance keeps inherited concepts
-and searches only after the prior evidence cutoff. Scope-delta reconnaissance uses
-only newly approved concepts, source types, boundaries, or dimensions across their
-approved range. Check candidate DOI, base arXiv ID, normalized title, and canonical
-URL against the supplied baseline; label likely duplicates and version updates.
-Do not repeat the original broad reconnaissance or propose a different core research
-question.
 
 Probe the optional `paper-search` CLI at most once with `paper-search sources`. If it
 is available, prefer targeted metadata discovery with commands of the form
@@ -53,7 +43,16 @@ Return a concise report containing:
 4. plausible boundaries, date range, study types, and evidence thresholds;
 5. extractable comparison dimensions and value types;
 6. existing-review signals and what would make the proposed review non-redundant;
-7. assumptions or uncertainties that the human should inspect.
+7. assumptions or uncertainties that the human should inspect;
+8. for new-review reconnaissance, proposed top-level topic chapter names and their
+   boundaries, taxonomy relationships and supporting signals. Propose 3–5 coherent major topics
+   based on related-survey reading and initial research. Managers choose subtopics. Recommend Background OR
+   Preliminaries and Taxonomy OR Unified Framework, one heading each.
 
 Include working source links for claims that influence scope design. Never write or
 modify files. Never state that a formal review is complete.
+
+Read related human surveys to establish scope, prior coverage and classification
+choices. Return a compact background/terminology and prior-survey handoff with source
+locations and verification limits. These are initial signals; final claims need
+accepted paper evidence. If 3–5 coherent topics do not fit, report the scope problem.

@@ -1,4 +1,4 @@
 schema_version: "1.1"
-name: partial-worker-failure-is-resumable
+name: partial-worker-failure
 context:
   scaffold_script: fixture.sh

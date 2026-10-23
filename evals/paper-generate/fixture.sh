@@ -1,2 +1,2 @@
 #!/usr/bin/env bash
-node "$(dirname "$0")/../fixture-runner.mjs" paper-ready
+node "$(dirname "$0")/../fixture-runner.mjs" three-topic

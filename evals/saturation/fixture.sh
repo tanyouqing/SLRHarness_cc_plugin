@@ -1,2 +1,2 @@
 #!/usr/bin/env bash
-node "$(dirname "$0")/../fixture-runner.mjs" saturation
+node "$(dirname "$0")/../fixture-runner.mjs" active

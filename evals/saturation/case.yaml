@@ -1,4 +1,4 @@
 schema_version: "1.1"
-name: two-low-yield-rounds-finalize
+name: saturation
 context:
   scaffold_script: fixture.sh

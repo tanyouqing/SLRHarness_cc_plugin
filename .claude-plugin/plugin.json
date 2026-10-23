@@ -2,8 +2,8 @@
   "$schema": "https://json.schemastore.org/claude-code-plugin-manifest.json",
   "name": "slr-harness",
   "displayName": "SLR Harness",
-  "version": "0.5.0",
-  "description": "A human-gated, multi-agent literature review workflow with mandatory evidence scoring, durable notes, incremental updates, a final report, and optional manuscript generation.",
+  "version": "0.7.0",
+  "description": "Hierarchical literature reviews with per-paper evidence, chapter checks, LaTeX/PDF writing, real-survey comparison and scored final review with bounded repair.",
   "author": {
     "name": "RAIL AI Lab"
   },

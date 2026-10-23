@@ -1,231 +1,102 @@
-# Workspace schemas
+# Workspace contracts (schemaVersion 2)
 
-All paths below are relative to `workspaces/<reviewId>/`.
+The main session owns .slr/state.json via pipeline.mjs. It contains review identity,
+approval hash/user message, stage, global budgets/round, topics/tasks, canonical
+papers, runtime bindings, worker leases and chapter review events. Use status to
+inspect the authoritative state. Human-readable files do not independently change it.
 
-## `.slr/state.json`
+## Layout and ownership
 
-Write the complete file for every state update; do not patch it with Edit.
+- SCOPE_DRAFT.md, SCOPE_ORIGINAL.md, SCOPE.md, scoping.md: main session.
+- topics/<topic-id>/plan.json, chapter.md, synthesis.md, acceptance.json: bound Manager.
+- topics/<topic-id>/tasks/<task-id>/{search.md,candidates.json,result.json}: bound Worker.
+- papers/<paper-id>/{metadata.json,note.md}: unique registered owning Worker task.
+- .slr/requests/*.json and .slr/paper-bindings.json: main session.
+- paper/main.tex, paper/references.bib: bound Paper Agent; other delivery files: main.
 
-```json
-{
-  "schemaVersion": 1,
-  "reviewId": "ascii-hyphenated-slug",
-  "topic": "Original user topic",
-  "language": "English or Chinese; frozen after scope approval",
-  "stage": "drafting_scope",
-  "scopeRevision": 0,
-  "currentRound": 0,
-  "maxRounds": 5,
-  "maxWorkers": 3,
-  "consecutiveLowYieldRounds": 0,
-  "retryLimit": 2,
-  "completionReason": null,
-  "createdAt": "ISO-8601 timestamp",
-  "updatedAt": "ISO-8601 timestamp"
-}
-```
+## Manager plan
 
-`lastError` is optional and must be a non-empty string when present. Valid stages:
+plan.json is {"topicId":"slug","tasks":[{"id":"slug","question":"...",
+"boundary":"...","rationale":"initial decomposition or evidenced gap"}]}.
+Task IDs are unique within a topic. Existing tasks are immutable; propose new tasks
+and explicit retirements to the main session for split/merge changes. Subtopics and
+final subsection structure need not be identical. acceptance.json is an array of
+{"paperId":"p-...","checked":true,"rationale":"source checks and limitations"}.
 
-`drafting_scope`, `awaiting_scope_approval`, `researching`, `blocked`, `completed`,
-`completed_with_limitations`.
+## Discovery
 
-During research, also maintain:
+candidates.json is {"candidates":[{"title":"...","authors":[],"year":null,
+"venue":null,"doi":null,"arxivId":null,"canonicalUrl":"https://...",
+"sourceVersion":null,"evidence":"metadata source/location","rationale":"..."}],
+"noEvidenceReason":null}. Only the main session registers identities and writes
+paper ownership. Conflicting identifiers/versions require explicit resolution,
+not silent merge. A title-only alias requires identityConfirmed=true plus identityEvidence documenting source verification. A known work can be shared across topics via its stable ID.
 
-```json
-"roundMetrics": {
-  "round": 1,
-  "dispatched": 3,
-  "validatedNotes": 3,
-  "newEligibleSources": 11,
-  "acceptedNewTasks": 1,
-  "failedWorkers": 0
-}
-```
+## Paper metadata and note
 
-Omit `roundMetrics` before the first review pass.
+metadata.json has paperId, title, authors (array), year (integer or null), venue,
+doi, arxivId, canonicalUrl, sourceVersion, verification. verification is one of
+metadata_verified, fulltext_verified, abstract_only, unavailable. Retain actual
+version and provenance; use null for unknown optional metadata. The note is one
+paper only, with the following non-empty sections (fixed headings for checking;
+body prose uses the review language):
 
-`maxRounds` is selected during interactive scope intake and must match the approved
-scope's `Review Configuration`. Keep the other intake choices in the scope rather
-than adding state fields:
-
-```markdown
-## Review Configuration
-- Primary objective: landscape mapping
-- Maximum research rounds: 5
-- Source coverage: Academic + authoritative grey literature
-- Time coverage: 2021-01-01 through 2026-09-21
-```
-
-The concrete values may differ, but all four lines are required before approval.
-After approval, this configuration is frozen together with the scope.
-
-## `TASKS.md`
-
-```markdown
-# Tasks: <theme>
-
-## Round <N>
-
-### Pending
-- [ ] topics/<group>/<note>.md — <one narrow task> <!-- attempts: 0 -->
-
-### Blocked
-
-## Completed
-- [x] topics/<group>/<note>.md — <description> (round N)
-
-## Backlog
-```
-
-Only `slr-manager` writes this file. A worker failure increments the attempts marker.
-After `retryLimit`, move the task to Blocked with the last concrete failure reason.
-
-## `REPORT.md`
-
-```markdown
-# Literature Review: <theme>
-
-## Overview
-## Terminology, Conceptual Distinctions & Field Boundaries
-
-### Core Terminology
-| Term | Operational Definition | Commonly Confused With | Key Distinction | Evidence |
-| --- | --- | --- | --- | --- |
-
-### Field Boundaries
-| Boundary | In Scope | Out of Scope / Adjacent | Rationale | Evidence |
-| --- | --- | --- | --- | --- |
-
-## Significance & Upstream/Downstream Impact
-
-### Why the Field Matters
-
-### Upstream Dependencies
-| Upstream Area or Capability | Relationship | Why It Matters | Evidence |
-| --- | --- | --- | --- |
-
-### Downstream Tasks and Systems
-| Downstream Task or System | Impact Mechanism | Expected Consequence | Evidence Strength | Evidence |
-| --- | --- | --- | --- | --- |
-
-## Method & Coverage
-### Ranking Method
-<!-- State the approved ESS/RUS/ORS rubric, imputation policy, confidence rules, and ordering. -->
-## Comparison Table
-| Work | Evidence Tier | ESS | RUS | ORS | Tier | Confidence | Recommendation Rationale |
-| --- | --- | ---: | ---: | ---: | --- | --- | --- |
-## Findings by Group
-## Cross-Cutting Themes
-## Gaps & Open Questions
-| Question | Origin / Evidence | Disposition | Why Unresolved | Next Step |
-| --- | --- | --- | --- | --- |
+# <Exact paper title> — <paper-id>
+## Research Question
+## Method
+## Study Setting
+## Findings
+## Comparison Conditions
 ## Limitations
-## References
-## Index of Topic Notes
-```
-
-The report is an evolving synthesis, not a concatenation of notes. Every substantive
-claim needs an inline citation that resolves to the References section. Every
-eligible evidence item must have ESS, RUS, ORS, recommendation tier, confidence,
-and a concise recommendation rationale. Rows and sections follow the approved
-grouping and mandatory score order. Full per-dimension reasons remain in notes.
-
-The two framing sections after Overview must be synthesized from the approved scope
-and validated notes. Distinguish the review's operational definitions and boundaries
-from claims established by the literature. State insufficient evidence explicitly
-rather than inferring importance or impact from general knowledge.
-
-## Topic note
-
-```markdown
----
-title: "<narrow topic>"
-tags: ["<theme>", "<group>"]
-status: draft
-round: <N>
----
-
-# <Narrow Topic>
-
-> Workspace context: [SCOPE](../../SCOPE.md) · [TASKS](../../TASKS.md) · [REPORT](../../REPORT.md)
-
-## Summary
-## Search & Screening
-## Key Findings
-## Comparison Data
-| Dimension | Value | Evidence |
-| --- | --- | --- |
-
-## Ranking Scores
-<!-- Required for every review. Add one machine-readable block per eligible evidence item. -->
-
-```slr-score
-{
-  "scoreVersion": 1,
-  "sourceId": "S1",
-  "title": "Exact source title",
-  "role": "eligible",
-  "evidenceTier": "peer-reviewed",
-  "publicationYear": 2025,
-  "verifiedCitationCount": null,
-  "primarySourceVerified": true,
-  "scores": {
-    "methodologicalRigor": { "score": 3, "imputed": false, "evidence": "[S1], Methods", "rationale": "Concrete reason" },
-    "validationBreadth": { "score": 2, "imputed": false, "evidence": "[S1], Evaluation", "rationale": "Concrete reason" },
-    "reproducibility": { "score": 2, "imputed": true, "evidence": "No artifact located", "rationale": "Neutral default because evidence is unavailable" },
-    "transparency": { "score": 3, "imputed": false, "evidence": "[S1], Limitations", "rationale": "Concrete reason" },
-    "scopeRelevance": { "score": 4, "imputed": false, "evidence": "[S1], system description", "rationale": "Concrete reason" },
-    "contributionCentrality": { "score": 3, "imputed": false, "evidence": "[S1], contributions", "rationale": "Concrete reason" },
-    "comparisonCompleteness": { "score": 2, "imputed": false, "evidence": "Comparison Data above", "rationale": "Concrete reason" },
-    "objectiveFit": { "score": 4, "imputed": false, "evidence": "Approved primary objective", "rationale": "Concrete reason" }
-  },
-  "ess": 63.8,
-  "rus": 83.8,
-  "ors": 74.8,
-  "tier": "B",
-  "confidence": "High",
-  "provisional": false,
-  "recommendationRationale": "One concise evidence-grounded explanation of its review priority."
-}
-```
-
-The numeric example is illustrative; compute values from the approved
-`slr-ranking-config` and use exactly its dimension keys. Use stable source IDs that
-resolve to References. Discovery-only, metadata-only, and
-excluded records are labeled as such under Search & Screening and do not receive a
-score block. If a task produces no eligible evidence, write exactly:
-`No eligible evidence items; no scores computed.`
-
-The manager deduplicates score records by DOI, base arXiv ID, normalized title, and
-canonical URL. Repeated records are reconciled from their evidence and rationale,
-not by choosing the highest score, and appear once in the report.
-
-## Related Topics
-<!-- Worker suggests links; manager makes reciprocal edits during review. -->
-
+## Evidence Locations
 ## Open Questions
-<!-- Normally 2–5 evidence-driven items. Do not invent questions to fill a quota. -->
-- **Question:** <specific unresolved question>
-  - Evidence trigger: <citation, conflict, missing comparison value, or observed gap>
-  - Why unresolved: <what current evidence cannot establish>
-  - Next search/action: <concrete follow-up>
-  - Scope status: in-scope | boundary | out-of-scope
 
-<!-- If there is no material open question, say so and give a brief evidence-based reason. -->
-## Sources
-<!-- Canonical paper, project, code, and dataset links; use "none found" explicitly. -->
+Evidence Locations maps individual claims to page/section/table/figure and canonical
+source. Unknown/not applicable values require explanation. No minimum source count
+per note; the target paper is its evidence source. result.json records processed and
+reused paper IDs, limitations, and requested supplements. Final acceptance and
+fingerprints live in the registry, not mutable note frontmatter.
 
-## References
-<!-- Every cited work, with authors, year, title, venue when known, and canonical URL. -->
+## Chapter handoff
 
-## Proposed Additions
-<!-- Optional, evidence-based scope/task additions. -->
-```
+chapter.md begins with the actual major topic title and uses subtopic subsections.
+Cite papers as [@p-<12 hex digits>]. synthesis.md has Background and Terms, Problem
+and Significance, Taxonomy Relations, Comparison Conditions, Conflicts, Challenges
+and Directions. Each substantive item carries [@paper-id], source location and
+conditions; separate source claims from synthesis/inference. Both files require
+accepted evidence citations. Missing coverage must be disclosed, not invented.
 
-Workers must record queries/databases used, screening decisions, at least three real
-sources when evidence permits, and `not reported`/`not applicable` instead of guesses.
-During review, the manager must deduplicate and disposition every open question,
-proposal, material conflict, and decision-relevant `not reported` value. Actionable
-in-scope evidence gaps become Pending tasks; other items remain traceable in the
-report as resolved, out of scope, or blocked/limited.
+## Review response
+
+Checker returns {"verdict":"passed|revision_required","fingerprint":"supplied",
+"issues":[{"location":"...","evidence":"...","severity":"major|minor",
+"action":"..."}],"limitations":[]}. Main attaches checkerId and topicId.
+A passed verdict cannot contain major issues. First review plus two repairs is the
+limit. A changed chapter, synthesis or accepted source invalidates prior acceptance.
+
+## Legacy
+
+schemaVersion 1 is read-only research. Completed final topic notes may still feed
+legacy paper generation; draft notes are excluded. Preserve all historical files.
+Do not expose the old topic-note template as a new writing contract.
+
+The reusable single-paper note skeleton is paper-note.md. Manuscript runtime bindings live in .slr/paper-bindings.json. Paper writing uses self-proofreading; schema-2 compiled candidates then enter the distinct final Reviewer workflow. Historical review sidecars remain untouched and are ignored.
+
+
+## Final review and controlled revisions
+
+Main owns .slr/final-review.json and paper/reviews/submission-NNNN/. Each submission
+contains immutable snapshot/, manifest.json, research-state.json, assessment.json,
+assessment.md, comparison.md and scoper.md/manager.md/worker.md candidate advice.
+The exact assessment envelope and rubric are in the paper skill references.
+Reviewer runtime bindings use role reviewer plus submissionId in paper-bindings.json;
+Checker bindings continue to use role checker and checkerId in chapter requests.
+
+Final-review control tracks status, rubricVersion, submissions, revisions, batchStart,
+pause and activeRevisionId. A repair context in research state has id, sourceSubmission,
+issueIds, topicIds, coordinatorTopicId, roundsUsed (0 or 1) and active. Only main's
+final-review begin-revision can reopen terminal research. Tasks added in repair carry
+revisionId. The initial currentRound/maxRounds and saturation history remain intact.
+Shared supplements extend topicIds; unrelated Managers cannot write. Fresh chapter
+acceptance is required before finalize deactivates the context. Original slr-complete
+is preserved; later evidence commits are supplied to submission as evidenceRef.

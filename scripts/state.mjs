@@ -1,3 +1,4 @@
+import { validateV2 } from "./pipeline.mjs";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -64,6 +65,7 @@ function isIsoTimestamp(value) {
 }
 
 export function validateState(state) {
+  if (state?.schemaVersion === 2) return validateV2(state);
   const errors = [];
   if (!isObject(state)) return ["state must be a JSON object"];
 
@@ -158,31 +160,7 @@ export function validateState(state) {
 }
 
 export function validateTransition(previous, next) {
-  const errors = [
-    ...validateState(previous).map((error) => `previous: ${error}`),
-    ...validateState(next).map((error) => `next: ${error}`),
-  ];
-  if (errors.length > 0) return errors;
-
-  if (!TRANSITIONS[previous.stage].has(next.stage)) {
-    errors.push(`illegal stage transition: ${previous.stage} -> ${next.stage}`);
-  }
-  for (const key of ["schemaVersion", "reviewId", "topic", "createdAt"]) {
-    if (previous[key] !== next[key]) errors.push(`${key} is immutable`);
-  }
-  if (next.scopeRevision < previous.scopeRevision) errors.push("scopeRevision cannot decrease");
-  if (next.currentRound < previous.currentRound) errors.push("currentRound cannot decrease");
-  if (next.currentRound > next.maxRounds) errors.push("currentRound cannot exceed maxRounds");
-  if (
-    !["drafting_scope", "awaiting_scope_approval"].includes(previous.stage)
-    && next.maxRounds !== previous.maxRounds
-  ) {
-    errors.push("maxRounds is immutable after scope approval");
-  }
-  if (next.stage === "researching" && previous.stage === "awaiting_scope_approval" && next.scopeRevision < 1) {
-    errors.push("research cannot start without an approved scope revision");
-  }
-  return errors;
+  return ["Direct state transitions are disabled; use pipeline.mjs commands. Legacy state is read-only."];
 }
 
 export function parseAndValidateState(text, previous = null) {
