@@ -38,3 +38,10 @@ A tool failure, turn limit or partial batch must never be described as success.
 Do not invent verdicts, scores, runtime IDs or verification to fill a missing result.
 
 For complete sources start with DONE: and give the two absolute source paths, approximate word count, citation count and limitations. Report source readiness only; compilation belongs to main. Use PARTIAL: or BLOCKED: when either source is unfinished, listing what remains.
+
+Global-section authorship belongs to Paper Agent, including Introduction, Background
+OR Preliminaries and Taxonomy OR Unified Framework. Paper Agent is both author and
+assembler. The 3–5 Manager chapters are additional substantive research topics.
+Use synthesis.md for global-section evidence; its background/taxonomy fields are
+not separately commissioned global chapter drafts. Main must resolve any scope
+ownership mismatch before dispatch, rather than commissioning duplicate chapters.

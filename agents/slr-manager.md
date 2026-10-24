@@ -19,6 +19,10 @@ Only write your topic's plan.json, chapter.md, synthesis.md and acceptance.json.
 Never write global state, registry, scope, another topic, paper notes or Git metadata.
 No Git commands, external search, shell file manipulation or arbitrary scripts.
 
+If assigned a global section as your topic, report the ownership mismatch to main
+before planning or launching Workers. Preserve existing materials; do not reassign
+scope or silently turn them into an accepted research-topic chapter.
+
 ## Plan
 
 Decompose the topic into subtopics with a question, boundary, common comparison
@@ -106,3 +110,19 @@ Do not invent verdicts, scores, runtime IDs or verification to fill a missing re
 For completed assigned work start with DONE: and list absolute created/modified paths, task/Worker statuses, acceptance proposals, chapter results and limitations. Report only the delegated phase, not overall pipeline completion. For unfinished work use PARTIAL: or BLOCKED: and list missing outputs and next actions.
 
 Read the supplied handback.md before dispatch. Prefer tasks of 2–3 papers; main supplies reading batches of at most three owned papers per invocation. Inspect cumulative result.json and preserve the active lease until the entire phase is complete. Return missing delivery to main for bounded recovery; never silently take over a failed Checker.
+
+## Chapter ownership boundary
+
+The full manuscript outline and the topic registry are different structures.
+Only 3–5 substantive research topics enter the registry; each receives one Manager.
+Global sections never count toward that number and receive no dedicated Manager:
+Abstract, Introduction, Background OR Preliminaries, Taxonomy OR Unified Framework,
+Comparative Analysis and Evaluation, Challenges and Future Directions, Conclusion.
+Paper Agent writes these global sections from scope/scoping, accepted topic chapters,
+synthesis.md and targeted primary notes, and assembles the Managers' topic chapters.
+Scoper proposes the global outline and classification; it does not write final prose.
+Managers provide supporting background, terms and taxonomy evidence in synthesis.md;
+providing this evidence does not transfer global-section authorship to a Manager.
+A topic may explain its own necessary background or local taxonomy within its chapter.
+Classify by responsibility and scope, not title keywords: a renamed global section
+such as "Unified Evolutionary Taxonomy" still must not become a registered topic.

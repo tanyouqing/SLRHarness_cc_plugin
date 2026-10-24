@@ -102,3 +102,19 @@ acceptance is required before finalize deactivates the context. Original slr-com
 is preserved; later evidence commits are supplied to submission as evidenceRef.
 
 Read-phase result.json uses cumulative arrays processedPaperIds, reusedPaperIds, remainingPaperIds, missingEvidence and supplementRequests. A batch with remainingPaperIds is partial; keep the same lease until all assigned owned papers are complete. See handback.md for bounded recovery and result validation.
+
+## Chapter ownership boundary
+
+The full manuscript outline and the topic registry are different structures.
+Only 3–5 substantive research topics enter the registry; each receives one Manager.
+Global sections never count toward that number and receive no dedicated Manager:
+Abstract, Introduction, Background OR Preliminaries, Taxonomy OR Unified Framework,
+Comparative Analysis and Evaluation, Challenges and Future Directions, Conclusion.
+Paper Agent writes these global sections from scope/scoping, accepted topic chapters,
+synthesis.md and targeted primary notes, and assembles the Managers' topic chapters.
+Scoper proposes the global outline and classification; it does not write final prose.
+Managers provide supporting background, terms and taxonomy evidence in synthesis.md;
+providing this evidence does not transfer global-section authorship to a Manager.
+A topic may explain its own necessary background or local taxonomy within its chapter.
+Classify by responsibility and scope, not title keywords: a renamed global section
+such as "Unified Evolutionary Taxonomy" still must not become a registered topic.

@@ -14,6 +14,23 @@ Create config with reviewId, topic, language, maxRounds and maxWorkers; `init` r
 
 After explicit approval of this exact draft, `approve` receives `{explicitApproval:true,userMessage,scopeHash}` with SHA256 of the draft bytes. It creates immutable SCOPE_ORIGINAL.md and living SCOPE.md. Commit the scope checkpoint. Never manufacture the user's approval or reinterpret a prior draft approval.
 
+## Scope ownership check before approval and dispatch
+
+Read scoping.md and the paper-template.md writing contract before forming draft.topics.
+Display the full outline with owners, but pass only the 3–5 research-topic entries
+into `draft`. Paper Agent owns Abstract, Introduction, Background OR Preliminaries,
+Taxonomy OR Unified Framework, cross-topic comparison, Challenges and Future
+Directions and Conclusion. No dedicated Managers or topic IDs for these sections.
+Managers own substantive topic chapters and supply global-section evidence in synthesis.md.
+Check responsibilities and boundaries, including renamed global sections, before
+presenting the scope for human approval and again before binding Managers. The CLI
+validates topic shape/count, not semantic ownership; main must perform this check.
+If the draft mixes global sections into topics, correct it before requesting approval.
+If an already approved or resumed scope has that problem, preserve existing artifacts,
+report the mismatch and ask the user to resolve the changed topic boundaries. Do not
+silently rewrite frozen scope/state, delete Managers' work or fabricate approval.
+Use the existing scope-change policy; a changed core question requires a new review.
+
 ## Agent initialization and allocation
 
 For each topic create one slr-harness:slr-manager with INITIALIZE: deliver READY without task tool calls (native result transport is allowed). Capture its actual Agent ID, `bind` with `{agentId,role:"manager",topicId}`, then resume it with paths and responsibility. Bind independent slr-harness:slr-checker IDs similarly with role checker. Never bind one agent to multiple roles. Runtime identities, not names in prompts, authorize writes.

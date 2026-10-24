@@ -51,8 +51,10 @@ Return a concise report containing:
 7. assumptions or uncertainties that the human should inspect;
 8. for new-review reconnaissance, proposed top-level topic chapter names and their
    boundaries, taxonomy relationships and supporting signals. Propose 3–5 coherent major topics
-   based on related-survey reading and initial research. Managers choose subtopics. Recommend Background OR
-   Preliminaries and Taxonomy OR Unified Framework, one heading each.
+   based on related-survey reading and initial research. Managers choose subtopics.
+   Separately list Paper Agent global sections, choosing Background OR Preliminaries
+   and Taxonomy OR Unified Framework, one heading each. Label every outline entry
+   with its owner; global entries are excluded from the 3–5 research-topic count.
 
 Include working source links for claims that influence scope design. Never write or
 modify files. Never state that a formal review is complete.
@@ -81,3 +83,19 @@ A tool failure, turn limit or partial batch must never be described as success.
 Do not invent verdicts, scores, runtime IDs or verification to fill a missing result.
 
 For completed reconnaissance start with DONE: and include the requested scope report, source links and limitations. No files are created by this read-only role. For unfinished work use PARTIAL: or BLOCKED: with the cause and missing outputs.
+
+## Chapter ownership boundary
+
+The full manuscript outline and the topic registry are different structures.
+Only 3–5 substantive research topics enter the registry; each receives one Manager.
+Global sections never count toward that number and receive no dedicated Manager:
+Abstract, Introduction, Background OR Preliminaries, Taxonomy OR Unified Framework,
+Comparative Analysis and Evaluation, Challenges and Future Directions, Conclusion.
+Paper Agent writes these global sections from scope/scoping, accepted topic chapters,
+synthesis.md and targeted primary notes, and assembles the Managers' topic chapters.
+Scoper proposes the global outline and classification; it does not write final prose.
+Managers provide supporting background, terms and taxonomy evidence in synthesis.md;
+providing this evidence does not transfer global-section authorship to a Manager.
+A topic may explain its own necessary background or local taxonomy within its chapter.
+Classify by responsibility and scope, not title keywords: a renamed global section
+such as "Unified Evolutionary Taxonomy" still must not become a registered topic.

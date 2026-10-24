@@ -18,3 +18,10 @@ Topic prose synthesizes research questions, evolution, representative methods, a
 Legacy completed workspaces may derive topics from recorded scope and final notes if no outline exists; disclose this reconstruction. Use only verifiable source-backed facts, never historical evaluative annotations to order literature. Existing Markdown is preserved as a draft reference. Do not create new research or alter historical workspaces.
 
 Before handoff verify citations, version consistency, actual topic titles, all section bodies, complete argument and evidence boundaries. This stage uses lightweight proofreading; main runs the separate final Reviewer after successful compilation for schema 2.
+
+Global-section authorship belongs to Paper Agent, including Introduction, Background
+OR Preliminaries and Taxonomy OR Unified Framework. Paper Agent is both author and
+assembler. The 3–5 Manager chapters are additional substantive research topics.
+Use synthesis.md for global-section evidence; its background/taxonomy fields are
+not separately commissioned global chapter drafts. Main must resolve any scope
+ownership mismatch before dispatch, rather than commissioning duplicate chapters.

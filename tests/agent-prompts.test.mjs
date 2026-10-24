@@ -56,3 +56,22 @@ test('review defaults skip initial questions but retain human scope approval',()
   assert.doesNotMatch(entry,/No workspace or scoper\s+starts before intake completes/);
   assert.match(read('skills/paper/SKILL.md'),/ask once for missing audience/);
 });
+
+test('scope dispatch separates global authorship from research topic ownership',()=>{
+  for(const file of ['agents/slr-scoper.md','agents/slr-manager.md','skills/review/references/workspace-schemas.md']) {
+    const text=read(file);
+    assert.match(text,/Global sections never count/);
+    assert.match(text,/Paper Agent writes these global sections/);
+    assert.match(text,/Unified Evolutionary Taxonomy/);
+  }
+  const scope=read('skills/review/references/scoping.md');
+  assert.match(scope,/Only group 2 enters draft.topics/);
+  assert.match(scope,/never fill the/);
+  const flow=read('skills/review/references/workflow.md');
+  assert.match(flow,/before binding Managers/);
+  assert.match(flow,/not semantic ownership/);
+  assert.match(flow,/ask the user to resolve/);
+  assert.match(read('agents/slr-manager.md'),/before planning or launching Workers/);
+  for(const file of ['skills/paper/SKILL.md','agents/slr-paper-writer.md','skills/paper/references/paper-template.md'])
+    assert.match(read(file),/Paper Agent is both author and/);
+});

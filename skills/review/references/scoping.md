@@ -19,12 +19,23 @@ must be checked and incorporated into accepted paper records during research.
 
 SCOPE_DRAFT.md must contain Output Language, Review Configuration, Research Question,
 Search Strategy, Eligibility, Comparison Dimensions, Survey Outline and Limitations.
-The Survey Outline contains 3–5 major topics: stable slug ID, actual chapter title,
-research question/boundary, relation to the classification, initial sources/rationale
-and optional subtopic suggestions. Managers determine actual subtopics. If the
-landscape cannot support 3–5 coherent topics, resolve scope before approval rather
-than padding. Choose Background OR Preliminaries and Taxonomy OR Unified Framework,
-one heading each. Topic ordering follows conceptual relationships or chronology.
+Survey Outline must separate two explicit groups:
+1. Global sections (owner: Paper Agent): Abstract, Introduction, Background OR
+   Preliminaries, Taxonomy OR Unified Framework, Comparative Analysis and Evaluation,
+   Challenges and Future Directions, Conclusion. Choose one heading in each OR pair.
+   Scoper proposes their placement and intended content, not dedicated Managers.
+2. Research topic chapters (owner: one Manager per topic): 3–5 substantive topics,
+   each with stable slug ID, actual title, research question/boundary, classification
+   relationship, initial sources/rationale and optional subtopic suggestions.
+Only group 2 enters draft.topics and the state topic registry. Global sections are
+excluded from the 3–5 count even if renamed. Managers determine actual subtopics.
+Topic ordering follows conceptual relationships or chronology. If evidence cannot
+support 3–5 coherent research topics, resolve scope before approval; never fill the
+quota using background, taxonomy or other global sections.
+For example, a RAG scope may have three research topics: dense/hybrid retrieval,
+GraphRAG and Agentic RAG, with three Managers. Preliminaries and Unified Framework
+remain additional Paper Agent sections; this is an ownership example, not a required
+RAG taxonomy. Managers contribute their supporting evidence through synthesis.md.
 
 State the sources and uncertainty behind classification. Scope is a protocol, not
 review findings or a predetermined included-paper list. Scope approval freezes the

@@ -26,7 +26,13 @@ topic and evidence needs within the existing round, concurrency and retry budget
 Record effective settings in SCOPE_DRAFT.md and the scoping handoff. These defaults
 do not remove the explicit human scope approval below.
 
-Scopers read related surveys and initial sources, propose 3–5 major topics and scope.
+Scopers read related surveys and initial sources, propose 3–5 research topics and scope.
+Separate the full manuscript outline from the topic registry. Register and assign
+Managers only to research topic chapters. Abstract, Introduction, Background OR
+Preliminaries, Taxonomy OR Unified Framework, cross-topic comparison, Challenges
+and Future Directions and Conclusion belong to Paper Agent and never count as topics.
+Managers supply evidence for those global sections through synthesis.md. Before
+scope approval and Manager dispatch, check this ownership split in the draft.
 Present the draft and stop for explicit human approval. Configuration answers and
 vague praise are not approval. After approval run within budgets to honest completion
 or a concrete blocker. Final review pauses after three failing repairs and requires explicit continuation. Every accepted research
