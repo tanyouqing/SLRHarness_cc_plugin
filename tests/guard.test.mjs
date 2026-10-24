@@ -15,3 +15,39 @@ test('Worker writes only assigned pending paper and cannot delegate',t=>{const {
 test('Checker is read-only; search shell policy blocks execution chains',t=>{const {hook}=setup(t);assert.equal(hook('checker','rv','Read',{file_path:'x'}).allowed,true);for(const tool of ['Write','Bash','Agent','WebFetch','mcp__search'])assert.equal(hook('checker','rv',tool,{file_path:'x',command:'node x'}).allowed,false);assert.equal(hook('scoper','s','Bash',{command:'paper-search sources'}).allowed,true);for(const command of ['paper-search download x','paper-search sources; echo hi','paper-search search "x" -n 100'])assert.equal(hook('scoper','s','Bash',{command}).allowed,false);});
 test('Paper writes two exact files after terminal binding, preserving evidence',t=>{const {root,hook}=setup(t,true);paperControl(root,'bind-paper',{agentId:'p',role:'paper'});for(const n of ['main.tex','references.bib'])assert.equal(hook('paper-writer','p','Write',{file_path:path.join(root,'paper',n)}).allowed,true);for(const n of ['paper/neurips_2026.sty','paper/main.pdf','REVIEW_PAPER.md','.slr/state.json'])assert.equal(hook('paper-writer','p','Write',{file_path:path.join(root,n)}).allowed,false);assert.equal(hook('paper-writer','p','Bash',{command:'latexmk main.tex'}).allowed,false);});
 test('unrelated main-session calls are unaffected',()=>assert.equal(evaluateHook({tool_name:'Write',tool_input:{file_path:'x'}}).allowed,true));
+
+
+test('native handback works before READY binding for all six roles',()=>{
+  for(const role of ['scoper','manager','worker','checker','reviewer','paper-writer']) {
+    const input={agent_type:`slr-harness:slr-${role}`,tool_name:'SubagentHandback',tool_input:{message:'READY'}};
+    assert.equal(evaluateHook(input).allowed,true,role);
+    for(const message of ['', '  ', null, {}, 42])assert.equal(evaluateHook({...input,tool_input:{message}}).allowed,false,role);
+    assert.equal(evaluateHook({...input,tool_name:'SubagentHandbackOther'}).allowed,false,role);
+  }
+});
+
+test('read-only role can deliver exact JSON without gaining write or messaging rights',()=>{
+  const report=JSON.stringify({verdict:'passed',issues:[],limitations:[],fingerprint:'exact'});
+  const input={agent_type:'slr-checker',agent_id:'checker',tool_name:'SubagentHandback',tool_input:{message:report}};
+  assert.equal(evaluateHook(input).allowed,true);
+  assert.equal(input.tool_input.message,report);
+  for(const tool_name of ['Write','Bash','Agent','SendMessage'])assert.equal(evaluateHook({...input,tool_name}).allowed,false);
+});
+
+test('stopped Worker may report failure but cannot write or retrieve',t=>{
+  const {root,hook}=setup(t);mutate(root,'reserve',{topicId:'retrieval',taskId:'first',leaseId:'stopped'});
+  mutate(root,'bind-worker',{leaseId:'stopped',agentId:'w'});mutate(root,'fail',{leaseId:'stopped',reason:'Delivery failed'});
+  const before=fs.readFileSync(path.join(root,'.slr/state.json'));
+  assert.equal(hook('worker','w','SubagentHandback',{message:'BLOCKED: delivery failed'}).allowed,true);
+  assert.equal(hook('worker','w','Write',{file_path:path.join(root,'topics/retrieval/tasks/first/result.json')}).allowed,false);
+  assert.equal(hook('worker','w','WebSearch',{}).allowed,false);
+  assert.deepEqual(fs.readFileSync(path.join(root,'.slr/state.json')),before);
+});
+
+test('paused final Reviewer can report transport errors without bypassing retrieval gates',t=>{
+  const {root,hook}=setup(t,true);
+  fs.writeFileSync(path.join(root,'.slr/paper-bindings.json'),JSON.stringify({r:{role:'reviewer',submissionId:'submission-0001'}}));
+  fs.writeFileSync(path.join(root,'.slr/final-review.json'),JSON.stringify({status:'paused',submissions:[{id:'submission-0001'}]}));
+  assert.equal(hook('reviewer','r','SubagentHandback',{message:'BLOCKED: permission failure'}).allowed,true);
+  for(const tool of ['WebFetch','Write','Agent','SendMessage'])assert.equal(hook('reviewer','r',tool,{}).allowed,false);
+});

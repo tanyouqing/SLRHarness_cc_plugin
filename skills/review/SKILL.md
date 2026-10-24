@@ -11,12 +11,20 @@ Main-session orchestration owns global state, paper identities, budgets and Git.
 Use absolute paths under ${CLAUDE_PROJECT_DIR}/workspaces/<slug>. Never overwrite
 an existing workspace. Use pipeline.mjs for state changes, not direct state writes.
 
-Resolve primary objective, maximum rounds, source coverage and time coverage in one
-question containing only missing choices. Defaults: landscape mapping, five global
-rounds, academic plus authoritative grey sources, and a scoper-recommended date
-range. English is default unless Chinese output is explicitly requested. A topic
-written in Chinese alone does not choose output language. No workspace or scoper
-starts before intake completes. Missing interactive tooling uses disclosed defaults.
+Do not ask initial configuration questions. Retain settings explicitly supplied by
+the user and apply defaults to missing settings. Briefly disclose the effective
+configuration, then start scoping without waiting for a configuration response.
+Defaults: a professional synthesis for domain researchers covering taxonomy, method
+relationships, conditional comparisons and limitations; five global research rounds;
+academic papers and verifiable preprints as research evidence, with authoritative
+technical documentation for background and supplementary explanation; a date range
+chosen by the Scoper for the topic, with rationale and search cutoff recorded.
+English is default unless Chinese output is explicitly requested. A topic written
+in Chinese alone does not choose output language. There is no default target or
+hard limit on paper count: Scoper and Managers arrange coverage according to the
+topic and evidence needs within the existing round, concurrency and retry budgets.
+Record effective settings in SCOPE_DRAFT.md and the scoping handoff. These defaults
+do not remove the explicit human scope approval below.
 
 Scopers read related surveys and initial sources, propose 3–5 major topics and scope.
 Present the draft and stop for explicit human approval. Configuration answers and
@@ -32,3 +40,5 @@ paper generation only; no legacy research resume, update or implicit migration.
 For resume, inspect `.slr/final-review.json` through final-review.mjs status before
 normal research routing. Follow ../paper/references/final-review.md for active repairs,
 pending assessments or pauses. Do not reset original research budgets or move tags.
+
+Before any Agent invocation, read references/handback.md. Apply its READY/native transport, artifact validation, bounded recovery and reading-batch rules. Never replace a missing independent review with self-review.

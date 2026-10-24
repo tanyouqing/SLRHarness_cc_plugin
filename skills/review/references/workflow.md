@@ -8,7 +8,7 @@ Write command inputs under `.slr/requests/`; do not patch state manually. `statu
 
 Status never writes or launches agents. Select the explicit slug, conversation workspace or unique active workspace; ask when ambiguous. Never overwrite a slug collision. Schema 1 permits status and terminal paper delivery only: refuse research resume and update without touching original files. Schema 2 resume first checks final-review status: resume an authorized repair through paper/references/final-review.md; otherwise terminal resume continues paper delivery and final review. Update is suspended for all versions.
 
-Resolve objective, round limit, coverage and date strategy once, retaining user-specified settings and defaulting remaining settings when requested. Default English unless explicitly requested otherwise, five rounds, nine global Workers. Follow scoping.md for reconnaissance. Before approval, only scoping work is allowed.
+Do not ask initial configuration questions. Preserve explicit user settings; apply the defaults in review/SKILL.md to missing settings, briefly display the effective configuration and immediately start reconnaissance. Default English unless explicitly requested otherwise, five rounds, nine global Workers. Use a professional synthesis objective, academic papers and verifiable preprints as research evidence, and authoritative technical documentation only for background or supplementary explanation. Let the Scoper choose and justify dates and record the search cutoff. Do not impose a default target or hard limit on paper count; arrange coverage within the existing execution budgets. Record all effective settings in the scoping handoff and SCOPE_DRAFT.md. Follow scoping.md for reconnaissance. Before explicit human scope approval, only scoping work is allowed.
 
 Create config with reviewId, topic, language, maxRounds and maxWorkers; `init` requires a new directory. Initialize Git in that workspace, never in a parent repository. Save a root `scoping.md` summary linking detailed reconnaissance under `scope/`, including existing-survey comparison, terminology, source links and verification status. Draft SCOPE_DRAFT.md with 3–5 major topics, boundaries, shared comparison dimensions and methods. `draft` receives `{topics:[{id,title,boundary}]}`. Show the entire proposed scope to the user. Ambiguous praise, status or requests for changes do not approve it. Revise and show again as necessary.
 
@@ -16,7 +16,7 @@ After explicit approval of this exact draft, `approve` receives `{explicitApprov
 
 ## Agent initialization and allocation
 
-For each topic create one slr-harness:slr-manager with INITIALIZE: return READY without tool calls. Capture its actual Agent ID, `bind` with `{agentId,role:"manager",topicId}`, then resume it with paths and responsibility. Bind independent slr-harness:slr-checker IDs similarly with role checker. Never bind one agent to multiple roles. Runtime identities, not names in prompts, authorize writes.
+For each topic create one slr-harness:slr-manager with INITIALIZE: deliver READY without task tool calls (native result transport is allowed). Capture its actual Agent ID, `bind` with `{agentId,role:"manager",topicId}`, then resume it with paths and responsibility. Bind independent slr-harness:slr-checker IDs similarly with role checker. Never bind one agent to multiple roles. Runtime identities, not names in prompts, authorize writes.
 
 Verify Manager → Worker nesting using one allocated task. If Agent is unavailable inside Manager, record `mode` with `{mode:"main-dispatch"}` and have main launch Workers from the same task plan; disclose the fallback. Do not bypass permissions. The manager receives only quotas actually reserved by main.
 
@@ -55,3 +55,5 @@ for explicit continuation. Keep the original slr-complete tag; new accepted evid
 gets a separate commit and is passed to Paper writer. Initial five-round and saturation
 counters stay unchanged by repair rounds. Never run original-research scheduling
 blindly when final-review is paused or repairing. The final-review contract owns routing.
+
+Before any Agent invocation, read handback.md. Apply its READY/native transport, artifact validation, bounded recovery and reading-batch rules. Never replace a missing independent review with self-review.

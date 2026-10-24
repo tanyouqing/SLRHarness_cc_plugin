@@ -135,6 +135,11 @@ export function evaluateHook(input) {
   const tool=input.tool_name, args=input.tool_input ?? {};
   const bound=binding(input);
   if(typeof tool!=='string') return deny('missing tool name');
+  // Native result transport must work even before READY binding, or when reporting
+  // a paused/failed task. It grants no file, shell, retrieval or delegation access.
+  // The runtime routes this tool to the receiving parent; it is not SendMessage.
+  if(tool==='SubagentHandback') return typeof args.message==='string' && args.message.trim()
+    ?allow():deny('handback requires a nonempty report message');
   if(role==='slr-reviewer' && (!bound || bound.b.role!=='reviewer' || bound.finalReview?.status!=='awaiting_review'
     || bound.finalReview.submissions.at(-1)?.id!==bound.b.submissionId)) return deny('reviewer requires a current pending submission binding');
   if(bound?.finalReview?.status==='paused' && (writes.has(tool) || ['Agent','Bash','PowerShell','WebFetch','WebSearch'].includes(tool) || tool.startsWith('mcp__'))) return deny('final review is paused');

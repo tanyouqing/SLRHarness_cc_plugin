@@ -149,3 +149,5 @@ role-advice files, repair count, remaining issues and current PDF. Separate comp
 draft availability from final review completion. Passing with outstanding issues is
 allowed by the rubric; keep those issues visible. Missing comparison prevents overall
 completion even when the quality score passes.
+
+Apply ../../review/references/handback.md to writer and Reviewer initialization, result transport and operational recovery. Preserve JSON-only assessment envelopes; a delivery error never supplies a score or permits self-approval.

@@ -100,3 +100,5 @@ revisionId. The initial currentRound/maxRounds and saturation history remain int
 Shared supplements extend topicIds; unrelated Managers cannot write. Fresh chapter
 acceptance is required before finalize deactivates the context. Original slr-complete
 is preserved; later evidence commits are supplied to submission as evidenceRef.
+
+Read-phase result.json uses cumulative arrays processedPaperIds, reusedPaperIds, remainingPaperIds, missingEvidence and supplementRequests. A batch with remainingPaperIds is partial; keep the same lease until all assigned owned papers are complete. See handback.md for bounded recovery and result validation.

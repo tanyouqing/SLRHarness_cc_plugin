@@ -1,8 +1,28 @@
+# Delivery compatibility patch (0.7.1) — 2026-10-24
+
+The patch preserves the 0.7.0 schema, Manager evidence acceptance, Checker chapter
+review and existing research/repair budgets. It permits native SubagentHandback
+result transport before initialization binding and for failure reports. Other role
+tool restrictions remain. Six role prompts and orchestration references now specify
+native/text delivery, READY separation, exact review JSON, at-most-three-paper
+reading batches and bounded recovery without substituting self-review.
+
+Validation: 63 deterministic tests passed; plugin manifest validation and
+`git diff --check` passed. New tests cover six-role READY, malformed handback
+messages, unchanged JSON and read-only permissions, failed/paused reports, plus
+prompt integration. Batch sizing and recovery are orchestration prompt contracts;
+no automated scheduler or live Claude Agent handback test is claimed. No server
+rerun, fresh scientific review or additional TeX run was performed for this patch.
+The supplied server report's successful minimal test was not independently repeated.
+See [analysis and server test procedure](subagent-handback.md).
+
+---
+
 # Hierarchical pipeline validation
 
 Date: 2026-10-23 (Asia/Shanghai)
 
-## Current release: final Reviewer (0.7.0)
+## Historical release: final Reviewer (0.7.0)
 
 Final Reviewer is separate from the chapter Checker. It retrieves real authored
 surveys, compares aligned scopes, and returns separate Scoper/Manager/Worker

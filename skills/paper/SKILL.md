@@ -133,3 +133,5 @@ PDF build, visual inspection, final score and comparison completion. On compilat
 failure return source paths, diagnostics and `/slr-harness:paper resume <slug>`;
 explicitly say no current PDF was delivered. On a final-review pause, link the valid
 compiled draft and review/advice files but identify it as not finally accepted.
+
+Apply ../review/references/handback.md to writer and Reviewer initialization, result transport and operational recovery. Preserve JSON-only assessment envelopes; a delivery error never supplies a score or permits self-approval.

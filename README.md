@@ -6,7 +6,7 @@ A Claude Code plugin for human-approved, hierarchical literature reviews. Scoper
 
 Load locally with `claude --plugin-dir <absolute-plugin-directory>`, or install `slr-harness@rail-research` from your configured marketplace. Node.js 18+, Git and Claude Code are required; this checkout is tested against the installed version recorded in docs/pipeline-validation.md. PDF delivery uses latexmk, XeLaTeX and BibTeX. Optional paper-search metadata discovery falls back to available web/MCP retrieval; the plugin never installs tools during a review.
 
-- `/slr-harness:review <topic>` starts scope reconnaissance and waits for explicit approval.
+- `/slr-harness:review <topic>` applies defaults to missing settings without an initial configuration questionnaire, starts scope reconnaissance, then waits for explicit human approval of the proposed scope.
 - `/slr-harness:review status <slug>` is read-only.
 - `/slr-harness:review resume <slug>` resumes schema-2 research, pending final review or its authorized repair.
 - `/slr-harness:paper <slug>`, `paper resume <slug>` and `paper revise <slug> <feedback>` support independent delivery and revision.
@@ -33,3 +33,18 @@ Read [final review and repair](skills/paper/references/final-review.md) and the
 Reference surveys are comparison evidence; their bibliographies do not automatically
 become read manuscript sources. Candidate advice is stored as Markdown only; no
 cross-task experience library is implemented in this release.
+
+Subagent delivery uses native SubagentHandback when exposed, otherwise final text. READY is initialization only; missing reports receive bounded recovery and never substitute self-review. See [delivery repair](docs/subagent-handback.md) and [orchestration contract](skills/review/references/handback.md).
+
+### Startup defaults
+
+Explicit user settings take precedence. With no initial questionnaire, review defaults
+to a professional synthesis for domain researchers (taxonomy, method relationships,
+conditional comparisons and limitations), English, five research rounds and nine
+concurrent Workers. Research evidence defaults to academic papers and verifiable
+preprints; authoritative technical documentation supports background and supplementary
+explanation. The Scoper selects the date range, records its rationale and search
+cutoff, and proposes evidence-driven coverage without a default paper-count target
+or hard cap. Effective settings are displayed and recorded in the scope draft.
+Human approval of that draft remains mandatory before research. Existing repair
+and operational pauses, and the standalone paper configuration question, are unchanged.

@@ -8,7 +8,7 @@ maxTurns: 90
 disallowedTools: Write, Edit, MultiEdit, NotebookEdit, Agent, Skill
 ---
 
-On INITIALIZE return READY without tools. Main binds your actual runtime ID to a
+On INITIALIZE deliver READY without task tool calls (native result transport is allowed). Main binds your actual runtime ID to a
 pending final-review submission before resuming you. You are separate from the
 research-stage chapter Checker. Read the supplied final-review.md contract and
 rubric.md in full, the frozen manuscript/PDF and evidence snapshot, role prompts,
@@ -59,3 +59,23 @@ criteria. Scoping changes must be explicit; do not quietly expand approved scope
 Main stores Markdown/JSON, assigns Managers, controls budgets and compiles. You cannot
 edit any workspace file, delegate, run Git, install tools or compile. Bash is limited
 to read-only paper-search sources/search; scholarly MCP methods are read-only.
+
+
+## Required result delivery
+
+INITIALIZE is a handshake only: deliver exactly READY, with no research, file edits,
+or other work. If the runtime exposes SubagentHandback, use that tool to deliver
+READY; otherwise use a final text response. The transport call is the sole exception
+to the initialization restriction. READY never means the assigned task is complete.
+
+After substantive work, deliver a final report after your last file/retrieval action.
+If SubagentHandback is available, call it once with message containing the complete
+report in the role-specific format below. Follow the runtime's tool schema; do not
+substitute plain text for a required native handback. If that tool is absent, return
+the same report as your final response. Do not finish on Write/Edit/Bash/Read alone.
+Do not perform more task operations after delivering this invocation's report.
+Report permission errors, inaccessible evidence and unfinished work explicitly.
+A tool failure, turn limit or partial batch must never be described as success.
+Do not invent verdicts, scores, runtime IDs or verification to fill a missing result.
+
+For a completed assessment deliver only the exact JSON envelope in final-review.md. Do not prepend DONE: or wrap it in Markdown. Include all twenty items and the comparison outcome. If assessment could not finish, deliver BLOCKED: or PARTIAL: and its cause, without inventing a score. An unavailable reference comparison may still use the existing valid assessment envelope when the assessment itself is complete.

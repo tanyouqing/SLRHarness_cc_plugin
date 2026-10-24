@@ -23,3 +23,36 @@ test('Checker and final Reviewer have separate contracts',()=>{
   for(const file of ['scripts/pipeline.mjs','agents/slr-checker.md','skills/review/references/workflow.md'])
     assert.doesNotMatch(read(file),/reviewerId/);
 });
+
+
+test('all roles distinguish READY from final transport and preserve exact review JSON',()=>{
+  for(const role of ['scoper','manager','worker','checker','reviewer','paper-writer']) {
+    const prompt=read(`agents/slr-${role}.md`);
+    assert.match(prompt,/Required result delivery/);assert.match(prompt,/SubagentHandback/);
+    assert.match(prompt,/READY never means/);assert.match(prompt,/otherwise use a final text/);
+    assert.match(prompt,/PARTIAL:/);assert.match(prompt,/BLOCKED:/);
+  }
+  for(const role of ['checker','reviewer'])assert.match(read(`agents/slr-${role}.md`),/Do not prepend DONE:/);
+});
+
+test('orchestration integrates bounded delivery recovery without self-approval',()=>{
+  for(const f of ['skills/review/SKILL.md','skills/review/references/workflow.md','skills/paper/SKILL.md','skills/paper/references/final-review.md'])assert.match(read(f),/handback\.md/);
+  const contract=read('skills/review/references/handback.md');
+  assert.match(contract,/at most one focused recovery/);assert.match(contract,/at most\s+three owned paper IDs/);
+  assert.match(contract,/remainingPaperIds\s+is empty/);assert.match(contract,/Do not manually take over independent/);
+  assert.match(contract,/SendMessage/);assert.match(contract,/existing maximum of two attempts/);
+});
+
+test('review defaults skip initial questions but retain human scope approval',()=>{
+  const entry=read('skills/review/SKILL.md'), flow=read('skills/review/references/workflow.md');
+  for(const text of [entry,flow]) {
+    assert.match(text,/Do not ask initial configuration questions/);
+    assert.match(text,/verifiable preprints/);
+    assert.match(text,/search cutoff/);
+    assert.match(text,/hard limit on paper count/);
+  }
+  assert.match(entry,/stop for explicit human approval/);
+  assert.match(flow,/explicitApproval:true,userMessage,scopeHash/);
+  assert.doesNotMatch(entry,/No workspace or scoper\s+starts before intake completes/);
+  assert.match(read('skills/paper/SKILL.md'),/ask once for missing audience/);
+});

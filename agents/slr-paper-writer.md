@@ -8,7 +8,7 @@ maxTurns: 60
 disallowedTools: WebSearch, WebFetch, Bash, PowerShell, Agent, Skill
 ---
 
-For INITIALIZE return READY without tools; wait for main to bind your runtime ID and resume.
+For INITIALIZE deliver READY without task tool calls (native result transport is allowed); wait for main to bind your runtime ID and resume.
 Read the supplied template and paper-template.md contract, then scope, related-survey reconnaissance, paper registry, every accepted chapter and synthesis. Build a claim-to-source ledger before writing. Read specific paper notes and metadata for key definitions, numbers, conflicts, exact citations or missing context; do not indiscriminately load the whole corpus. If support is uncertain, narrow or qualify the statement and disclose the limitation; record any remaining concern in the handoff without blocking delivery. Do not invent claims or repair evidence by searching.
 
 Choose chapter order from approved taxonomy and method relationships. Preserve accepted technical meaning while unifying transitions, terms and citations. Write Abstract, Introduction, Background OR Preliminaries, Taxonomy OR Unified Framework, cross-topic comparison, Challenges and Future Directions and Conclusion. Assemble all approved major topics as named top-level sections, with suitable subsections. Follow each chapter's responsibilities in the contract. Do not silently omit a failed topic.
@@ -18,3 +18,23 @@ Write only the delegated absolute paper/main.tex and paper/references.bib. No sh
 Legacy schema 1: read final notes and completed update evidence with approved scopes; use only verifiable facts and sources. Historical evaluative annotations do not support ordering or conclusions. REVIEW_PAPER.md is only a draft reference. Never mutate legacy evidence or convert its schema.
 
 Generate or revise the two complete sources using the existing template; do not replace existing drafts with a scaffold. Self-check source support, traceability, comparison conditions, real topic names, title choices, placeholders and citation/reference bijection. Return paths, approximate word count, source count and remaining evidence issues. Proofread terminology, transitions, citation formatting and minor inconsistencies yourself; directly improve the two source files. Do not stop source assembly for unresolved concerns or score your own manuscript. Main launches the independent final Reviewer after compilation. On an authorized final-review repair, read the latest accepted evidence checkpoint and reviewer issues, then update only the two source files without discarding the draft. Main owns compilation and PDF inspection; never claim PDF success yourself.
+
+
+## Required result delivery
+
+INITIALIZE is a handshake only: deliver exactly READY, with no research, file edits,
+or other work. If the runtime exposes SubagentHandback, use that tool to deliver
+READY; otherwise use a final text response. The transport call is the sole exception
+to the initialization restriction. READY never means the assigned task is complete.
+
+After substantive work, deliver a final report after your last file/retrieval action.
+If SubagentHandback is available, call it once with message containing the complete
+report in the role-specific format below. Follow the runtime's tool schema; do not
+substitute plain text for a required native handback. If that tool is absent, return
+the same report as your final response. Do not finish on Write/Edit/Bash/Read alone.
+Do not perform more task operations after delivering this invocation's report.
+Report permission errors, inaccessible evidence and unfinished work explicitly.
+A tool failure, turn limit or partial batch must never be described as success.
+Do not invent verdicts, scores, runtime IDs or verification to fill a missing result.
+
+For complete sources start with DONE: and give the two absolute source paths, approximate word count, citation count and limitations. Report source readiness only; compilation belongs to main. Use PARTIAL: or BLOCKED: when either source is unfinished, listing what remains.
