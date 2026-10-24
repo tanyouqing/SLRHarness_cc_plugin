@@ -1,3 +1,4 @@
+import {writerReady} from './work-stages.mjs';
 import fs from 'node:fs';
 import path from 'node:path';
 import { createHash } from 'node:crypto';
@@ -89,6 +90,7 @@ export function buildPaper(paper, { run = spawnSync } = {}) {
   };
   try {
     hash = sourceHash(paper);
+    if(!writerReady(path.dirname(paper))) return save('writing-incomplete',{error:'complete current writer phases before compilation'});
     if(!researchComplete(paper)) return save('research-incomplete',{error:'paper delivery requires completed research'});
     const errors = validatePaper(read(path.join(paper, 'main.tex')), read(path.join(paper, 'references.bib')));
     if (errors.length) return save('validation-failed', { errors });

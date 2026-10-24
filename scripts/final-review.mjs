@@ -1,3 +1,6 @@
+import {reviewSummary,reviewQuery,safePath} from './bounded-output.mjs';
+import {writerReady,reviewReady} from './work-stages.mjs';
+import {enabled} from './context-control.mjs';
 import fs from 'node:fs';
 import path from 'node:path';
 import {fileURLToPath} from 'node:url';
@@ -48,7 +51,7 @@ function addTree(root,files,relative) {
 function copyFrozenTree(source,target,top=true) {
   fs.mkdirSync(target,{recursive:true});
   for(const e of fs.readdirSync(source,{withFileTypes:true})) {
-    if(top && ['assessment.json','assessment.md','comparison.md','scoper.md','manager.md','worker.md'].includes(e.name))continue;
+    if(top && ['drafts','assessment.json','assessment.md','comparison.md','scoper.md','manager.md','worker.md'].includes(e.name))continue;
     requireValue(!e.isSymbolicLink(),'snapshot refuses symbolic links');
     const from=path.join(source,e.name),to=path.join(target,e.name);
     if(e.isDirectory())copyFrozenTree(from,to,false);
@@ -145,18 +148,30 @@ function renderReports(root,sub,report) {
 export function finalReviewStatus(root) {
   const c=readControl(root),sub=latest(c);let current=false,error=null;
   try { if(sub)verifySnapshot(root,sub);current=!!sub && reviewInputs(root).fingerprint===sub.fingerprint; } catch(e) {error=e.message;}
-  return {...c,current,complete:c.status==='passed' && current,error};
+  let coverage=true;
+  if(sub?.assessment && enabled(root)) {
+    try {coverage=reviewReady(root,sub.id,sub.reviewerId);}catch(e){coverage=false;error??=e.message;}
+    if(!coverage)error??='review coverage records changed or incomplete';
+  }
+  return {...c,current,complete:c.status==='passed' && current && coverage,error};
 }
 
 // All mutations use the same lock as research operations; delegated roles cannot run this CLI.
 export function finalReviewControl(root,action,args={}) {
   if(action==='status')return finalReviewStatus(root);
+  if(action==='query')return reviewQuery(readControl(root),args,root);
+  if(action==='record-file') {
+    const sub=latest(readControl(root));requireValue(sub,'pending submission required');
+    const envelope=json(safePath(root,`paper/reviews/${sub.id}/drafts/score.json`));
+    return finalReviewControl(root,'record',envelope);
+  }
   return withLock(root,()=>{
     const state=loadState(root),c=readControl(root);
     requireValue(state.schemaVersion===2,'legacy workspace: final review and research revision are disabled');
     requireValue(c.rubricVersion===RUBRIC_VERSION,'fixed rubric version is unavailable');
     const save=()=>{c.updatedAt=now();atomicJSON(controlPath(root),c);return c;};
     if(action==='submit') {
+      requireValue(writerReady(root),'complete current writing stages before submission');
       requireValue(c.status!=='paused','resume the paused review first');
       const input=reviewInputs(root),old=latest(c),revision=activeRevision(c);
       if(old)verifySnapshot(root,old);
@@ -192,6 +207,8 @@ export function finalReviewControl(root,action,args={}) {
       requireValue(args.submissionId===sub.id && args.fingerprint===sub.fingerprint && reviewInputs(root).fingerprint===sub.fingerprint,'stale or wrong manuscript/evidence fingerprint');
       const bindings=json(path.join(root,'.slr/paper-bindings.json'));
       requireValue(bindings[args.reviewerId]?.role==='reviewer' && bindings[args.reviewerId].submissionId===sub.id,'independent bound reviewer required');
+      requireValue(reviewReady(root,sub.id,args.reviewerId),'complete all current review units before scoring');
+      if(enabled(root))requireValue(hash(JSON.stringify(json(safePath(root,`paper/reviews/${sub.id}/drafts/score.json`)).report))===hash(JSON.stringify(args.report)),'score differs from validated draft');
       validateAssessment(args.report,state.topics.map(t=>t.id));
       const revision=activeRevision(c);
       if(revision) {
@@ -261,8 +278,10 @@ export function finalReviewControl(root,action,args={}) {
 
 if(process.argv[1] && path.resolve(process.argv[1]).toLowerCase()===fileURLToPath(import.meta.url).toLowerCase()) {
   try {
-    const [action,root,input]=process.argv.slice(2);
+    const argv=process.argv.slice(2),full=argv.includes('--full');
+    const [action,root,input]=argv.filter(x=>x!=='--full');
     requireValue(root && path.isAbsolute(root),'absolute workspace required');
-    console.log(JSON.stringify(finalReviewControl(path.resolve(root),action,input?json(input):{}),null,2));
+    const result=finalReviewControl(path.resolve(root),action,input?json(input):{});
+    console.log(JSON.stringify(full||action==='query'?result:reviewSummary(result,action,root)));
   } catch(e) {console.error(e.message);process.exitCode=1;}
 }

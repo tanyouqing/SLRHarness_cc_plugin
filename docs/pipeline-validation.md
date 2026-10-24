@@ -1,3 +1,27 @@
+# Context control validation — 0.8.0 (2026-10-24)
+
+This section supersedes earlier counts below. The current 0.8.0 change is bounded
+context/Manager control, not the previously reverted unified-Checker redesign.
+
+- Deterministic suite: 76 tests passed. Includes competing Manager processes,
+  nine-slot/two-attempt limits, shared canonical evidence, partial delivery refusal,
+  idempotent requests, role-scoped controls, bounded summaries and pagination,
+  immutable stage findings, fresh writer/reviewer assignments, old-workspace opt-in,
+  and a synthetic three-topic/shared-paper 69-to-70 repair sequence.
+- Static validation: plugin manifest and git diff --check pass.
+- Real compilation: staged synthetic fixture built with latexmk/XeLaTeX/BibTeX;
+  two pages visually inspected, no obvious clipping/missing glyphs, no layout warnings.
+- Real Agent probe: attempted, not passed. One Manager initialized/bound, zero
+  Worker launches before the requested 1 USD budget stopped the run. Host-estimated
+  total was 1.031233 USD with unknown custom-model cost basis. Permission denials
+  included PowerShell and non-allowlisted shell listing; no bypass was introduced.
+- Not executed: live manual /compact with active siblings, successful real nested
+  Worker delivery, and complete real-literature writing/review/repair.
+
+See context-control.md and the two execution contracts for APIs, limits and recovery.
+
+---
+
 # Delivery compatibility patch (0.7.1) — 2026-10-24
 
 The patch preserves the 0.7.0 schema, Manager evidence acceptance, Checker chapter

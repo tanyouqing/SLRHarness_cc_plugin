@@ -1,7 +1,7 @@
 # Final manuscript review and repair
 
 Main owns this workflow. Use only schema 2; legacy delivery keeps its current path.
-The Reviewer searches/reads and returns results, never edits or delegates. The
+The Reviewer searches/reads and returns judgments; it never edits evidence/manuscript or delegates. Context-enabled staged Reviewers may write only their assigned report draft. The
 chapter Checker remains responsible for accepted research chapters. Paper writer
 self-proofreading and compilation happen before this final stage.
 
@@ -25,7 +25,7 @@ share `.slr/paper-bindings.json`. No future memory-store interface is introduced
    submission ID, fingerprint and previous assessment. Give access to original
    scholarly sources for independent retrieval and targeted verification. Main can
    render PDFs for the reviewer with available tools; never claim visual inspection
-   that was unavailable. Reviewer writes no files.
+   that was unavailable. Unstaged Reviewer writes no files; staged draft permissions are defined in staged-execution.md.
 4. Main saves the exact returned envelope as a request and calls `record`. Correct
    malformed JSON/arithmetic by requesting a corrected response, never by changing
    substantive scores. Invalid records do not consume a revision. The helper saves

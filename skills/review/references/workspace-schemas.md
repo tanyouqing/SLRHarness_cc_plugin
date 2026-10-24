@@ -118,3 +118,11 @@ providing this evidence does not transfer global-section authorship to a Manager
 A topic may explain its own necessary background or local taxonomy within its chapter.
 Classify by responsibility and scope, not title keywords: a renamed global section
 such as "Unified Evolutionary Taxonomy" still must not become a registered topic.
+
+Read context-workflow.md (under references/ from SKILL.md) for bounded output,
+Manager-owned Worker control and compact recovery. Manager requests live only in
+topics/<id>/requests/. Scripts atomically maintain state and request receipts.
+Additional sidecars: .slr/context-policy.json, .slr/recovery.json, .slr/checkpoints/,
+.slr/work-stages.json. Staged writer also owns paper/writing-handoff.md; staged
+Reviewer owns only its currently assigned paper/reviews/<submission>/drafts/<unit>.json.
+Default control responses never include the full registry or historical reports.

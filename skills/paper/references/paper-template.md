@@ -25,3 +25,7 @@ assembler. The 3–5 Manager chapters are additional substantive research topics
 Use synthesis.md for global-section evidence; its background/taxonomy fields are
 not separately commissioned global chapter drafts. Main must resolve any scope
 ownership mismatch before dispatch, rather than commissioning duplicate chapters.
+
+In context-enabled workspaces, staged-execution.md partitions writing and review.
+The final document must satisfy this complete contract; an intermediate phase
+need only complete its assigned section while preserving others.

@@ -7,13 +7,14 @@ argument-hint: <slug> | resume <slug> | revise <slug> <feedback>
 # Template-based survey delivery
 
 This workflow follows research completion and may also be invoked explicitly.
+Read references/staged-execution.md for context-enabled workspaces.
 Read references/paper-template.md completely and use template/neurips_2026.tex.
 Pass the scope's initial reconnaissance-based Survey Outline and recorded refinements
 to the writer. Topic count is unconstrained by template placeholders. Require one
 selected heading each for Background OR Preliminaries and Taxonomy OR Unified Framework.
 Use absolute paths rooted at ${CLAUDE_PROJECT_DIR}/workspaces/<slug>; never cd.
 Run Git as git -C <absolute-workspace>. The main session owns preparation,
-validation, compilation and commits; the writer owns only two manuscript sources.
+validation, compilation and commits; the writer owns the two manuscript sources and, in staged mode, its bounded writing-handoff.md.
 
 ## 1. Select and check evidence
 
@@ -32,8 +33,8 @@ Outside authorized final-review repair, do not change research state or artifact
 and the slr-complete target before writing, and verify preservation before committing.
 
 Inspect git status --porcelain --untracked-files=all. Permit recoverable changes
-only to paper/main.tex, references.bib, neurips_2026.sty, main.pdf, build.json and
-paper/.gitignore. Paper orchestration sidecars under .slr/paper-* and .slr/final-review.json plus explicit paper/reviews/ snapshot/result paths are allowed and committed separately from research checkpoints. During authorized repair, commit only assigned research changes as a new evidence checkpoint; use that commit instead of the initial slr-complete as the writer input. Other dirty files, including a modified legacy REVIEW_PAPER.md,
+only to paper/main.tex, references.bib, writing-handoff.md, neurips_2026.sty, main.pdf, build.json and
+paper/.gitignore. Context orchestration sidecars under .slr/context-policy.json, .slr/recovery.json, .slr/checkpoints/, .slr/work-stages.json, and paper orchestration sidecars under .slr/paper-* and .slr/final-review.json plus explicit paper/reviews/ snapshot/result paths are allowed and committed separately from research checkpoints. During authorized repair, commit only assigned research changes as a new evidence checkpoint; use that commit instead of the initial slr-complete as the writer input. Other dirty files, including a modified legacy REVIEW_PAPER.md,
 are a blocker. Never stage unrelated changes. A committed legacy Markdown paper
 is preserved byte-for-byte and may serve only as a rechecked draft for migration.
 
@@ -50,6 +51,10 @@ is preserved byte-for-byte and may serve only as a rechecked draft for migration
 Use `node "${CLAUDE_PLUGIN_ROOT}/scripts/paper-build.mjs" status <absolute-paper-dir>`
 to inspect source/PDF freshness. current=true checks source and PDF hashes only;
 it does not establish factual quality or coverage of later evidence updates.
+In a context-enabled workspace, first inspect work-stages status. A current PDF
+does not substitute for missing/current writing-stage records: complete staged
+validation/continuation against existing sources, preserving accepted content,
+before submission. Existing fully delivered workspaces need not opt in.
 An already committed current paper is left unchanged by automatic/generate/resume; for v2 still complete any pending final Reviewer workflow;
 explicit revise may incorporate completed updates. A successful but uncommitted
 build must still pass the manuscript checks and be committed, not silently skipped.
@@ -70,11 +75,14 @@ affiliation are empty unless supplied by the user. Do not impose conference page
 Run `node "${CLAUDE_PLUGIN_ROOT}/scripts/paper-build.mjs" prepare <absolute-paper-dir>`.
 It copies missing template sources and style only, preserves existing files and
 ignores paper/.build/. Do not copy or enable the optional conference checklist.
-Delegate one slr-harness:slr-paper-writer in the foreground with absolute project,
-workspace, template, contract and both output paths; mode, settings, feedback,
-slr-complete commit and completed-update scopes/states/refs. Use INITIALIZE/READY, bind the returned ID with pipeline.mjs bind-paper and {agentId,role:"paper"}, then resume. Require chapter/synthesis/index reading and targeted paper-note verification, writing only paper/main.tex and paper/references.bib.
-The paper writer has no search, new-evidence, shell or research mutation permissions. Final Reviewer retrieval and authorized Manager/Worker repair follow their separate contracts. For an already
-complete source awaiting compilation, skip delegation until diagnostics need repair.
+For context-enabled schema 2, use staged-execution.md: fresh serialized writer
+invocations, bound phase assignments, bounded inputs, hash-checked completion and
+writing-handoff.md. Do not launch a monolithic writer that reads every chapter.
+For unenabled/schema 1, retain a single initialized/bound writer with the existing
+legacy evidence contract. All writers remain unable to search, delegate or compile.
+Main owns compilation and PDF inspection. On validation/build failure preserve the
+sources and record diagnostics; a staged correction starts an explicit writing
+revision without erasing the draft. Never mark intermediate phases as final output.
 
 ## 4. Validate, compile and inspect
 
@@ -119,7 +127,7 @@ Return a final delivery only when `final-review.mjs status` reports complete=tru
 For legacy skip this new stage and retain existing source/PDF delivery behavior.
 
 Commit after proofreading, source-format checks and build succeed. Verify the only changes
-outside a documented repair are the paper source pair, bundled style, PDF, build.json, paper/.gitignore, named control sidecars and final-review snapshots/results;
+outside a documented repair are the paper source pair, writing-handoff.md, bundled style, PDF, build.json, paper/.gitignore, named control sidecars and final-review snapshots/results;
 legacy Markdown, research state, scopes, tasks, report, notes, assets and existing tags remain
 unchanged. Stage exact delivery/review paths and named sidecars, never paper/ or .slr/ wholesale or .build/ logs. Commit authorized research repairs separately and retain every earlier checkpoint.
 Use `paper: generate review manuscript` for first LaTeX delivery (including migration)
@@ -142,3 +150,8 @@ assembler. The 3–5 Manager chapters are additional substantive research topics
 Use synthesis.md for global-section evidence; its background/taxonomy fields are
 not separately commissioned global chapter drafts. Main must resolve any scope
 ownership mismatch before dispatch, rather than commissioning duplicate chapters.
+
+For each successfully built and visually inspected staged manuscript, call
+context-control checkpoint-paper with current source/PDF hashes and actual inspection
+notes. Announce the checkpoint and optional /compact hint; continue to final review.
+Commit writing-handoff.md and orchestration sidecars with the appropriate checkpoint.

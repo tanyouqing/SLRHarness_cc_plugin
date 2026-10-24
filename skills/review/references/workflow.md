@@ -1,6 +1,7 @@
 # Hierarchical review orchestration
 
-The main session owns state, identity resolution, budgets, checkpoints and compilation.
+Main coordinates global rounds, conflicts, checkpoints and compilation. Restricted
+Manager helpers apply topic-local state operations under the same global lock.
 Use absolute paths. Every CLI below is `node "${CLAUDE_PLUGIN_ROOT}/scripts/pipeline.mjs" <command> <absolute-workspace> [absolute-input.json]`.
 Write command inputs under `.slr/requests/`; do not patch state manually. `status`, `next`, `fingerprint <topic-id>` are read-only.
 
@@ -12,7 +13,7 @@ Do not ask initial configuration questions. Preserve explicit user settings; app
 
 Create config with reviewId, topic, language, maxRounds and maxWorkers; `init` requires a new directory. Initialize Git in that workspace, never in a parent repository. Save a root `scoping.md` summary linking detailed reconnaissance under `scope/`, including existing-survey comparison, terminology, source links and verification status. Draft SCOPE_DRAFT.md with 3–5 major topics, boundaries, shared comparison dimensions and methods. `draft` receives `{topics:[{id,title,boundary}]}`. Show the entire proposed scope to the user. Ambiguous praise, status or requests for changes do not approve it. Revise and show again as necessary.
 
-After explicit approval of this exact draft, `approve` receives `{explicitApproval:true,userMessage,scopeHash}` with SHA256 of the draft bytes. It creates immutable SCOPE_ORIGINAL.md and living SCOPE.md. Commit the scope checkpoint. Never manufacture the user's approval or reinterpret a prior draft approval.
+After explicit approval of this exact draft, `approve` receives `{explicitApproval:true,userMessage,scopeHash}` with SHA256 of the draft bytes. It creates immutable SCOPE_ORIGINAL.md and living SCOPE.md. Commit the scope checkpoint, then run context-control checkpoint-scope; save its optional /compact hint without waiting for compaction. Never manufacture the user's approval or reinterpret a prior draft approval.
 
 ## Scope ownership check before approval and dispatch
 
@@ -35,18 +36,18 @@ Use the existing scope-change policy; a changed core question requires a new rev
 
 For each topic create one slr-harness:slr-manager with INITIALIZE: deliver READY without task tool calls (native result transport is allowed). Capture its actual Agent ID, `bind` with `{agentId,role:"manager",topicId}`, then resume it with paths and responsibility. Bind independent slr-harness:slr-checker IDs similarly with role checker. Never bind one agent to multiple roles. Runtime identities, not names in prompts, authorize writes.
 
-Verify Manager → Worker nesting using one allocated task. If Agent is unavailable inside Manager, record `mode` with `{mode:"main-dispatch"}` and have main launch Workers from the same task plan; disclose the fallback. Do not bypass permissions. The manager receives only quotas actually reserved by main.
+Verify Manager → Worker nesting using one allocated task. If Agent is unavailable inside Manager, record `mode` with `{mode:"main-dispatch"}` and have main launch Workers from the same task plan; disclose the fallback. Do not bypass permissions. Managers obtain slots through the restricted shared control entry; main supplies only permitted global budgets.
 
 ## Each global round
 
-1. `begin-round` once. Resume incomplete Managers to create topics/<id>/plan.json containing tasks with id, question, boundary and evidence-based rationale. Import each via `plan {topicId,tasks}`. New tasks after round one require an evidenced gap. Retain old task IDs; to split/merge, `close-task {topicId,taskId,reason}` pending superseded tasks and create successors. Completed topics are skipped.
-2. Use `next` for round-robin allocation. `reserve {topicId,taskId,leaseId}` before every Worker launch, including retries and reading. Across all Managers there are at most nine active leases. Worker attempts are at most two per phase. Managers launch only Workers for reserved leases. INITIALIZE returns READY; Manager runs the sole allowed helper `node "${CLAUDE_PLUGIN_ROOT}/scripts/pipeline.mjs" bind-worker "<workspace>" <lease-id> <actual-agent-id>` and resumes that Worker. Main uses the same handshake in fallback mode.
-3. Discovery Workers write search.md and candidates.json in their task directory. Main submits `finish-discovery {leaseId,candidates,noEvidenceReason}`. Merge DOI/arXiv/canonical URL/title aliases before any formal reading. Conflicting strong IDs or versions require inspection and documented resolution; do not silently combine. This closes the discovery lease and assigns stable IDs, shared topic membership and one owner. All discovery may proceed in batches. Never let multiple Workers write the same paper.
-4. Allocate read-phase leases. Workers write only their owned papers/<id>/metadata.json and note.md, plus task result/log. Shared records are read-only. Main calls `finish-read {leaseId}` after completion, then checks Manager acceptance and calls `accept-paper {paperId,checked:true,rationale}` for each verified record. If a shared paper is still pending, defer dependent chapter review. For additional evidence use `supplement {paperId,reason,taskId}`; it assigns one owner task and invalidates affected chapter acceptance. All source retrieval, including supplements, consumes remaining open research rounds.
-5. On Worker failure `fail {leaseId,reason}`. A second failure blocks that task. After interruption, inspect actual Agent status first: resume a live bound Worker, or mark its stopped lease failed; do not clear active leases speculatively. Never overwrite accepted records to recover a failed sibling task.
-6. Managers check coverage and write chapter.md and synthesis.md. Paper citations use [@p-<id>] with locations; synthesis contains background, terms, importance, taxonomy links, comparison conditions, conflicts and future questions. Worker tasks need not equal final subsections.
-7. Obtain `fingerprint <topic-id>` and give the exact draft and evidence to an independent Checker. Main saves the returned JSON under reviews/ and submits `review-topic {topicId,checkerId,verdict,issues,fingerprint,limitations}`. Issues include location, evidence, severity and requested repair. Initial review plus at most two repair cycles. Resume Manager for repairs; new retrieval requires remaining research rounds. On exhausted budgets, narrow unsupported claims and disclose limits. Substantive errors cannot pass and a failing topic cannot be silently dropped.
-8. `end-round` after all leases stop. Review progress and source additions determine further work. Two rounds with neither newly accepted papers nor accepted chapters stop retrieval. New tasks must address an actual gap, never evade saturation. Commit state, task logs, paper records, chapter material and review results as a global round checkpoint using exact paths.
+1. Main opens `begin-round`. Each Manager writes/imports its plan through manager-control. Main completes a planning pass across all unfinished Managers before releasing dispatch, so one early Manager cannot consume all slots before others register work.
+2. Managers request slots through `reserve`, launch/bind/resume their Workers, and own Worker deliveries. All requests use the global lock, shared round-robin cursor and nine-slot cap. Waiting does not consume retries; do not poll repeatedly. If a Manager has no live children and only queued work, it yields a bounded waiting report; main rotates to another Manager and resumes it on progress.
+3. Managers submit discovery files through `finish-discovery`; the deterministic registry merges identities and assigns unique owners. Main handles strong-ID/version conflicts and cross-topic supplements, using targeted evidence only.
+4. Managers assign at most three owned papers per read batch, validate cumulative result.json and all required metadata/note files, then submit `finish-read`. They check each paper's evidence and submit `accept-paper` using acceptance.json. Main does not reread the entire corpus to repeat Manager acceptance.
+5. Managers confirm stopped runtime status before finish/fail, persist one bounded handback recovery per batch in their request files, and retain two attempts per task phase. Unknown liveness is an operational blocker, never permission to release a lease. Main handles any abandoned Manager with live descendants before rebind or redispatch.
+6. Managers produce chapter.md and synthesis.md; main receives only status, counts, paths and unresolved conflicts. Validate artifacts mechanically through scripts. Main may inspect targeted content for a real unresolved issue.
+7. Main launches an independent Checker with the topic fingerprint and paths. Save its exact verdict and submit `review-topic`. Initial review plus two repairs remains unchanged. Manager handles any Worker corrections. A passed chapter automatically records a topic checkpoint, even while other topics' Workers continue. Announce it briefly with an optional /compact hint; do not wait for compaction.
+8. Main closes `end-round` only after all leases stop, evaluates five-round/two-low-yield stopping rules and commits the exact artifacts. Completed topics are skipped. New tasks must address actual evidence gaps.
 
 ## Completion and recovery
 
@@ -74,3 +75,9 @@ counters stay unchanged by repair rounds. Never run original-research scheduling
 blindly when final-review is paused or repairing. The final-review contract owns routing.
 
 Before any Agent invocation, read handback.md. Apply its READY/native transport, artifact validation, bounded recovery and reading-batch rules. Never replace a missing independent review with self-review.
+
+Read context-workflow.md before dispatch. New CLI-created workspaces enable this
+policy automatically. On explicit resume of older schema 2, resolve old active
+leases before context-control enable; never migrate during status. Main reads the
+bounded summary and targeted queries, not complete state JSON. Existing passed
+deliveries need no opt-in or regeneration. Schema 1 remains unchanged.

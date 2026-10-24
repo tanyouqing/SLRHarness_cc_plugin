@@ -75,3 +75,13 @@ test('scope dispatch separates global authorship from research topic ownership',
   for(const file of ['skills/paper/SKILL.md','agents/slr-paper-writer.md','skills/paper/references/paper-template.md'])
     assert.match(read(file),/Paper Agent is both author and/);
 });
+
+test('bounded workflow routes Worker delivery to Manager and uses staged source/report handoffs',()=>{
+  assert.match(read('agents/slr-manager.md'),/manager-control.mjs/);
+  assert.match(read('agents/slr-manager.md'),/Workers return\s+to you/);
+  assert.match(read('skills/review/references/workflow.md'),/Main does not reread the entire corpus/);
+  assert.match(read('agents/slr-paper-writer.md'),/Do not read every chapter/);
+  assert.match(read('agents/slr-reviewer.md'),/assigned score artifact/);
+  assert.match(read('skills/paper/references/staged-execution.md'),/fresh Reviewer/);
+  assert.match(read('skills/review/references/context-workflow.md'),/Hooks never trigger \/compact/);
+});

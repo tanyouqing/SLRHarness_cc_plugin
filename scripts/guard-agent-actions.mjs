@@ -1,3 +1,6 @@
+import {managerRequest} from './manager-control.mjs';
+import {enabled} from './context-control.mjs';
+import {stageAccess} from './work-stages.mjs';
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -138,19 +141,34 @@ export function evaluateHook(input) {
   // Native result transport must work even before READY binding, or when reporting
   // a paused/failed task. It grants no file, shell, retrieval or delegation access.
   // The runtime routes this tool to the receiving parent; it is not SendMessage.
-  if(tool==='SubagentHandback') return typeof args.message==='string' && args.message.trim()
-    ?allow():deny('handback requires a nonempty report message');
+  if(tool==='SubagentHandback') return typeof args.message==='string' && args.message.trim() && args.message.length<=8000
+    ?allow():deny('handback requires a nonempty report message of at most 8000 characters; save detailed artifacts');
   if(role==='slr-reviewer' && (!bound || bound.b.role!=='reviewer' || bound.finalReview?.status!=='awaiting_review'
     || bound.finalReview.submissions.at(-1)?.id!==bound.b.submissionId)) return deny('reviewer requires a current pending submission binding');
+  if(role==='slr-reviewer' && enabled(bound.root)) {
+    try {if(!stageAccess(bound.root,'reviewer',input.agent_id))return deny('Reviewer requires its active assigned unit');}
+    catch(e){return deny(e.message);}
+  }
   if(bound?.finalReview?.status==='paused' && (writes.has(tool) || ['Agent','Bash','PowerShell','WebFetch','WebSearch'].includes(tool) || tool.startsWith('mcp__'))) return deny('final review is paused');
   if(role==='slr-worker' && (tool==='WebSearch' || tool==='WebFetch' || tool.startsWith('mcp__'))
     && (!bound || bound.state.stage!=='researching' || !bound.state.leases[bound.b.leaseId]?.active)) return deny('worker retrieval requires an active research lease');
+  if(tool==='Read' && args.file_path) {
+    if(/\.pdf$/i.test(args.file_path)) {
+      const m=/^(\d+)(?:-(\d+))?$/.exec(args.pages??'');
+      if(!m || Number(m[1])<1 || Number(m[2]??m[1])<Number(m[1]) || Number(m[2]??m[1])-Number(m[1])>=5)return deny('read PDF in explicit batches of at most five pages');
+    } else if(/\.(md|json|tex|bib|log|txt)$/i.test(args.file_path) && fs.existsSync(args.file_path)) {
+      const offset=args.offset??1,limit=args.limit??Infinity;
+      if(!Number.isInteger(offset)||offset<1||!(limit===Infinity||Number.isInteger(limit)&&limit>0))return deny('invalid Read line range');
+      const text=fs.readFileSync(args.file_path,'utf8').split(/\r?\n/).slice(offset-1,offset-1+limit).join('\n');
+      if(text.length>24000)return deny('text read exceeds 24000 characters; use smaller line ranges or ask main for bounded character slices');
+    }
+  }
   if(tool.startsWith('mcp__')) {
     const method=tool.split('__').at(-1);
     return ['slr-worker','slr-scoper','slr-reviewer'].includes(role) && /^(search|search_papers|search_arxiv|arxiv_search|fetch|fetch_paper|read_paper|get_paper|paper_details)$/.test(method)
       ?allow():deny('only explicit read-only scholarly retrieval MCP methods are permitted');
   }
-  if(!new Set(['Read','Glob','Grep','ToolSearch','Write','Edit','MultiEdit','NotebookEdit','Bash','PowerShell','Agent','Skill','WebSearch','WebFetch']).has(tool)) return deny('tool outside role contract');
+  if(!new Set(['Read','Glob','Grep','ToolSearch','Write','Edit','MultiEdit','NotebookEdit','Bash','PowerShell','Agent','SendMessage','Skill','WebSearch','WebFetch']).has(tool)) return deny('tool outside role contract');
   if(tool==='Agent') {
     if(role!=='slr-manager') return deny('only topic managers may delegate workers');
     if(!bound || bound.b.role!=='manager' || bound.state.schemaVersion!==2 || bound.state.stage!=='researching') return deny('manager must have an active workspace binding');
@@ -162,6 +180,11 @@ export function evaluateHook(input) {
     try { mutate(bound.root,'claim-launch',{leaseId,managerId:input.agent_id}); return allow(); }
     catch(error) { return deny(error.message); }
   }
+  if(tool==='SendMessage') {
+    const id=args.to??args.recipient;
+    return role==='slr-manager' && bound?.b.role==='manager' && Object.values(bound.state.leases).some(l=>l.active&&l.topicId===bound.b.topicId&&l.agentId===id)
+      ?allow():deny('Manager may message only its active bound Worker');
+  }
   if(tool==='Skill') return deny('delegated roles cannot invoke skills');
   if(tool==='Bash' || tool==='PowerShell') {
     if(role==='slr-worker' || role==='slr-scoper' || role==='slr-reviewer') {
@@ -172,6 +195,10 @@ export function evaluateHook(input) {
       const command=args.command;
       if(typeof command!=='string' || /[;&|`$<>\r\n]/.test(command)) return deny('unsafe manager command');
       const tokens=tokenize(command);
+      if(tokens?.length===5 && tokens[0]==='node' && path.resolve(tokens[1])===path.join(path.dirname(pipeline),'manager-control.mjs')
+        && path.resolve(tokens[2])===bound.root && tokens[3]===input.agent_id) {
+        try {managerRequest(bound.root,input.agent_id,tokens[4]);return allow();}catch(e){return deny(e.message);}
+      }
       if(tokens?.length===6 && tokens[0]==='node' && path.resolve(tokens[1])===pipeline && tokens[2]==='bind-worker'
         && path.resolve(tokens[3])===bound.root) {
         const lease=bound.state.leases[tokens[4]];
@@ -184,15 +211,23 @@ export function evaluateHook(input) {
   if(['slr-manager','slr-checker','slr-paper-writer'].includes(role)
     && (tool==='WebSearch' || tool==='WebFetch' || tool.startsWith('mcp__'))) return deny('this role does not retrieve new evidence');
   if(!writes.has(tool)) return allow();
-  if(role==='slr-scoper' || role==='slr-checker' || role==='slr-reviewer') return deny('role is read-only');
+  if(role==='slr-scoper' || role==='slr-checker') return deny('role is read-only');
   if(!bound) return deny('missing runtime agent_id binding; initialize READY agent, bind, then resume');
-  const expected={'slr-manager':'manager','slr-worker':'worker','slr-paper-writer':'paper'}[role];
+  const expected={'slr-manager':'manager','slr-worker':'worker','slr-paper-writer':'paper','slr-reviewer':'reviewer'}[role];
   if(bound.b.role!==expected) return deny('binding role mismatch');
   const {root,state,b}=bound;
   const targets=[args.file_path,args.path,args.notebook_path,...(args.edits??[]).flatMap(e=>[e.file_path,e.path])].filter(x=>typeof x==='string');
   if(!targets.length) return deny('no target path');
   let allowed=[];
-  if(role==='slr-paper-writer') {
+  if(role==='slr-reviewer') {
+    if(!enabled(root))return deny('Reviewer is read-only outside staged workflow');
+    let artifact;try{artifact=stageAccess(root,'reviewer',input.agent_id);}catch(e){return deny(e.message);}
+    if(!artifact)return deny('no active Reviewer unit');
+    allowed=[artifact];
+  } else if(role==='slr-paper-writer') {
+    if(enabled(root)) {
+      try {if(!stageAccess(root,'paper',input.agent_id))return deny('no current active writer phase');}catch(e){return deny(e.message);}
+    }
     if(!['completed','completed_with_limitations'].includes(state.stage)) return deny('paper requires terminal research');
     if(state.schemaVersion===1) {
       const updates=path.join(root,'.slr/updates');
@@ -201,14 +236,19 @@ export function evaluateHook(input) {
         catch { return deny('invalid legacy update'); }
       }
     }
-    allowed=['paper/main.tex','paper/references.bib'];
+    allowed=['paper/main.tex','paper/references.bib',...(enabled(root)?['paper/writing-handoff.md']:[])];
   } else {
     if(state.schemaVersion!==2 || state.stage!=='researching') return deny('research writes require active v2 state');
     if(role==='slr-manager') {
       const t=state.topics.find(t=>t.id===b.topicId);
       if(state.revisionContext?.active && !state.revisionContext.topicIds.includes(b.topicId)) return deny('topic outside assigned revision');
       if(!t || t.status==='completed') return deny('topic is absent or already accepted');
-      allowed=[`topics/${t.id}/plan.json`,`topics/${t.id}/chapter.md`,`topics/${t.id}/synthesis.md`,`topics/${t.id}/acceptance.json`];
+      const requestPrefix=`topics/${t.id}/requests/`;
+      for(const target of targets) {
+        const rel=path.relative(root,path.resolve(target)).split(path.sep).join('/');
+        if(rel.startsWith(requestPrefix) && /^[a-zA-Z0-9_-]+\.json$/.test(rel.slice(requestPrefix.length)) && enabled(root))allowed.push(rel);
+      }
+      allowed.push(`topics/${t.id}/plan.json`,`topics/${t.id}/chapter.md`,`topics/${t.id}/synthesis.md`,`topics/${t.id}/acceptance.json`);
     } else {
       const l=state.leases[b.leaseId];
       if(!l?.active || l.agentId!==input.agent_id) return deny('worker lease inactive');

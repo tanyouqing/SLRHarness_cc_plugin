@@ -1,10 +1,10 @@
 # Hierarchical survey pipeline
 
-Schema 2 is defined in scripts/pipeline.mjs and skills/review/references/workspace-schemas.md. Main is the only state writer; mutations use a serialized lock, a validated transition and atomic JSON replacement. Existing schema-1 state remains readable via state.mjs and the read-only evidence baseline utility. The update skill has no mutation route.
+Schema 2 is defined in scripts/pipeline.mjs and skills/review/references/workspace-schemas.md. Main and the restricted Manager control helper are the authorized state entry points; mutations use a serialized lock, a validated transition and atomic JSON replacement. Existing schema-1 state remains readable via state.mjs and the read-only evidence baseline utility. The update skill has no mutation route.
 
 The approved scope defines 3–5 stable major topics. Managers choose subtopics dynamically, preserving task IDs and recording supersession reasons. Discovery and reading are separate phases: main resolves aliases and versions before assigning stable paper IDs and one writing owner. Sharing across topics reuses those IDs. Supplements return to one assigned owner and invalidate dependent chapter acceptance.
 
-Runtime Agent IDs are bound after a READY handshake. Main reserves global Worker leases before Managers can delegate. The guard permits only the allocated Worker type and precise write paths; Managers may invoke only the narrow bind-worker shell helper. Worker shell access is limited to read-only paper-search. Checker and writer cannot retrieve or delegate. Main dispatch is the explicit fallback if host nesting is unavailable. This is a cooperative orchestration boundary, not an operating-system sandbox for untrusted code.
+Runtime Agent IDs are bound after a READY handshake. Managers request global Worker leases through an idempotent, locked control helper before delegating. The guard permits only the allocated Worker type and precise write paths; Managers may invoke only the narrow manager-control and legacy bind-worker helpers. Worker shell access is limited to read-only paper-search. Checker and writer cannot retrieve or delegate. Main dispatch is the explicit fallback if host nesting is unavailable. This is a cooperative orchestration boundary, not an operating-system sandbox for untrusted code.
 
 Five rounds, nine concurrent Workers and two attempts per phase are defaults. Low yield means no newly accepted papers or chapters. New task creation cannot reset saturation. Pending work can be closed only with a recorded reason. Checkers return evidence-linked major/minor issues; passing with substantive errors is forbidden. At most two repair cycles follow an initial chapter review. No failed topic is silently omitted.
 
@@ -36,7 +36,7 @@ chapter checks. Old task attempts are not reset. Fresh accepted evidence is comm
 before Paper writer rebuilds the manuscript; the initial completion tag never moves.
 
 The final Reviewer can use read-only scholarly retrieval and return results, with no
-workspace writes or delegation. Main persists separate Scoper/Manager/Worker candidate
+manuscript/evidence/control writes or delegation; staged report drafts are the sole write exception. Main persists separate Scoper/Manager/Worker candidate
 advice with source-linked differences, conditional actions and attribution uncertainty.
 Reference match may be same, overlapping or adjacent; adjacent surveys cannot justify
 field-specific coverage deductions. Historical workspaces do not enter this repair loop.
@@ -56,3 +56,19 @@ providing this evidence does not transfer global-section authorship to a Manager
 A topic may explain its own necessary background or local taxonomy within its chapter.
 Classify by responsibility and scope, not title keywords: a renamed global section
 such as "Unified Evolutionary Taxonomy" still must not become a registered topic.
+
+## Context control
+
+Default CLI output is bounded; explicit --full is diagnostic only. Manager request
+receipts are committed with state so successful retries are idempotent. Scheduling
+uses the existing shared cursor/slot window, with an all-topic planning pass before
+dispatch. The lock serializes writes; a busy lock returns waiting rather than burning
+a task attempt. Runtime liveness is an observed fact supplied by the responsible
+Manager, not inferred by a filesystem validator.
+
+Stages live in additive sidecars; writer generations bind accepted evidence and
+output hashes, and Reviewer units bind frozen submissions and report hashes. Report
+draft writes are allowed only for the one active unit, without evidence mutation.
+Fresh contexts reduce accumulation; complete semantic coverage still depends on
+the agents' reading and judgments. Hooks save/restore short indices but cannot
+force /compact. Old active sessions must be reconciled before explicit opt-in.

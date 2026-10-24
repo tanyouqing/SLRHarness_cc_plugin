@@ -48,3 +48,11 @@ normal research routing. Follow ../paper/references/final-review.md for active r
 pending assessments or pauses. Do not reset original research budgets or move tags.
 
 Before any Agent invocation, read references/handback.md. Apply its READY/native transport, artifact validation, bounded recovery and reading-batch rules. Never replace a missing independent review with self-review.
+
+Read context-workflow.md (under references/ from SKILL.md) for bounded output,
+Manager-owned Worker control and compact recovery. Manager requests live only in
+topics/<id>/requests/. Scripts atomically maintain state and request receipts.
+Additional sidecars: .slr/context-policy.json, .slr/recovery.json, .slr/checkpoints/,
+.slr/work-stages.json. Staged writer also owns paper/writing-handoff.md; staged
+Reviewer owns only its currently assigned paper/reviews/<submission>/drafts/<unit>.json.
+Default control responses never include the full registry or historical reports.

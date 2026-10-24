@@ -71,3 +71,8 @@ Do not invent verdicts, scores, runtime IDs or verification to fill a missing re
 For a fully completed phase start with DONE: and list absolute artifact paths, processed/reused paper IDs and limitations. For a reading batch with remaining papers start with PARTIAL: and list completed and remaining IDs. Use BLOCKED: for an unresolved failure. Keep result.json consistent with this report. File existence alone does not establish verified source evidence.
 
 For reading, work on at most three explicitly assigned owned paper IDs per invocation. Maintain cumulative result.json arrays: processedPaperIds, reusedPaperIds, remainingPaperIds, missingEvidence and supplementRequests. When papers remain, deliver PARTIAL and wait for the next batch under the same lease. Do not report phase completion until all owned records are complete.
+
+Your result recipient is the spawning Manager (or main in disclosed fallback).
+Keep handback under 8000 characters; keep detailed papers and logs in assigned files.
+Use bounded text reads of at most 24000 characters and PDF batches of at most five
+pages. Preserve cumulative batch progress; do not paste paper contents into handback.

@@ -16,7 +16,7 @@ New workspaces use schema 2. Historical schema-1 workspaces retain status and co
 
 ## Evidence and execution
 
-Main owns scope approval, global state, canonical identity/ownership, Git and compilation. Managers own topic plans, chapter.md and synthesis.md. Workers own assigned task logs and canonical paper metadata.json/note.md. Independent Checkers read chapter evidence and return issues. The final Reviewer may search and read reference surveys, but cannot edit or delegate. The Paper Agent writes only paper/main.tex and references.bib. Runtime Agent IDs and task leases constrain writes through PreToolUse hooks; no global permission bypass is needed.
+Main owns scope approval, global state, canonical identity/ownership, Git and compilation. Managers own topic plans, chapter.md and synthesis.md. Workers own assigned task logs and canonical paper metadata.json/note.md. Independent Checkers read chapter evidence and return issues. The final Reviewer may retrieve reference surveys and write only its assigned staged report draft; manuscript, evidence and state stay read-only and delegation is forbidden. Paper Agent writes main.tex, references.bib and its bounded writing-handoff.md. Runtime Agent IDs and task leases constrain writes through PreToolUse hooks; no global permission bypass is needed.
 
 Default budgets: five shared research rounds, at most nine concurrent Workers across all Managers, two attempts per task phase, stop after two low-yield rounds. Chapter review allows an initial review plus two repair cycles. Writing uses nonblocking self-proofreading. After compilation the final Reviewer applies 20 items (0–5 each): coverage 15, taxonomy 15, evidence 25, synthesis 20, critique 15, presentation 10. A total >=70 passes without additional vetoes. Each low-score repair allows one extra research round; three failed reassessments pause for explicit continuation. Nested Manager → Worker dispatch is probed on the host; main-session dispatch uses identical plans and leases if nesting is unavailable.
 
@@ -64,3 +64,24 @@ providing this evidence does not transfer global-section authorship to a Manager
 A topic may explain its own necessary background or local taxonomy within its chapter.
 Classify by responsibility and scope, not title keywords: a renamed global section
 such as "Unified Evolutionary Taxonomy" still must not become a registered topic.
+
+### Context-controlled execution
+
+New workspaces use bounded CLI summaries, paged queries and topic-local Manager
+control. Managers request shared Worker slots, collect/validate their deliveries
+and submit evidence acceptance through a restricted helper. Main coordinates
+rounds, cross-topic conflicts, independent Checker results, Git and final delivery.
+A real nesting probe is required; unsupported hosts use disclosed main-dispatch.
+
+Scope approval, accepted topics and compiled/visually inspected paper versions
+produce recovery checkpoints. PreCompact saves a bounded index and SessionStart
+loads it. This does not automatically execute /compact or pause the pipeline.
+Each writing phase and review unit uses a fresh, serialized role invocation; source
+and evidence hashes prevent stale phases from becoming a current delivery.
+
+See [context workflow](skills/review/references/context-workflow.md) and
+[staged writing/review](skills/paper/references/staged-execution.md) for APIs and
+recovery. Default summaries/handbacks are 8000 characters; text reads 24000
+characters and PDF reads at most five pages. These limits are not token guarantees.
+Existing schema 2 workspaces opt in only during explicit resume, after active
+leases are resolved; historical files and budgets are preserved.

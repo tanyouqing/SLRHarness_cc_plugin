@@ -1,3 +1,5 @@
+import {bounded,researchSummary,researchQuery,readSlice} from './bounded-output.mjs';
+import {checkpoint,saveRecovery,contextControl} from './context-control.mjs';
 import fs from 'node:fs';
 import path from 'node:path';
 import { createHash, randomUUID } from 'node:crypto';
@@ -345,25 +347,32 @@ export function mutate(root, action, args) {
       for(const task of t.tasks) fs.mkdirSync(path.join(root,'topics',t.id,'tasks',task.id),{recursive:true});
     }
     for(const p of Object.values(next.papers)) fs.mkdirSync(path.join(root,'papers',p.id),{recursive:true});
-    atomicJSON(statePath(root),next); return next;
+    atomicJSON(statePath(root),next);
+    if(action==='review-topic' && args.verdict==='passed') checkpoint(root,`topic:${args.topicId}`,next.topics.find(t=>t.id===args.topicId).reviewHash);
+    else saveRecovery(root);
+    return next;
   });
 }
 
 async function cli() {
-  const [command, directory, input, extra] = process.argv.slice(2);
+  const argv=process.argv.slice(2), full=argv.includes('--full');
+  const [command, directory, input, extra] = argv.filter(x=>x!=='--full');
+  const emit=value=>console.log(JSON.stringify(full?value:bounded(value,path.join(directory??'.','.slr/state.json'))));
   required(directory && path.isAbsolute(directory),'absolute workspace path required');
   const root=path.resolve(directory);
   if(command==='init') {
     required(!fs.existsSync(root),'workspace already exists');
     const s=createState(readJSON(input)); required(path.basename(root)===s.reviewId,'directory must match reviewId');
-    required(!validateV2(s).length,'invalid initial settings'); fs.mkdirSync(root,{recursive:true}); atomicJSON(statePath(root),s); console.log(JSON.stringify(s)); return;
+    required(!validateV2(s).length,'invalid initial settings'); fs.mkdirSync(root,{recursive:true}); atomicJSON(statePath(root),s); contextControl(root,'enable'); emit(full?s:researchSummary(s,command,root)); return;
   }
-  if(command==='status') { console.log(JSON.stringify(loadState(root),null,2)); return; }
-  if(command==='bind-paper') { console.log(JSON.stringify(paperControl(root,command,readJSON(input)))); return; }
-  if(command==='next') { console.log(JSON.stringify(nextTasks(loadState(root)),null,2)); return; }
+  if(command==='status') { const s=loadState(root);emit(full?s:researchSummary(s,command,root)); return; }
+  if(command==='query') { emit(researchQuery(loadState(root),input?readJSON(input):{},root));return; }
+  if(command==='read') { console.log(JSON.stringify(readSlice(root,readJSON(input))));return; }
+  if(command==='bind-paper') { emit(full?paperControl(root,command,readJSON(input)):(paperControl(root,command,readJSON(input)),{ok:true,action:command})); return; }
+  if(command==='next') { emit(nextTasks(loadState(root))); return; }
   if(command==='fingerprint') { console.log(reviewFingerprint(root,input)); return; }
-  if(command==='bind-worker') { console.log(JSON.stringify(mutate(root,command,{leaseId:input,agentId:extra}))); return; }
-  console.log(JSON.stringify(mutate(root,command,input?readJSON(input):{}),null,2));
+  if(command==='bind-worker') { emit(researchSummary(mutate(root,command,{leaseId:input,agentId:extra}),command,root)); return; }
+  const result=mutate(root,command,input?readJSON(input):{});emit(full?result:researchSummary(result,command,root));
 }
 if(process.argv[1] && path.resolve(process.argv[1]).toLowerCase()===fileURLToPath(import.meta.url).toLowerCase()) {
   try { await cli(); } catch(error) { console.error(error.message); process.exitCode=1; }
