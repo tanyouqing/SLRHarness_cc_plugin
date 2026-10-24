@@ -1,5 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
+import {researchScale} from './research-profile.mjs';
 
 export const RESPONSE_LIMIT=8000, READ_LIMIT=24000;
 export function safePath(root, relative) {
@@ -39,6 +40,7 @@ export function readSlice(root,{file,offset=0,limit=READ_LIMIT}) {
 }
 export function researchSummary(s,action='status',root='.') {
   return bounded({ok:true,action,reviewId:s.reviewId,stage:s.stage,round:s.currentRound,maxRounds:s.maxRounds,maxWorkers:s.maxWorkers,
+    researchScale:researchScale(s),scaleCompletion:s.scaleCompletion??null,
     roundOpen:s.roundOpen,topics:s.topics?.map(t=>({id:t.id,status:t.status,tasks:t.tasks.length})),
     counts:{papers:Object.keys(s.papers??{}).length,activeWorkers:Object.values(s.leases??{}).filter(l=>l.active).length},
     source:path.join(root,'.slr/state.json'),next:'query collections: topics, tasks, papers, leases; inspect only relevant IDs'},path.join(root,'.slr/state.json'));

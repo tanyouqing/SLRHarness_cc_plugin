@@ -59,7 +59,7 @@ export function complete(root,{limited=false,repair=true}={}) {
     }
     review(root,t,{limitations:limited?['Fixture evidence coverage is limited']:[]});
   }
-  mutate(root,'end-round'); mutate(root,'finalize'); return loadState(root);
+  mutate(root,'end-round'); mutate(root,'finalize',{scaleReason:'Synthetic control-flow fixture deliberately uses one shared paper; no real coverage claimed.'}); return loadState(root);
 }
 export function manuscript(root,{chinese=false}={}) {
   const dir=path.join(root,'paper'); preparePaper(dir);

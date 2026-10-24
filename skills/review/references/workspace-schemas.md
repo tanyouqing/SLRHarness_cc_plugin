@@ -126,3 +126,16 @@ Additional sidecars: .slr/context-policy.json, .slr/recovery.json, .slr/checkpoi
 .slr/work-stages.json. Staged writer also owns paper/writing-handoff.md; staged
 Reviewer owns only its currently assigned paper/reviews/<submission>/drafts/<unit>.json.
 Default control responses never include the full registry or historical reports.
+
+## Optional research profile (schema 2)
+
+New init writes researchProfile: {tier: low|medium|high, targetPapers: positive integer,
+source: default|explicit|inferred|conflict, targetSource: tier|explicit, rationale}.
+Tier targets are 30/60/90; default/conflict use medium; explicit count may override.
+Rationale is 1–1000 characters. Main may configure-research with {researchProfile}
+only before scope approval and must update/re-present the draft. Manager cannot call
+this action. Missing historical fields remain missing on status/resume.
+researchScale is derived in responses, not a second registry. Finalize stores
+scaleCompletion with a signed difference and a required scaleReason when actual
+accepted count differs from target. Research terminal semantics remain unchanged.
+Read research-scale.md for intent inference, allocation and reporting rules.

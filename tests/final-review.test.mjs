@@ -21,7 +21,7 @@ function finishRevision(root,n=1) {
     review(root,topicId);
   }
   if(loadState(root).roundOpen)mutate(root,'end-round');
-  mutate(root,'finalize');fs.appendFileSync(path.join(root,'paper/main.tex'),`\n% repaired ${n}\n`);mockCompile(root);
+  mutate(root,'finalize',{scaleReason:'Synthetic control-flow fixture deliberately uses one shared paper; no real coverage claimed.'});fs.appendFileSync(path.join(root,'paper/main.tex'),`\n% repaired ${n}\n`);mockCompile(root);
 }
 
 test('twenty items use exact IDs, integer scores and 69/70 threshold without critical veto',()=>{

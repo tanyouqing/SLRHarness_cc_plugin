@@ -20,9 +20,11 @@ academic papers and verifiable preprints as research evidence, with authoritativ
 technical documentation for background and supplementary explanation; a date range
 chosen by the Scoper for the topic, with rationale and search cutoff recorded.
 English is default unless Chinese output is explicitly requested. A topic written
-in Chinese alone does not choose output language. There is no default target or
-hard limit on paper count: Scoper and Managers arrange coverage according to the
-topic and evidence needs within the existing round, concurrency and retry budgets.
+in Chinese alone does not choose output language. Infer a research tier from the original request: low ~30 papers, medium ~60
+(default), high ~90 with evidence-driven expansion. These are soft targets, with no
+default hard limit on paper count. Read references/research-scale.md before init;
+record researchProfile and coordinate one shared target across all Managers.
+Explicit paper counts override tier defaults. Keep existing execution budgets.
 Record effective settings in SCOPE_DRAFT.md and the scoping handoff. These defaults
 do not remove the explicit human scope approval below.
 

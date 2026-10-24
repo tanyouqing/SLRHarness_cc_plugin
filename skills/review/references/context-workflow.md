@@ -80,3 +80,10 @@ without pausing work. Real host auto-compaction remains enabled independently.
 On resume, inspect current bounded summary, stage records and paged active leases.
 IDs from another session are historical; main must verify stopped/live status before
 rebind/relaunch. No speculative lease release, duplicate dispatch or budget reset.
+
+Research scale: status/recovery include researchScale (profile, registered, accepted,
+pending, shared, remaining, remainingAfterPending, targetReached). Manager query
+collection scale returns the same aggregate view without other-topic records. Read
+research-scale.md. Resume retains stored settings; context enable does not add a
+profile to historical workspaces. Receipt counts describe the original action; use
+a fresh query before planning more work.

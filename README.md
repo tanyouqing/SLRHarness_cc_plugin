@@ -44,10 +44,18 @@ conditional comparisons and limitations), English, five research rounds and nine
 concurrent Workers. Research evidence defaults to academic papers and verifiable
 preprints; authoritative technical documentation supports background and supplementary
 explanation. The Scoper selects the date range, records its rationale and search
-cutoff, and proposes evidence-driven coverage without a default paper-count target
-or hard cap. Effective settings are displayed and recorded in the scope draft.
+cutoff, and proposes evidence-driven coverage. Research tiers are inferred from the
+original request: low ~30 accepted unique papers (simple/brief review), medium ~60
+(default), high ~90 (deep review, with justified expansion). Explicit counts override
+these soft targets. All topics share one target; pending reading is considered before
+new discovery. Tiers keep the same budgets and evidence standards. Effective settings
+are displayed and recorded in the scope draft; see
+[research-scale contract](skills/review/references/research-scale.md).
 Human approval of that draft remains mandatory before research. Existing repair
 and operational pauses, and the standalone paper configuration question, are unchanged.
+Existing workspaces without researchProfile keep their prior no-target behavior on
+resume. See [tier validation results](docs/research-tiers-validation.md) for executed
+checks and outstanding real-Agent validation.
 
 ## Chapter ownership boundary
 

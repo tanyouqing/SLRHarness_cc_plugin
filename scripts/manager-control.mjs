@@ -3,6 +3,7 @@ import path from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {loadState,withLock,transition,atomicJSON,statePath,hash,nextTasks} from './pipeline.mjs';
 import {bounded,safePath,page} from './bounded-output.mjs';
+import {researchScale} from './research-profile.mjs';
 
 const need=(ok,msg)=>{if(!ok)throw new Error(msg);};
 const read=f=>JSON.parse(fs.readFileSync(f,'utf8'));
@@ -29,6 +30,7 @@ export function managerControl(root,agentId,relative) {
     let t=s.topics.find(t=>t.id===b.topicId),lease=s.leases[a.leaseId];
     if(s.revisionContext?.active)need(s.revisionContext.topicIds.includes(b.topicId),'topic outside revision');
     if(req.action==='query') {
+      if(a.collection==='scale') return {ok:true,topicId:b.topicId,researchScale:researchScale(s),next:'Shared workspace target; coordinate topic allocations with main. Counts do not certify coverage.'};
       const lists={tasks:t.tasks,leases:Object.values(s.leases).filter(l=>l.topicId===b.topicId),papers:Object.values(s.papers).filter(p=>p.topicIds.includes(b.topicId))};
       need(lists[a.collection],'query supports own tasks, leases or papers');
       return page(a.id?lists[a.collection].filter(x=>x.id===a.id):lists[a.collection],a,statePath(root));
@@ -71,6 +73,7 @@ export function managerControl(root,agentId,relative) {
     for(const topic of next.topics) for(const task of topic.tasks) fs.mkdirSync(safePath(root,`topics/${topic.id}/tasks/${task.id}`),{recursive:true});
     for(const id of Object.keys(next.papers))fs.mkdirSync(safePath(root,`papers/${id}`),{recursive:true});
     const result=bounded({ok:true,requestId:req.requestId,action:req.action,topicId:b.topicId,taskId:a.taskId??lease?.taskId,leaseId:a.leaseId,paperId:a.paperId,
+      researchScale:researchScale(next),
       activeWorkers:Object.values(next.leases).filter(l=>l.active).length,next:'Inspect assigned task files; return only a bounded topic summary to main'},statePath(root));
     (next.managerRequests??={})[key]={digest,result};
     atomicJSON(statePath(root),next);return result;

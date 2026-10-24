@@ -1,4 +1,5 @@
 import {bounded,researchSummary,researchQuery,readSlice} from './bounded-output.mjs';
+import {normalizeResearchProfile,validateResearchProfile,researchScale,scaleCompletion} from './research-profile.mjs';
 import {checkpoint,saveRecovery,contextControl} from './context-control.mjs';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -22,6 +23,7 @@ export function atomicJSON(file, value) {
 export function validateV2(s) {
   const errors = [];
   if (s?.schemaVersion !== 2) return ['schemaVersion must be 2'];
+  if(s.researchProfile!==undefined) errors.push(...validateResearchProfile(s.researchProfile));
   if (!slug.test(s.reviewId ?? '')) errors.push('invalid reviewId');
   if (!['drafting_scope','awaiting_scope_approval','researching','blocked',...terminal].includes(s.stage)) errors.push('invalid stage');
   for (const key of ['maxRounds','maxWorkers','retryLimit']) if (!Number.isInteger(s[key]) || s[key] < 1) errors.push(`invalid ${key}`);
@@ -75,6 +77,7 @@ export function openRevisionState(state, revision) {
 export function createState(config) {
   required(slug.test(config.reviewId ?? '') && config.topic?.trim(), 'provide reviewId and topic');
   return { schemaVersion: 2, reviewId: config.reviewId, topic: config.topic,
+    researchProfile:normalizeResearchProfile(config.researchProfile),
     language: config.language ?? 'English', stage: 'drafting_scope', scopeRevision: 0,
     currentRound: 0, roundOpen: false, maxRounds: config.maxRounds ?? 5,
     maxWorkers: config.maxWorkers ?? 9, retryLimit: 2, consecutiveLowYieldRounds: 0,
@@ -146,7 +149,12 @@ export function transition(state, action, args = {}, root = '.') {
   required(s.stage!=='blocked' || action==='resume','blocked research requires explicit prerequisite recovery');
   const revision=s.revisionContext?.active?s.revisionContext:null;
   if(revision && args.topicId && !['bind','mode'].includes(action)) required(revision.topicIds.includes(args.topicId),'topic outside assigned revision');
-  if (action === 'draft') {
+  if (action === 'configure-research') {
+    required(['drafting_scope','awaiting_scope_approval'].includes(s.stage),'research profile is frozen after scope approval');
+    required(args.researchProfile!==undefined,'provide researchProfile explicitly');
+    s.researchProfile=normalizeResearchProfile(args.researchProfile);
+    s.scopeRevision++;
+  } else if (action === 'draft') {
     required(['drafting_scope','awaiting_scope_approval'].includes(s.stage), 'scope is frozen');
     required(Array.isArray(args.topics) && args.topics.length >= 3 && args.topics.length <= 5, 'provide 3–5 topics');
     s.topics = args.topics.map(t => ({ id: t.id, title: t.title, boundary: t.boundary, status:'pending', tasks:[], reviewAttempts:0, limitations:[], reviewHash:null }));
@@ -181,6 +189,7 @@ export function transition(state, action, args = {}, root = '.') {
         const old = t.tasks.find(x => x.id === candidate.id);
         if (old) { required(old.question === candidate.question && old.boundary === candidate.boundary, 'existing task is immutable; create a new evidenced task'); continue; }
         required(!revision && s.currentRound === 1 || candidate.rationale?.trim(), 'later tasks require an evidenced gap');
+        if(s.researchProfile && researchScale(s).remainingAfterPending===0) required(candidate.rationale?.trim(), 'target already covered by registered papers; new task requires an evidence-gap rationale');
         t.tasks.push({ id:candidate.id, question:candidate.question, boundary:candidate.boundary, rationale:candidate.rationale ?? 'initial decomposition', phase:'discover', status:'pending', attempts:{discover:0,read:0}, paperIds:[], limitations:[], ...(revision?{revisionId:revision.id}:{}) });
       }
       t.status = 'researching';
@@ -301,6 +310,7 @@ export function transition(state, action, args = {}, root = '.') {
     } else if(action==='finalize') {
       required(!s.roundOpen && active(s).length===0,'close round before finalization');
       required(s.topics.every(t=>t.status==='completed' && t.reviewHash===topicFingerprint(root,s,t)),'all topic chapters must pass current review');
+      if(s.researchProfile) s.scaleCompletion=scaleCompletion(s,args.scaleReason);
       const limited=s.topics.some(t=>t.limitations.length || t.tasks.some(x=>x.status==='blocked'));
       s.stage=limited?'completed_with_limitations':'completed'; s.completionReason=limited?'accepted_with_limitations':'all_topics_accepted';
       if(revision) revision.active=false;

@@ -13,8 +13,11 @@ Complete exactly the reconnaissance assignment in the delegation. Search broadly
 enough to ground terminology and feasibility, but do not conduct the formal review.
 The delegation supplies a primary objective, source-coverage mode, and time strategy.
 For an unspecified date range, choose a topic-appropriate range during reconnaissance
-and report its rationale and search cutoff. There is no default paper-count target
-or hard cap; recommend coverage based on research needs and execution budgets.
+and report its rationale and search cutoff. Use the supplied researchProfile (low ~30, medium ~60, high ~90); these are
+workspace-wide soft targets. Read skills/review/references/research-scale.md.
+Check feasibility and recommend reasoned allocations across research topics,
+including shared global-section evidence. Do not multiply the target per topic or
+change the inferred tier yourself. Coverage and evidence quality remain mandatory.
 Default research evidence comprises academic papers and verifiable preprints;
 authoritative technical documentation supports background and supplementary explanation.
 Treat the supplied settings as constraints: recommend vocabulary, databases, boundaries, and a

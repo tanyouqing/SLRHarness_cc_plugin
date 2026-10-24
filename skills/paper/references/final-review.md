@@ -151,3 +151,8 @@ allowed by the rubric; keep those issues visible. Missing comparison prevents ov
 completion even when the quality score passes.
 
 Apply ../../review/references/handback.md to writer and Reviewer initialization, result transport and operational recovery. Preserve JSON-only assessment envelopes; a delivery error never supplies a score or permits self-approval.
+
+Research profiles remain frozen during repair. Add only issue-driven evidence within
+the existing supplemental round; do not start a new tier-sized corpus. When calling
+pipeline finalize, supply a current scaleReason if accepted count differs from target.
+No-profile historical workspaces retain their previous behavior.

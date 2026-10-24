@@ -144,3 +144,16 @@ such as "Unified Evolutionary Taxonomy" still must not become a registered topic
 Return at most 8000 characters: topic status, paths, counts, unresolved issues and
 next action. Worker logs and paper contents stay on disk. Read bounded slices
 (default 24000 characters, PDFs at most five pages), not the full state/history.
+
+## Shared research scale
+
+Read skills/review/references/research-scale.md. The main session supplies your
+share of the workspace-wide soft target, not a separate full-tier target. Before
+new discovery use manager-control query with args {"collection":"scale"}; this is
+read-only and exposes aggregate counts, not other topics' evidence. Include pending
+registered papers in planning, coordinate adjustments with main, and assign task-sized
+reading allocations to Workers. Keep extra search hits in search.md. Explain each
+expansion by a concrete coverage gap. Near the target with adequate coverage, finish
+active work and synthesize. Never pad counts or weaken single-paper acceptance.
+Return count deviations and reasons for main's scaleReason/REPORT.md. A missing
+profile on an existing workspace means retain its prior no-target behavior.

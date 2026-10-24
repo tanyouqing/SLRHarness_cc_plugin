@@ -76,3 +76,13 @@ Your result recipient is the spawning Manager (or main in disclosed fallback).
 Keep handback under 8000 characters; keep detailed papers and logs in assigned files.
 Use bounded text reads of at most 24000 characters and PDF batches of at most five
 pages. Preserve cumulative batch progress; do not paste paper contents into handback.
+
+## Research scale in a task
+
+Read skills/review/references/research-scale.md and follow the Manager's task-sized
+allocation. The 30/60/90 workspace target is never a quota for this Worker. Submit
+selected eligible papers intended for formal reading in candidates.json; preserve
+other hits, screening decisions and deferred candidates in search.md. Report necessary
+expansions with coverage reasons to the Manager. Do not fabricate or lower evidence
+standards to fill numbers, nor silently drop already assigned papers when the global
+target is reached. Finish reading in the existing at-most-three-paper batches.

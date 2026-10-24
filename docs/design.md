@@ -72,3 +72,16 @@ draft writes are allowed only for the one active unit, without evidence mutation
 Fresh contexts reduce accumulation; complete semantic coverage still depends on
 the agents' reading and judgments. Hooks save/restore short indices but cannot
 force /compact. Old active sessions must be reconciled before explicit opt-in.
+
+## Research tier control
+
+New schema-2 workspaces persist a main-interpreted researchProfile. Low/medium/high
+use soft targets of 30/60/90 unique accepted papers; medium is default, explicit
+counts override, and high can expand for evidenced gaps. There is no keyword parser.
+The controller validates structured configuration, freezes it at scope approval,
+and exposes deduplicated accepted/pending counts to main and Managers. Main balances
+per-topic allocations; candidate screening stays with Workers/Managers. Quantity is
+not a completion or scoring threshold. Count deviations require an explanation at
+finalize, while existing chapter and budget checks remain authoritative. Historical
+workspaces without a profile are not implicitly assigned one. See the research-scale
+contract for the API, ownership and restore behavior.

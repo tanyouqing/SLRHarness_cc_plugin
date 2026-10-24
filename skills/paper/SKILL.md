@@ -155,3 +155,9 @@ For each successfully built and visually inspected staged manuscript, call
 context-control checkpoint-paper with current source/PDF hashes and actual inspection
 notes. Announce the checkpoint and optional /compact hint; continue to final review.
 Commit writing-handoff.md and orchestration sidecars with the appropriate checkpoint.
+
+At delivery report the research tier/soft target and actual accepted-paper count
+from researchScale separately from unique citation keys actually used in validated
+main.tex. Do not count unused bibliography entries as citations or force citation of
+every accepted paper. Preserve the research REPORT.md scaleReason; paper length and
+quality requirements do not automatically change with tier.

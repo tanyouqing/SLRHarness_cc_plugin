@@ -2,7 +2,10 @@
 
 Use explicit user settings and the review skill defaults without initial configuration questions.
 The Scoper determines any unspecified date range during reconnaissance, recording
-its rationale and the search cutoff. Do not invent a fixed paper-count target or cap.
+its rationale and the search cutoff. Read research-scale.md: use the inferred low / 30, medium / 60 or high / 90
+soft target (explicit user count takes precedence), without a default hard cap.
+Include tier, target, inference rationale and reasoned per-topic reading allocations
+in Review Configuration. Treat shared papers once and retain scope human approval.
 Default research evidence is academic papers and verifiable preprints; authoritative
 technical documentation serves background and supplementary explanation.
 The default objective is a professional synthesis for domain researchers: taxonomy,

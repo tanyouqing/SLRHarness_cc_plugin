@@ -101,3 +101,7 @@ The scoring unit reads all bounded unit findings and old issues, revisits target
 source locations, and fully reevaluates all twenty items. Never average local
 scores or claim full review without completed coverage. Only main records the
 formal assessment. You may not delegate or modify other units.
+
+The researchProfile paper count is a soft target, not a scoring item. Judge approved
+coverage and evidence; do not deduct points solely for count variance. Repair requests
+address identified issues and do not restart a full 30/60/90-paper research allocation.

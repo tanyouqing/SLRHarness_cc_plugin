@@ -204,7 +204,7 @@ test('three-topic shared-paper fixture completes staged low-score repair without
   const failed=stagedAssessment(root,69,'first-review'),issues=failed.submissions.at(-1).assessment.issues;
   assert.equal(failed.status,'revision_required');finalControl(root,'begin-revision');mutate(root,'begin-round');
   fs.appendFileSync(path.join(root,'topics/retrieval/chapter.md'),'\nSynthetic repaired comparison conditions.');review(root,'retrieval');
-  mutate(root,'end-round');mutate(root,'finalize');assert.equal(loadState(root).currentRound,initial.currentRound);
+  mutate(root,'end-round');mutate(root,'finalize',{scaleReason:'Synthetic control-flow fixture deliberately uses one shared paper; no real coverage claimed.'});assert.equal(loadState(root).currentRound,initial.currentRound);
   assert.equal(writerReady(root),false);finishWriter(root,'repair');mockCompile(root);
   const passed=stagedAssessment(root,70,'second-review',issues);assert.equal(passed.status,'passed');assert.equal(passed.submissions.length,2);
   assert.ok(fs.existsSync(path.join(root,'paper/reviews/submission-0001/assessment.json')));

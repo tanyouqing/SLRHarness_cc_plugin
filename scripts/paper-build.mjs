@@ -11,6 +11,10 @@ const digest = (value) => createHash('sha256').update(value).digest('hex');
 const read = (file) => fs.readFileSync(file, 'utf8');
 const uncomment = (text) => text.replace(/(?<!\\)%[^\n]*/g, '');
 
+export function citedPaperKeys(tex) {
+  return new Set([...uncomment(tex).matchAll(/\\cite[pt]\*?(?:\[[^\]]*\]){0,2}\{([^}]+)\}/g)].flatMap(m=>m[1].split(',').map(s=>s.trim())));
+}
+
 export function validatePaper(tex, bib) {
   const errors = [];
   tex = uncomment(tex);
@@ -39,7 +43,7 @@ export function validatePaper(tex, bib) {
   });
   const keys = [...bib.matchAll(/@(?!comment\b|string\b|preamble\b)[a-z]+\s*\{\s*([^,\s]+)\s*,/gi)].map((m) => m[1]);
   if (new Set(keys).size !== keys.length) errors.push('duplicate BibTeX keys');
-  const cited = new Set([...tex.matchAll(/\\cite[pt]\*?(?:\[[^\]]*\]){0,2}\{([^}]+)\}/g)].flatMap((m) => m[1].split(',').map((s) => s.trim())));
+  const cited = citedPaperKeys(tex);
   for (const key of cited) if (!keys.includes(key)) errors.push(`missing BibTeX key: ${key}`);
   for (const key of keys) if (!cited.has(key)) errors.push(`uncited BibTeX key: ${key}`);
   if (!cited.size) errors.push('no evidence citations');
@@ -61,7 +65,7 @@ export function paperStatus(paper) {
     const record = JSON.parse(read(path.join(paper, 'build.json')));
     const current = researchComplete(paper) && record.status === 'success' && record.sourceHash === sourceHash(paper)
       && record.pdfHash === digest(fs.readFileSync(path.join(paper, 'main.pdf')));
-    return { ...record, current };
+    return { ...record, current, citedPaperCount:current?citedPaperKeys(read(path.join(paper,'main.tex'))).size:null };
   } catch { return { status: 'missing-or-unverified', current: false }; }
 }
 
@@ -112,7 +116,7 @@ export function buildPaper(paper, { run = spawnSync } = {}) {
     const bytes = fs.readFileSync(pdf);
     if (!bytes.subarray(0, 5).equals(Buffer.from('%PDF-'))) return save('compile-failed', { error: 'invalid PDF output' });
     fs.copyFileSync(pdf, path.join(paper, 'main.pdf'));
-    return save('success', { pdfHash: digest(bytes), layoutWarnings: log.split(/\r?\n/).filter((s) => /Overfull \\[hv]box/.test(s)) });
+    return save('success', { pdfHash: digest(bytes), citedPaperCount:citedPaperKeys(read(path.join(paper,'main.tex'))).size, layoutWarnings: log.split(/\r?\n/).filter((s) => /Overfull \\[hv]box/.test(s)) });
   } catch (error) { return save('compile-failed', { error: error.message }); }
 }
 

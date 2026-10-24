@@ -28,7 +28,7 @@ for(const topicId of loadState(root).revisionContext.topicIds) {
   fs.appendFileSync(path.join(root,`topics/${topicId}/chapter.md`),'\nRepaired fixture explicitly makes no scientific comparison.\n');
   review(root,topicId);
 }
-mutate(root,'end-round');mutate(root,'finalize');
+mutate(root,'end-round');mutate(root,'finalize',{scaleReason:'Synthetic control-flow fixture deliberately uses one shared paper; no real coverage claimed.'});
 const state=loadState(root);
 git(['add','.slr/state.json',...state.topics.map(t=>`topics/${t.id}/chapter.md`),`papers/${record.id}/note.md`]);
 git(['-c','user.name=SLR Fixture','-c','user.email=fixture@example.invalid','commit','-m','fixture: accepted final-review repair evidence']);

@@ -1,0 +1,122 @@
+[
+  {
+    "id": "default",
+    "prompt": "Review retrieval augmented generation.",
+    "expected": {
+      "tier": "medium",
+      "targetPapers": 60,
+      "source": "default",
+      "targetSource": "tier"
+    }
+  },
+  {
+    "id": "low-zh",
+    "prompt": "进行一次简单调研：检索增强生成。",
+    "expected": {
+      "tier": "low",
+      "targetPapers": 30,
+      "source": "inferred",
+      "targetSource": "tier"
+    }
+  },
+  {
+    "id": "high-zh",
+    "prompt": "对检索增强生成进行一次深度调研。",
+    "expected": {
+      "tier": "high",
+      "targetPapers": 90,
+      "source": "inferred",
+      "targetSource": "tier"
+    }
+  },
+  {
+    "id": "low-en",
+    "prompt": "Give me a brief review of retrieval augmented generation.",
+    "expected": {
+      "tier": "low",
+      "targetPapers": 30,
+      "source": "inferred",
+      "targetSource": "tier"
+    }
+  },
+  {
+    "id": "high-en",
+    "prompt": "Conduct a deep review of retrieval augmented generation.",
+    "expected": {
+      "tier": "high",
+      "targetPapers": 90,
+      "source": "inferred",
+      "targetSource": "tier"
+    }
+  },
+  {
+    "id": "standard",
+    "prompt": "Conduct a standard review of retrieval augmented generation.",
+    "expected": {
+      "tier": "medium",
+      "targetPapers": 60,
+      "source": "inferred",
+      "targetSource": "tier"
+    }
+  },
+  {
+    "id": "negation",
+    "prompt": "不要深度调研，简单了解检索增强生成即可。",
+    "expected": {
+      "tier": "low",
+      "targetPapers": 30,
+      "source": "inferred",
+      "targetSource": "tier"
+    }
+  },
+  {
+    "id": "modifier",
+    "prompt": "调研已经被深入研究过的模型在检索增强生成中的应用。",
+    "expected": {
+      "tier": "medium",
+      "targetPapers": 60,
+      "source": "default",
+      "targetSource": "tier"
+    }
+  },
+  {
+    "id": "quoted",
+    "prompt": "说明“深度调研”这一术语的背景，按低档调研相关研究。",
+    "expected": {
+      "tier": "low",
+      "targetPapers": 30,
+      "source": "explicit",
+      "targetSource": "tier"
+    }
+  },
+  {
+    "id": "tier-priority",
+    "prompt": "Use low tier for a deep review of retrieval augmented generation.",
+    "expected": {
+      "tier": "low",
+      "targetPapers": 30,
+      "source": "explicit",
+      "targetSource": "tier"
+    }
+  },
+  {
+    "id": "explicit-count",
+    "prompt": "对检索增强生成进行深度调研，目标12篇论文。",
+    "expected": {
+      "tier": "high",
+      "targetPapers": 12,
+      "source": "inferred",
+      "targetSource": "explicit"
+    }
+  },
+  {
+    "id": "conflict",
+    "prompt": "同一次调研必须同时使用低档和高档，两者都不能优先。",
+    "expected": {
+      "tier": "medium",
+      "targetPapers": 60,
+      "source": "conflict",
+      "targetSource": "tier"
+    }
+  }
+]

@@ -13,3 +13,7 @@ three-topic/shared-paper 69→70 control-flow demonstration. All scores, referen
 comparisons and repairs in that demonstration are synthetic fixtures, not actual
 model judgments. final-review-live specifies the independent live semantic eval;
 record observed scores, sources and tool calls without forcing a passing result.
+
+Research-tier deterministic coverage is in tests/research-profile.test.mjs.
+research-tiers/cases.json and its README define a separate live semantic and
+scheduling evaluation; expected labels are not evidence that a model was run.
