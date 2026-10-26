@@ -1,0 +1,42 @@
+[
+  {
+    "path": "README.md",
+    "sha256": "f5e4fe5096e8bc045b586a2351409f29ce6d55e0268a434602a06011f571d882",
+    "bytes": 2417
+  },
+  {
+    "path": "acl.sty",
+    "sha256": "19dfeddc2c0e448f3926a0bef048a9db3f3611b46265b760caabd7ada4f361de",
+    "bytes": 11615
+  },
+  {
+    "path": "acl_latex.tex",
+    "sha256": "339c9ee9705c1767d44ef24b85365c0bb8619ecc3fcf66172bf1356292389614",
+    "bytes": 14533
+  },
+  {
+    "path": "acl_lualatex.tex",
+    "sha256": "0d9987ba833331a996f9abcd1a03eebba7d7ae331145793e7ddb6b5ae8db27b3",
+    "bytes": 3050
+  },
+  {
+    "path": "acl_natbib.bst",
+    "sha256": "6fbb306202290f4b68e74ac1460a8b27398500cb6dfeb4492e74c457eae7cd1e",
+    "bytes": 45442
+  },
+  {
+    "path": "anthology.bib.txt",
+    "sha256": "2b78d2d9aeda62e14c4e46099e8225b5fc116387d8e0a54aad776485e249ceff",
+    "bytes": 1169
+  },
+  {
+    "path": "custom.bib",
+    "sha256": "d76ccb30ddceb70c9e1ad0be3f43dfe301ad5765aab2c960fc830ef67bf8232a",
+    "bytes": 2071
+  },
+  {
+    "path": "formatting.md",
+    "sha256": "9e004a136c5dd43300d97e5bef5eb3a77d0e2a2d3502f0f2436ec011d1c49e9c",
+    "bytes": 17923
+  }
+]

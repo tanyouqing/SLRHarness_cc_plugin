@@ -1,3 +1,4 @@
+import {paperConfig} from './paper-config.mjs';
 import fs from 'node:fs';
 import path from 'node:path';
 import {execFileSync} from 'node:child_process';
@@ -12,6 +13,7 @@ export function recoverySummary(root) {
   const s=loadState(root),f=path.join(root,'.slr/final-review.json'),c=fs.existsSync(f)?json(f):null;
   return bounded({...researchSummary(s,'recovery',root),stateVersion:hash(fs.readFileSync(statePath(root))),scopeHash:s.approval?.scopeHash,
     finalReview:c?{status:c.status,submissionId:c.submissions?.at(-1)?.id,total:c.submissions?.at(-1)?.assessment?.total}:null,
+    paperConfig:paperConfig(root),formatCheck:'node scripts/format-check.mjs status <workspace>',
     workStages:'.slr/work-stages.json',checkpoints:'.slr/checkpoints/',
     next:'Query active leases and relevant tasks. Verify live runtime status before redispatch; IDs from another session are historical, not proof of resumability.'},statePath(root));
 }

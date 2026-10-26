@@ -49,6 +49,7 @@ function stagedAssessment(root,total,prefix,priorIssues=[]) {
   for(let i=0;;i++) {
     const agentId=`${prefix}-${i}`;finalControl(root,'bind',{agentId});
     const unit=stageControl(root,'review-start',{agentId,submissionId:sub.id});
+    if(i===0){assert.equal(unit.id,'scope-1');assert.equal(unit.rubricVersion,'survey-2');assert.match(unit.scopePath,/snapshot\/SCOPE.md$/);assert.match(unit.rubricPath,/rubric.md$/);assert.equal(unit.inputPolicy,'scope-manuscript-v2');}
     write(root,unit.artifact,JSON.stringify(unit.id==='score'?{unitId:'score',submissionId:sub.id,fingerprint:sub.fingerprint,reviewerId:agentId,report:assessment(total,{priorIssues})}
       :{unitId:unit.id,fingerprint:sub.fingerprint,locations:['Synthetic section'],findings:'Synthetic control-flow evidence only'}));
     stageControl(root,'review-finish',{submissionId:sub.id,agentId,...stopped});
@@ -183,6 +184,8 @@ test('staged full review requires all unit artifacts and rejects mutation after 
   for(let i=0;;i++) {
     const agentId=`review-unit-${i}`;lastId=agentId;finalControl(root,'bind',{agentId});
     const unit=stageControl(root,'review-start',{agentId,submissionId:sub.id});
+    if(i===0){assert.equal(unit.id,'scope-1');assert.equal(unit.rubricVersion,'survey-2');assert.match(unit.scopePath,/snapshot\/SCOPE.md$/);assert.match(unit.rubricPath,/rubric.md$/);assert.equal(unit.inputPolicy,'scope-manuscript-v2');
+      assert.equal(evaluateHook({project_dir:project,agent_type:'slr-reviewer',agent_id:agentId,tool_name:'Read',tool_input:{file_path:path.join(root,unit.scopePath)}}).allowed,true);}
     const allow=(f)=>evaluateHook({project_dir:project,agent_type:'slr-reviewer',agent_id:agentId,tool_name:'Write',tool_input:{file_path:path.join(root,f)}}).allowed;
     assert.equal(allow(unit.artifact),true);assert.equal(allow('paper/main.tex'),false);
     if(unit.id==='score') {

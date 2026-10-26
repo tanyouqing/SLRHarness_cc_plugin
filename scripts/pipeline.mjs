@@ -1,3 +1,4 @@
+import {configurePaper,paperConfig} from './paper-config.mjs';
 import {bounded,researchSummary,researchQuery,readSlice} from './bounded-output.mjs';
 import {normalizeResearchProfile,validateResearchProfile,researchScale,scaleCompletion} from './research-profile.mjs';
 import {checkpoint,saveRecovery,contextControl} from './context-control.mjs';
@@ -373,7 +374,7 @@ async function cli() {
   if(command==='init') {
     required(!fs.existsSync(root),'workspace already exists');
     const s=createState(readJSON(input)); required(path.basename(root)===s.reviewId,'directory must match reviewId');
-    required(!validateV2(s).length,'invalid initial settings'); fs.mkdirSync(root,{recursive:true}); atomicJSON(statePath(root),s); contextControl(root,'enable'); emit(full?s:researchSummary(s,command,root)); return;
+    required(!validateV2(s).length,'invalid initial settings'); fs.mkdirSync(root,{recursive:true}); atomicJSON(statePath(root),s); configurePaper(root,{...readJSON(input).paperConfig,language:readJSON(input).paperConfig?.language??s.language??'english'}); contextControl(root,'enable'); emit(full?s:{...researchSummary(s,command,root),paperConfig:paperConfig(root)}); return;
   }
   if(command==='status') { const s=loadState(root);emit(full?s:researchSummary(s,command,root)); return; }
   if(command==='query') { emit(researchQuery(loadState(root),input?readJSON(input):{},root));return; }

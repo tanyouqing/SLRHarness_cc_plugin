@@ -4,11 +4,11 @@ Schema 2 is defined in scripts/pipeline.mjs and skills/review/references/workspa
 
 The approved scope defines 3–5 stable major topics. Managers choose subtopics dynamically, preserving task IDs and recording supersession reasons. Discovery and reading are separate phases: main resolves aliases and versions before assigning stable paper IDs and one writing owner. Sharing across topics reuses those IDs. Supplements return to one assigned owner and invalidate dependent chapter acceptance.
 
-Runtime Agent IDs are bound after a READY handshake. Managers request global Worker leases through an idempotent, locked control helper before delegating. The guard permits only the allocated Worker type and precise write paths; Managers may invoke only the narrow manager-control and legacy bind-worker helpers. Worker shell access is limited to read-only paper-search. Checker and writer cannot retrieve or delegate. Main dispatch is the explicit fallback if host nesting is unavailable. This is a cooperative orchestration boundary, not an operating-system sandbox for untrusted code.
+Runtime Agent IDs are bound after a READY handshake. Managers request global Worker leases through an idempotent, locked control helper before delegating. The guard permits only the allocated Worker type and precise write paths; Managers may invoke only the narrow manager-control and legacy bind-worker helpers. Worker shell access is limited to read-only paper-search. Checker cannot retrieve or delegate. Ordinary writers cannot retrieve or delegate; only an active format-check Paper Agent can read registered official sites. Main dispatch is the explicit fallback if host nesting is unavailable. This is a cooperative orchestration boundary, not an operating-system sandbox for untrusted code.
 
 Five rounds, nine concurrent Workers and two attempts per phase are defaults. Low yield means no newly accepted papers or chapters. New task creation cannot reset saturation. Pending work can be closed only with a recorded reason. Checkers return evidence-linked major/minor issues; passing with substantive errors is forbidden. At most two repair cycles follow an initial chapter review. No failed topic is silently omitted.
 
-Managers write chapter.md plus synthesis.md to provide introductory terminology, scope relationships, comparison conditions and open questions without forcing the Paper Agent to load every note. Paper reads these materials and selectively checks primary notes. All major topics are assembled into the LaTeX template; the writer directly proofreads wording, transitions and minor inconsistencies before compilation. Remaining concerns are passed to the final Reviewer after compilation. Writer proofreading stays lightweight; final Reviewer separately compares authored surveys and scores the complete manuscript.
+Managers write chapter.md plus synthesis.md to provide introductory terminology, scope relationships, comparison conditions and open questions without forcing the Paper Agent to load every note. Paper reads these materials and selectively checks primary notes. All major topics are assembled into the LaTeX template; the writer directly proofreads wording, transitions and minor inconsistencies before compilation. Remaining scientific limitations are expressed in the manuscript; internal writer handoffs are not passed to Reviewer. Writer proofreading stays lightweight; final Reviewer separately compares authored surveys and scores the complete manuscript.
 
 Initial completion creates immutable slr-complete before automatic paper handoff. A failing final assessment may authorize a scoped research revision while preserving that original checkpoint. Paper sidecars track writer bindings without mutating research state. Build uses isolated directories, disabled shell escape and source/PDF hashes. Failure preserves sources and historical PDF bytes but marks delivery non-current. Historical Markdown is retained. Authored evidence claims and visual quality still require model/human review; schema and build validation cannot establish scientific correctness.
 
@@ -22,8 +22,8 @@ active revision and do not count as a completed reassessment. Status is read-onl
 
 Each submission snapshots exact sources, style, PDF, scopes, task/plan material,
 canonical records and registry with content hashes. Results are immutable; changed
-inputs invalidate acceptance. The fixed survey-1 rubric has twenty integer 0–5
-items. Arithmetic and 70-point threshold are checked deterministically; semantic
+inputs invalidate acceptance. The single supported rubric uses six integer dimensions with maxima 15/15/25/20/15/10.
+Arithmetic and 70-point threshold are checked deterministically; semantic
 scores and full-text relevance remain model judgments. Critical issues do not add
 an extra veto. Comparison validity and quality passing are recorded separately.
 
@@ -36,8 +36,8 @@ chapter checks. Old task attempts are not reset. Fresh accepted evidence is comm
 before Paper writer rebuilds the manuscript; the initial completion tag never moves.
 
 The final Reviewer can use read-only scholarly retrieval and return results, with no
-manuscript/evidence/control writes or delegation; staged report drafts are the sole write exception. Main persists separate Scoper/Manager/Worker candidate
-advice with source-linked differences, conditional actions and attribution uncertainty.
+manuscript/evidence/control writes or delegation; staged report drafts are the sole write exception. Main persists one experiences.json containing Scoper/Manager/Worker/Paper Agent candidate
+strategies with source-linked differences, conditional actions and attribution uncertainty.
 Reference match may be same, overlapping or adjacent; adjacent surveys cannot justify
 field-specific coverage deductions. Historical workspaces do not enter this repair loop.
 
@@ -90,15 +90,54 @@ contract for the API, ownership and restore behavior.
 
 Reviewer now extracts executable candidate experience for Scoper, Manager, Worker
 and Paper Agent. Paper strategies focus on global writing, cross-topic synthesis
-and manuscript organization, with upstream evidence gaps attributed separately.
-The existing suggestions transport gains a required paper array (possibly empty).
-All four roles are rendered into one experience.md per submission, with both source
-locations, attribution, applicability/exclusions, concrete operations and acceptance
-tests. Existing reports/files remain readable and are not rewritten. No experience
-storage/retrieval interface or automatic application is added; this output can feed
-later storage work. Current review scoring and repair routing remain unchanged.
+and manuscript organization. Strategy recipients follow role definitions; unseen
+upstream causes remain hypotheses because scope and papers do not expose internal Agent execution.
+Main stores one experiences.json containing a flat experiences array. Required
+fields are sourceType, role, executionSummary and strategy. Optional stage, task and applicability may be strings, null, empty or omitted. Roles are paper/manager/scoper/worker; sourceType
+supports review/trajectory in the shared validator, while final review accepts only
+review records. A strategy needs no separate ID or per-role container. Locations
+and causal uncertainty are carried in executionSummary and the comparison report.
+An empty array is valid; no experience per role is required. Current fixes remain
+in issues, and no trajectory extractor or memory retrieval interface is added.
 
-Validation: 89 deterministic tests passed, including four-role validation, consolidated
-output, source traceability, historical report reads, retry isolation and existing
-69/70 repair tests. Script syntax, plugin manifest and diff checks passed. Real Agent
-strategy quality and downstream experience storage/application were not tested.
+## Conference templates and format stage
+
+New CLI-created workspaces persist .slr/paper-config.json from initial prompt
+selection (default NeurIPS, NIPS alias). This is separate from schema-2 research
+state. The common preprint policy retains survey length and excludes submission
+page caps/anonymity. Historical workspaces lacking this sidecar are unchanged.
+
+Registered skeletons and <=8000-character guides sit beside immutable upstream
+files. Writing input fingerprints include config; build fingerprints include
+config and every selected dependency. Direct format check/fix assignments live in
+work-stages.format, serialize with writers and active Reviewers, use fresh runtime
+IDs, and persist only minimal completion/fingerprint state. No format report is
+created. Paper reads selected official requirements and directly edits sources
+and handoff. Main records legal output hashes, compiles and checks the new PDF.
+Three completed repairs bound a format sequence. Network-incomplete verification
+may proceed with disclosure; known major defects pause. Source/dependency/PDF changes
+invalidate the result. Final-review snapshots freeze the actual template
+dependencies and configuration. Reviewer sees only approved SCOPE.md, manuscript files, human
+surveys, the current rubric and its own continuation findings; internal snapshots are for main. Main remains responsible
+for Git and compilation. See conference-format-validation.md for evidence and limits.
+
+## Scope-aligned review and transferable strategy extraction
+
+Only six-dimensional scoring is supported. The rubric identifier remains in control
+and submissions to reject stale scores; there is no historical-rubric dispatcher.
+Workspace history is not rewritten or converted automatically.
+New submissions verify SCOPE.md bytes against SCOPE_ORIGINAL.md and the approval
+hash; a mismatch is resolved by main before dispatch. Reviewer can read only the
+frozen SCOPE.md, never the live scope, original copy or other process artifacts.
+
+Scope chunks precede manuscript chunks and retain bounded clauses/search framing.
+Reference selection matches approved questions, boundaries and dates. Coverage
+compares scope clauses with manuscript passages. Within-scope omissions/drift use
+topic/global repair; only proposed scope changes use kind scope and user approval.
+The other five dimensions judge the manuscript with explicit epistemic limits.
+
+issues retain current concrete fixes. experiences generalize an observed difference
+into a conditional procedure that survives replacing topic-specific materials.
+Actions name inputs, steps and outputs; conditions delimit applicability; acceptance
+states an observable test. Provenance remains concrete and internal causality stays
+uncertain. A flat experiences array and one experiences.json remain; no new memory interface.

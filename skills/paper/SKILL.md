@@ -1,20 +1,27 @@
 ---
 name: paper
-description: Generate, resume or revise a NeurIPS-style LaTeX survey and PDF from completed SLR Harness evidence. Also runs automatically after research finalization and routes v2 manuscripts through final review and bounded research repair.
+description: Generate, resume or revise a conference-template LaTeX survey and PDF from completed SLR Harness evidence. Also runs automatically after research finalization and routes v2 manuscripts through final review and bounded research repair.
 argument-hint: <slug> | resume <slug> | revise <slug> <feedback>
 ---
 
 # Template-based survey delivery
 
+Official ICLR, ICML, AAAI, ACL, EMNLP and NeurIPS source packages are cataloged in
+template/library/README.md, with official submission/formatting links in
+template/library/SOURCES.md. Read references/conference-format.md for selection, preprint guides and independent
+online format checks. New workspaces persist their selection; missing configuration
+in existing workspaces retains the legacy adapted NeurIPS workflow.
+
 This workflow follows research completion and may also be invoked explicitly.
 Read references/staged-execution.md for context-enabled workspaces.
-Read references/paper-template.md completely and use template/neurips_2026.tex.
+Read references/paper-template.md completely. Use the configured catalog skeleton
+and guide; only unconfigured legacy workspaces use template/neurips_2026.tex.
 Pass the scope's initial reconnaissance-based Survey Outline and recorded refinements
 to the writer. Topic count is unconstrained by template placeholders. Require one
 selected heading each for Background OR Preliminaries and Taxonomy OR Unified Framework.
 Use absolute paths rooted at ${CLAUDE_PROJECT_DIR}/workspaces/<slug>; never cd.
 Run Git as git -C <absolute-workspace>. The main session owns preparation,
-validation, compilation and commits; the writer owns the two manuscript sources and, in staged mode, its bounded writing-handoff.md.
+validation, compilation and commits; the writer owns the two manuscript sources and, in staged mode, its bounded writing-handoff.md; format checking directly repairs the same sources and creates no report.
 
 ## 1. Select and check evidence
 
@@ -33,8 +40,8 @@ Outside authorized final-review repair, do not change research state or artifact
 and the slr-complete target before writing, and verify preservation before committing.
 
 Inspect git status --porcelain --untracked-files=all. Permit recoverable changes
-only to paper/main.tex, references.bib, writing-handoff.md, neurips_2026.sty, main.pdf, build.json and
-paper/.gitignore. Context orchestration sidecars under .slr/context-policy.json, .slr/recovery.json, .slr/checkpoints/, .slr/work-stages.json, and paper orchestration sidecars under .slr/paper-* and .slr/final-review.json plus explicit paper/reviews/ snapshot/result paths are allowed and committed separately from research checkpoints. During authorized repair, commit only assigned research changes as a new evidence checkpoint; use that commit instead of the initial slr-complete as the writer input. Other dirty files, including a modified legacy REVIEW_PAPER.md,
+only to paper/main.tex, references.bib, writing-handoff.md, configured template dependencies, main.pdf, build.json and
+paper/.gitignore, .slr/paper-config.json. Context orchestration sidecars under .slr/context-policy.json, .slr/recovery.json, .slr/checkpoints/, .slr/work-stages.json, and paper orchestration sidecars under .slr/paper-* and .slr/final-review.json plus explicit paper/reviews/ snapshot/result paths are allowed and committed separately from research checkpoints. During authorized repair, commit only assigned research changes as a new evidence checkpoint; use that commit instead of the initial slr-complete as the writer input. Other dirty files, including a modified legacy REVIEW_PAPER.md,
 are a blocker. Never stage unrelated changes. A committed legacy Markdown paper
 is preserved byte-for-byte and may serve only as a rechecked draft for migration.
 
@@ -79,7 +86,8 @@ For context-enabled schema 2, use staged-execution.md: fresh serialized writer
 invocations, bound phase assignments, bounded inputs, hash-checked completion and
 writing-handoff.md. Do not launch a monolithic writer that reads every chapter.
 For unenabled/schema 1, retain a single initialized/bound writer with the existing
-legacy evidence contract. All writers remain unable to search, delegate or compile.
+legacy evidence contract. Ordinary writers cannot search, delegate or compile. Only active format-check
+invocations may read registered official web sources; see conference-format.md.
 Main owns compilation and PDF inspection. On validation/build failure preserve the
 sources and record diagnostics; a staged correction starts an explicit writing
 revision without erasing the draft. Never mark intermediate phases as final output.
@@ -100,7 +108,7 @@ Historical paper-review sidecars stay preserved and unused; the new final-review
 control is separate. Compilation recovery remains independent of quality scoring.
 
 Run `node "${CLAUDE_PLUGIN_ROOT}/scripts/paper-build.mjs" build <absolute-paper-dir>`.
-This invokes latexmk, XeLaTeX and BibTeX with no shell escape or latexmk rc files.
+This invokes latexmk, the configured verified pdfLaTeX/XeLaTeX engine and BibTeX with no shell escape or latexmk rc files.
 Each attempt has a fresh paper/.build/ directory with logs. Only a successful build
 with resolved citations/references and matching source hashes updates main.pdf.
 The helper writes build.json with success/failure and source/PDF fingerprints.
@@ -117,7 +125,17 @@ hierarchy, margins, tables, references, missing glyphs and clipping. Treat overf
 boxes as inspection targets; fix actual layout defects within the same repair budget.
 If visual inspection is unavailable, report that boundary, not a passed visual check.
 
-## 5. Commit candidate, review and return
+## 5. Official format check
+
+For configured workspaces execute conference-format.md after compilation and every
+revised candidate. A fresh Paper Agent reads selected official URLs, checks the
+paper and directly fixes formatting. No format report is produced or passed to main.
+Main records only bounded completion/fingerprint state and compiles changed sources;
+check the new PDF before continuing. Up to three source repairs; unresolved major
+errors pause, while unavailable official requirements allow review with explicit
+unverified status. Legacy workspaces retain their existing path.
+
+## 6. Commit candidate, review and return
 
 For schema 2, a build is a candidate manuscript. Commit it, then execute
 references/final-review.md through completion or an explicit recoverable pause.
@@ -137,7 +155,7 @@ never changes the research terminal state or removes the slr-complete checkpoint
 
 Return main.tex, references.bib and the current main.pdf, commit if created, language,
 settings and evidence limitations. Distinguish research completion, source readiness,
-PDF build, visual inspection, final score and comparison completion. On compilation
+PDF build, visual inspection, official format status (including unavailable URLs), final score and comparison completion. On compilation
 failure return source paths, diagnostics and `/slr-harness:paper resume <slug>`;
 explicitly say no current PDF was delivered. On a final-review pause, link the valid
 compiled draft and review/advice files but identify it as not finally accepted.
@@ -161,3 +179,8 @@ from researchScale separately from unique citation keys actually used in validat
 main.tex. Do not count unused bibliography entries as citations or force citation of
 every accepted paper. Preserve the research REPORT.md scaleReason; paper length and
 quality requirements do not automatically change with tier.
+
+Final Reviewer uses a single rubric: six direct dimension scores, total
+100 and pass >=70. Supply only frozen approved SCOPE.md, manuscript, assigned rubric
+and review continuation inputs; no chapter/note/synthesis packets. Main verifies
+scope approval and maps review issues to Managers. See final-review.md for dispatch.

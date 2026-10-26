@@ -1,0 +1,314 @@
+{
+  "schemaVersion": 1,
+  "verifiedOn": "2026-10-26",
+  "purpose": "Official source packages and registered preprint survey adapters; writing guides precede direct online format check and repair.",
+  "templates": [
+    {
+      "id": "neurips-2026",
+      "venue": "NeurIPS",
+      "aliases": [
+        "NIPS"
+      ],
+      "version": "2026",
+      "officialWebsite": "https://neurips.cc/",
+      "editionWebsite": "https://neurips.cc/Conferences/2026",
+      "requirementsPages": [
+        "https://neurips.cc/Conferences/2026/MainTrackHandbook",
+        "https://neurips.cc/Conferences/2026/CallForPapers"
+      ],
+      "downloadUrl": "https://media.neurips.cc/Conferences/NeurIPS2026/Formatting_Instructions_For_NeurIPS_2026.zip",
+      "directory": "neurips/2026/upstream",
+      "entrypoint": "neurips_2026.tex",
+      "notes": "Official raw kit. The parent survey template is only the unconfigured-workspace fallback; its style matches this download byte-for-byte.",
+      "archiveSha256": "82473931e3ef710fcd3f4a8cd4119b9de32e56825f90f9e5a6d55f2d01b817d9",
+      "archiveBytes": 20259,
+      "verifiedOn": "2026-10-26",
+      "fileManifest": "neurips/2026/files.json",
+      "pipelineSelectable": true,
+      "editionYear": "2026",
+      "skeleton": "neurips/survey/main.tex",
+      "guide": "neurips/survey/guide.md",
+      "engines": {
+        "english": {
+          "engine": "pdflatex",
+          "verified": true,
+          "verificationDate": "2026-10-26"
+        },
+        "chinese": {
+          "engine": "xelatex",
+          "verified": true,
+          "verificationDate": "2026-10-26"
+        }
+      },
+      "style": "neurips_2026",
+      "bibliographyStyle": "plainnat",
+      "dependencies": [
+        "neurips_2026.sty"
+      ],
+      "officialHosts": [
+        "media.neurips.cc",
+        "neurips.cc"
+      ],
+      "guideHash": "dc27ffde642a7dcc9e7b31e0bc4848fbd4f1a132bda710e5c83ad4911f0e6576",
+      "styleOwnsBibliography": false
+    },
+    {
+      "id": "iclr-2027",
+      "venue": "ICLR",
+      "version": "2027",
+      "officialWebsite": "https://iclr.cc/",
+      "editionWebsite": "https://iclr.cc/Conferences/2027",
+      "requirementsPages": [
+        "https://iclr.cc/Conferences/2027/AuthorGuidelines"
+      ],
+      "downloadUrl": "https://media.iclr.cc/Conferences/ICLR2027/iclr-2027-style-files.zip",
+      "directory": "iclr/2027/upstream",
+      "entrypoint": "iclr2027_conference.tex",
+      "notes": "Official raw kit includes bundled natbib, fancyhdr and math_commands. Sample compilation emits a TeX group warning; upstream is preserved.",
+      "archiveSha256": "0d940dfa9398ae99a18f24a85a8a683f367204b6af6d17d2899e60a67102529e",
+      "archiveBytes": 39348,
+      "verifiedOn": "2026-10-26",
+      "fileManifest": "iclr/2027/files.json",
+      "pipelineSelectable": true,
+      "editionYear": "2027",
+      "skeleton": "iclr/survey/main.tex",
+      "guide": "iclr/survey/guide.md",
+      "engines": {
+        "english": {
+          "engine": "pdflatex",
+          "verified": true,
+          "verificationDate": "2026-10-26"
+        },
+        "chinese": {
+          "engine": "xelatex",
+          "verified": true,
+          "verificationDate": "2026-10-26"
+        }
+      },
+      "style": "iclr2027_conference",
+      "bibliographyStyle": "iclr2027_conference",
+      "dependencies": [
+        "iclr2027_conference.sty",
+        "iclr2027_conference.bst",
+        "fancyhdr.sty",
+        "natbib.sty"
+      ],
+      "officialHosts": [
+        "iclr.cc",
+        "media.iclr.cc"
+      ],
+      "guideHash": "c84ac556853d08f939d5ab2e8d313ddf9d5b4aeab321ff2759c412a9677996c3",
+      "styleOwnsBibliography": false,
+      "protectedAdapter": true
+    },
+    {
+      "id": "icml-2026",
+      "venue": "ICML",
+      "version": "2026",
+      "officialWebsite": "https://icml.cc/",
+      "editionWebsite": "https://icml.cc/Conferences/2026",
+      "requirementsPages": [
+        "https://icml.cc/Conferences/2026/AuthorInstructions"
+      ],
+      "downloadUrl": "https://media.icml.cc/Conferences/ICML2026/Styles/icml2026.zip",
+      "directory": "icml/2026/upstream",
+      "entrypoint": "example_paper.tex",
+      "notes": "Latest official package located during this check; no 2027 template was located. Keep supplied figure PDF and algorithm styles.",
+      "archiveSha256": "8b29290f5828e176debb57ea9cc00252502973d55ea561a2f18a7f0a326bfc6c",
+      "archiveBytes": 228368,
+      "verifiedOn": "2026-10-26",
+      "fileManifest": "icml/2026/files.json",
+      "pipelineSelectable": true,
+      "editionYear": "2026",
+      "skeleton": "icml/survey/main.tex",
+      "guide": "icml/survey/guide.md",
+      "engines": {
+        "english": {
+          "engine": "pdflatex",
+          "verified": true,
+          "verificationDate": "2026-10-26"
+        },
+        "chinese": {
+          "engine": "xelatex",
+          "verified": true,
+          "verificationDate": "2026-10-26"
+        }
+      },
+      "style": "icml2026",
+      "bibliographyStyle": "icml2026",
+      "dependencies": [
+        "icml2026.sty",
+        "icml2026.bst",
+        "fancyhdr.sty"
+      ],
+      "officialHosts": [
+        "icml.cc",
+        "media.icml.cc"
+      ],
+      "guideHash": "3fbefbbf8ff1f35ab7586f9940755e9d9271b5c8c8b51f4c21861dff463f0709",
+      "styleOwnsBibliography": false,
+      "protectedAdapter": true
+    },
+    {
+      "id": "aaai-2027",
+      "venue": "AAAI",
+      "version": "2027 (October 2026 author kit)",
+      "officialWebsite": "https://aaai.org/",
+      "editionWebsite": "https://aaai.org/conference/aaai/aaai-27/",
+      "requirementsPages": [
+        "https://aaai.org/conference/aaai/aaai-27/submission-instructions/"
+      ],
+      "downloadUrl": "https://aaai.org/authorkit27/",
+      "resolvedDownloadUrl": "https://aaai.org/wp-content/uploads/2026/10/AuthorKit27.zip",
+      "directory": "aaai/2027/upstream",
+      "entrypoint": "AnonymousSubmission2027.tex",
+      "additionalEntrypoints": [
+        "CameraReady2027.tex",
+        "ReproducibilityChecklist.tex"
+      ],
+      "notes": "Downloaded via official redirect with curl; Python requests returned 403. October author kit, not the older May package. Word-only subtree excluded; LaTeX sources, figures and supplied PDFs retained.",
+      "archiveSha256": "9406a545d5d213757245eb37118fe652b2fccf64f555aff28b49ebe2a780c960",
+      "archiveBytes": 5496654,
+      "verifiedOn": "2026-10-26",
+      "fileManifest": "aaai/2027/files.json",
+      "pipelineSelectable": true,
+      "editionYear": "2027",
+      "skeleton": "aaai/survey/main.tex",
+      "guide": "aaai/survey/guide.md",
+      "engines": {
+        "english": {
+          "engine": "pdflatex",
+          "verified": true,
+          "verificationDate": "2026-10-26"
+        },
+        "chinese": {
+          "engine": "xelatex",
+          "verified": false,
+          "verificationDate": "2026-10-26",
+          "reason": "Official AAAI 2027 style requires pdfTeX; no engine guard bypass"
+        }
+      },
+      "style": "aaai2027",
+      "bibliographyStyle": "aaai2027",
+      "dependencies": [
+        "aaai2027.sty",
+        "aaai2027.bst"
+      ],
+      "officialHosts": [
+        "aaai.org"
+      ],
+      "guideHash": "1683928634c71ca67ce4c450c1146fde2c9668e60bc34058173d28d119d365f1",
+      "styleOwnsBibliography": true
+    },
+    {
+      "id": "acl-shared-20261026",
+      "venue": "ACL",
+      "version": "shared style snapshot 2026-10-26",
+      "officialWebsite": "https://www.aclweb.org/",
+      "editionWebsite": "https://2026.aclweb.org/",
+      "requirementsPages": [
+        "https://2026.aclweb.org/calls/main_conference_papers/",
+        "https://aclrollingreview.org/cfp",
+        "https://acl-org.github.io/ACLPUB/formatting.html"
+      ],
+      "downloadUrl": "https://codeload.github.com/acl-org/acl-style-files/zip/d5adc823ff0f80f98c80405ca0ab66c68e684409",
+      "upstreamRepository": "https://github.com/acl-org/acl-style-files",
+      "upstreamCommit": "d5adc823ff0f80f98c80405ca0ab66c68e684409",
+      "directory": "acl/shared-d5adc823ff0f/upstream",
+      "entrypoint": "acl_latex.tex",
+      "additionalEntrypoints": [
+        "acl_lualatex.tex"
+      ],
+      "notes": "Shared unyear-numbered ACL style. Conference links document the 2026 edition; style snapshot is pinned independently. Repository CI/tests excluded. Full Anthology database is optional and not downloaded; sample uses custom.bib.",
+      "archiveSha256": "35b158b724d04435a657ab214fe4da5f2b57808fc15ca0f24b751bc07b1d1c73",
+      "archiveBytes": 37969,
+      "verifiedOn": "2026-10-26",
+      "fileManifest": "acl/shared-d5adc823ff0f/files.json",
+      "pipelineSelectable": true,
+      "editionYear": "2026",
+      "skeleton": "acl/survey/main.tex",
+      "guide": "acl/survey/guide.md",
+      "engines": {
+        "english": {
+          "engine": "pdflatex",
+          "verified": true,
+          "verificationDate": "2026-10-26"
+        },
+        "chinese": {
+          "engine": "xelatex",
+          "verified": true,
+          "verificationDate": "2026-10-26"
+        }
+      },
+      "style": "acl",
+      "bibliographyStyle": "acl_natbib",
+      "dependencies": [
+        "acl.sty",
+        "acl_natbib.bst"
+      ],
+      "officialHosts": [
+        "2026.aclweb.org",
+        "acl-org.github.io",
+        "aclrollingreview.org",
+        "www.aclweb.org"
+      ],
+      "guideHash": "4e347fa2b1cdad98e8b9a0a4ac4fbfccda8708bcc2769dc3f2fd2739592f4330",
+      "styleOwnsBibliography": true
+    },
+    {
+      "id": "emnlp-shared-20261026",
+      "venue": "EMNLP",
+      "version": "shared style snapshot 2026-10-26",
+      "officialWebsite": "https://2026.emnlp.org/",
+      "editionWebsite": "https://2026.emnlp.org/",
+      "requirementsPages": [
+        "https://2026.emnlp.org/calls/main_conference_papers/",
+        "https://aclrollingreview.org/cfp",
+        "https://acl-org.github.io/ACLPUB/formatting.html"
+      ],
+      "downloadUrl": "https://codeload.github.com/acl-org/acl-style-files/zip/d5adc823ff0f80f98c80405ca0ab66c68e684409",
+      "upstreamRepository": "https://github.com/acl-org/acl-style-files",
+      "upstreamCommit": "d5adc823ff0f80f98c80405ca0ab66c68e684409",
+      "directory": "acl/shared-d5adc823ff0f/upstream",
+      "entrypoint": "acl_latex.tex",
+      "additionalEntrypoints": [
+        "acl_lualatex.tex"
+      ],
+      "sharedWith": "acl-shared-20261026",
+      "notes": "EMNLP points to ARR submission requirements, which use the official shared ACL style. Reuse the identical pinned local files; no independently branded EMNLP style is claimed.",
+      "archiveSha256": "35b158b724d04435a657ab214fe4da5f2b57808fc15ca0f24b751bc07b1d1c73",
+      "archiveBytes": 37969,
+      "verifiedOn": "2026-10-26",
+      "fileManifest": "acl/shared-d5adc823ff0f/files.json",
+      "pipelineSelectable": true,
+      "editionYear": "2026",
+      "skeleton": "emnlp/survey/main.tex",
+      "guide": "emnlp/survey/guide.md",
+      "engines": {
+        "english": {
+          "engine": "pdflatex",
+          "verified": true,
+          "verificationDate": "2026-10-26"
+        },
+        "chinese": {
+          "engine": "xelatex",
+          "verified": true,
+          "verificationDate": "2026-10-26"
+        }
+      },
+      "style": "acl",
+      "bibliographyStyle": "acl_natbib",
+      "dependencies": [
+        "acl.sty",
+        "acl_natbib.bst"
+      ],
+      "officialHosts": [
+        "2026.emnlp.org",
+        "acl-org.github.io",
+        "aclrollingreview.org"
+      ],
+      "guideHash": "9b8411714a7f56cebe4713cffad9b491758ba85941737a11482b84f5feb6a3d0",
+      "styleOwnsBibliography": true
+    }
+  ]
+}

@@ -1,3 +1,6 @@
+import {reviewerReadAllowed} from './reviewer-inputs.mjs';
+import {formatAccess} from './format-check.mjs';
+import {paperConfig,templateFor,officialURL} from './paper-config.mjs';
 import {managerRequest} from './manager-control.mjs';
 import {enabled} from './context-control.mjs';
 import {stageAccess} from './work-stages.mjs';
@@ -149,6 +152,11 @@ export function evaluateHook(input) {
     try {if(!stageAccess(bound.root,'reviewer',input.agent_id))return deny('Reviewer requires its active assigned unit');}
     catch(e){return deny(e.message);}
   }
+  if(role==='slr-reviewer' && ['Read','Glob','Grep'].includes(tool)) {
+    if(!reviewerReadAllowed(bound.root,bound.b.submissionId,tool,args,bound.finalReview.submissions.at(-1).rubricVersion))return deny('Reviewer reads only assigned scope (survey-2), frozen manuscript, human reference surveys, versioned rubric and its own review records');
+    const target=tool==='Read'?args.file_path:args.path;
+    if(within(bound.root,path.resolve(target))&&!noLinks(bound.root,path.resolve(target)))return deny('Reviewer input must not follow symbolic links');
+  }
   if(bound?.finalReview?.status==='paused' && (writes.has(tool) || ['Agent','Bash','PowerShell','WebFetch','WebSearch'].includes(tool) || tool.startsWith('mcp__'))) return deny('final review is paused');
   if(role==='slr-worker' && (tool==='WebSearch' || tool==='WebFetch' || tool.startsWith('mcp__'))
     && (!bound || bound.state.stage!=='researching' || !bound.state.leases[bound.b.leaseId]?.active)) return deny('worker retrieval requires an active research lease');
@@ -208,6 +216,16 @@ export function evaluateHook(input) {
     }
     return deny('no shell access except read-only paper-search or manager bind-worker helper');
   }
+  if(role==='slr-paper-writer' && (tool==='WebSearch'||tool==='WebFetch')) {
+    try {
+      const a=bound&&formatAccess(bound.root,input.agent_id),config=bound&&paperConfig(bound.root);
+      if(a?.kind!=='check')return deny('official web access requires active format check');
+      if(tool==='WebFetch')return officialURL(config,args.url)?allow():deny('format fetch requires a registered official host');
+      const hosts=templateFor(config).officialHosts;
+      return Array.isArray(args.allowed_domains)&&args.allowed_domains.length>0&&args.allowed_domains.every(d=>hosts.includes(d))
+        ?allow():deny('format search requires explicit registered official allowed_domains');
+    }catch(e){return deny(e.message);}
+  }
   if(['slr-manager','slr-checker','slr-paper-writer'].includes(role)
     && (tool==='WebSearch' || tool==='WebFetch' || tool.startsWith('mcp__'))) return deny('this role does not retrieve new evidence');
   if(!writes.has(tool)) return allow();
@@ -226,7 +244,7 @@ export function evaluateHook(input) {
     allowed=[artifact];
   } else if(role==='slr-paper-writer') {
     if(enabled(root)) {
-      try {if(!stageAccess(root,'paper',input.agent_id))return deny('no current active writer phase');}catch(e){return deny(e.message);}
+      try {if(!stageAccess(root,'paper',input.agent_id)&&!formatAccess(root,input.agent_id))return deny('no current active writer phase');}catch(e){return deny(e.message);}
     }
     if(!['completed','completed_with_limitations'].includes(state.stage)) return deny('paper requires terminal research');
     if(state.schemaVersion===1) {
@@ -236,7 +254,8 @@ export function evaluateHook(input) {
         catch { return deny('invalid legacy update'); }
       }
     }
-    allowed=['paper/main.tex','paper/references.bib',...(enabled(root)?['paper/writing-handoff.md']:[])];
+    const format=formatAccess(root,input.agent_id);
+    allowed=format&&!format.canEdit?[]:['paper/main.tex','paper/references.bib',...(enabled(root)?['paper/writing-handoff.md']:[])];
   } else {
     if(state.schemaVersion!==2 || state.stage!=='researching') return deny('research writes require active v2 state');
     if(role==='slr-manager') {

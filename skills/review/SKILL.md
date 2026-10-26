@@ -58,3 +58,14 @@ Additional sidecars: .slr/context-policy.json, .slr/recovery.json, .slr/checkpoi
 .slr/work-stages.json. Staged writer also owns paper/writing-handoff.md; staged
 Reviewer owns only its currently assigned paper/reviews/<submission>/drafts/<unit>.json.
 Default control responses never include the full registry or historical reports.
+
+## Conference configuration
+
+For new pipeline init, include paperConfig only when the initial prompt explicitly
+selects a conference/template/year; otherwise the controller persists NeurIPS.
+NIPS is an alias. Set manuscript language to the research language. No template
+question or submission-vs-template intent split. Record resolved version in scope.
+See ../paper/references/conference-format.md (from review skill root). Existing
+workspaces without this sidecar keep legacy behavior. Resume never re-infers the
+selection. Before final Reviewer, configured papers require current official format
+audit (passed or explicitly official_unverified) after every manuscript revision.

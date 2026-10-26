@@ -1,6 +1,6 @@
 # Survey writing contract
 
-Use template/neurips_2026.tex, preprint mode, single main.tex plus references.bib and original neurips_2026.sty. Keep author empty absent supplied identity. Do not include checklist. Default English, author–year citations, 6,000–9,000 words, no imposed conference page limit. For Chinese enable surveychinesetrue; compile with XeLaTeX.
+For configured workspaces use the selected catalog skeleton, compact guide and original dependencies. Unconfigured legacy workspaces use template/neurips_2026.tex and neurips_2026.sty. Both use preprint mode and a single main.tex plus references.bib. Keep author empty absent supplied identity. Do not include checklist. Default English, author–year citations, 6,000–9,000 words, no imposed conference page limit. For Chinese enable surveychinesetrue; use the verified template-language compiler configuration; AAAI Chinese/XeLaTeX is unsupported.
 
 Required ordered sections and labels:
 - Abstract: question, organization, central findings and scope boundaries.
@@ -13,7 +13,7 @@ Required ordered sections and labels:
 - Conclusion (sec:conclusion): consolidate main findings and boundaries without new evidence.
 - References via \bibliographystyle{plainnat} and \bibliography{references}.
 
-Topic prose synthesizes research questions, evolution, representative methods, applicability and limitations across papers. Avoid a sequence of disconnected paper summaries. In v2 translate [@p-...] citations into \citet / \citep using the same stable IDs as BibTeX keys. Source metadata comes from canonical cards, actual claims from notes and exact locations. Targeted rereading is mandatory for pivotal definitions, quantitative claims and contradictions. Preserve all accepted chapters' technical meaning. Resolve minor issues directly through supported wording and qualification. Disclose remaining concerns for the final Reviewer; the writer does not stop assembly or reopen Manager research itself. Main may later authorize a scoped repair from the final assessment.
+Topic prose synthesizes research questions, evolution, representative methods, applicability and limitations across papers. Avoid a sequence of disconnected paper summaries. In v2 translate [@p-...] citations into \citet / \citep using the same stable IDs as BibTeX keys. Source metadata comes from canonical cards, actual claims from notes and exact locations. Targeted rereading is mandatory for pivotal definitions, quantitative claims and contradictions. Preserve all accepted chapters' technical meaning. Resolve minor issues directly through supported wording and qualification. Disclose scientific limitations in the manuscript; keep internal handoffs out of Reviewer inputs; the writer does not stop assembly or reopen Manager research itself. Main may later authorize a scoped repair from the final assessment.
 
 Legacy completed workspaces may derive topics from recorded scope and final notes if no outline exists; disclose this reconstruction. Use only verifiable source-backed facts, never historical evaluative annotations to order literature. Existing Markdown is preserved as a draft reference. Do not create new research or alter historical workspaces.
 
@@ -29,3 +29,5 @@ ownership mismatch before dispatch, rather than commissioning duplicate chapters
 In context-enabled workspaces, staged-execution.md partitions writing and review.
 The final document must satisfy this complete contract; an intermediate phase
 need only complete its assigned section while preserving others.
+
+After writing and compilation, configured workspaces run conference-format.md with a fresh Paper Agent before Reviewer. The local guide is writing input only; format audit reads official web requirements independently.

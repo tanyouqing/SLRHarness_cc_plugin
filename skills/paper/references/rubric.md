@@ -1,33 +1,51 @@
-# Final survey rubric — survey-1
+# Final survey rubric — survey-2
 
-Twenty items, each an integer from 0 to 5. Maximum 100; sum >=70 passes.
-This rubric scores the generated manuscript, never its individual source papers.
-Freeze this version throughout a review/revision sequence.
+Six dimensions, scored directly with integer points. Maximum 100; sum >=70 passes.
+Score the generated manuscript, never its individual source papers. This is the
+only supported rubric; its identifier is retained in score records and fingerprints.
 
-| Dimension | Points | Exact item IDs and responsibilities (5 points each) |
+| Exact dimension ID | Maximum | Combined judgment prompts (not separately scored) |
 |---|---:|---|
-| Coverage | 15 | coverage.scope: scope and survey positioning; coverage.research-lines: core research lines within approved scope; coverage.search-transparency: recorded search/screening and coverage gaps |
-| Taxonomy | 15 | taxonomy.basis: classification rationale; taxonomy.boundaries: category boundaries/relations; taxonomy.alignment: framework/chapter alignment |
-| Evidence | 25 | evidence.identity: source identities/versions; evidence.claim-support: support for key claims; evidence.numbers-conditions: numeric findings and study conditions; evidence.attribution: accurate citations and locators; evidence.epistemic-status: facts/inferences/unknowns distinguished |
-| Synthesis | 20 | synthesis.question-driven: problem-driven cross-paper synthesis; synthesis.method-relations: method relations/evolution; synthesis.comparability: comparisons under compatible conditions; synthesis.cross-topic: supported conclusions across topics |
-| Critique | 15 | critique.limitations: method limitations; critique.conflicts-gaps: conflicting evidence and gaps; critique.directions: concrete evidence-linked directions |
-| Presentation | 10 | presentation.clarity: terminology/reasoning/transitions; presentation.layout: readable and useful figures/tables/citations/PDF |
+| coverage | 15 | Alignment with approved SCOPE.md; coverage of core research lines; clear positioning, search/screening account and coverage limitations |
+| taxonomy | 15 | Sound classification rationale, category boundaries/relations and agreement between framework and chapter organization |
+| evidence | 25 | Credible and internally consistent claims, citations, source identities, numeric findings and study/comparison conditions; facts, inferences and unknowns distinguished |
+| synthesis | 20 | Problem-driven synthesis of method relationships/evolution, comparisons under compatible conditions and supported cross-topic conclusions |
+| critique | 15 | Analysis of limitations, conflicts and evidence gaps; specific, grounded future directions |
+| presentation | 10 | Appropriate terminology explanation, coherent argument/transitions, useful readable figures/tables/citations/PDF |
 
-Anchors apply to every item:
+Return exactly one score and one set of location, evidence and reason per dimension.
+Do not score the judgment prompts separately. Sum the six
+scores directly; do not average them or normalize each dimension to five points.
 
-- 0: absent or essentially unreliable.
-- 1: fundamental defects; little support for this requirement.
-- 2: partially satisfied with important defects.
-- 3: basically satisfied with remaining gaps requiring repair.
-- 4: satisfied with only local minor defects.
-- 5: thorough, accurate and clear; no substantive defect identified.
+Use proportional anchors at 0%, 20%, 40%, 60%, 80% and 100% of each dimension's
+maximum: absent/unreliable, fundamental defects, partially met with important defects,
+basically met with gaps, met with local minor issues, and thorough/accurate/clear.
+Intermediate integer scores are allowed. For coverage (15), anchors are 0/3/6/9/12/15;
+for evidence (25), 0/5/10/15/20/25. Provide concrete reasons for the awarded points.
 
-For each item give a manuscript location, specific supporting/contradicting evidence,
-and the reason for points gained/lost. A repeated issue may affect multiple items
-only when distinct impacts are explained. A critical error is deducted in affected
-items and listed prominently, without an additional score cap or veto. Total 70
-passes even when issues remain; keep them visible in delivery. Do not add similarity
-points, reward copying a reference's outline, or require cosmetic perfection.
-Do not treat inaccessible evidence as verified. Distinguish limitations disclosed
-honestly from unsupported positive assertions. Scoring remains model judgment;
-the validator checks completeness, integer range, arithmetic and threshold only.
+Coverage evidence must identify approved scope clauses and corresponding manuscript
+sections. Inspect research questions, included/excluded areas, time window and core
+research lines. A disclosed limitation does not automatically excuse a major omission;
+judge its effect on the agreed scope. A soft paper-count target shortfall alone is not
+a deduction. Restoring agreed coverage is ordinary topic/global repair; only a remedy
+that changes the approved scope requires a scope-change issue and user decision.
+
+Repeat deductions only for distinct, explained impacts. Critical defects are deducted
+within relevant dimensions without extra caps/vetoes. A total of 70 passes even with
+remaining issues. Do not reward similarity to a reference's outline or perfection.
+
+## Inputs and epistemic boundaries
+
+Read only the approved scope snapshot, finished manuscript and retrieved human-authored
+reference surveys, plus the assigned rubric and your own continuation findings/issues.
+Scope guides reference selection and task alignment; it is not scientific evidence
+for a claim. All other research process artifacts remain private to orchestration.
+
+Judge source support, bibliographic consistency and contradictions observable in the
+available papers. Do not claim primary-source verification you did not perform.
+Unavailable private notes are not a defect, and absence of a detected contradiction
+does not certify every fact. Clearly state uncertainty in the dimension rationale.
+
+The controller validates IDs, integer ranges, sum and threshold; it does not verify
+semantic judgments. Transferable strategy recipients identify future application roles,
+not proven causes of unseen upstream behavior.

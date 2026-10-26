@@ -1,0 +1,57 @@
+[
+  {
+    "path": "CameraReady2027.tex",
+    "sha256": "e0b55f09da66a69af9866ec07ce7a05d200880a57a8fa0a8f60db92ffb4d86a1",
+    "bytes": 57156
+  },
+  {
+    "path": "aaai2027.bib",
+    "sha256": "ff8a860f20602b2645723856b80f0a0ad28ee7ec270158254400fdb80b429e45",
+    "bytes": 4814
+  },
+  {
+    "path": "aaai2027.bst",
+    "sha256": "5db7765ba99de5c1e4686f9b3940a0add9c5e702f2164514462bec130ccb6e3c",
+    "bytes": 30207
+  },
+  {
+    "path": "ReproducibilityChecklist.tex",
+    "sha256": "06a3459158089bf1c64b738986118f1d1566e816da4b710c6397561e33c3d5e6",
+    "bytes": 8729
+  },
+  {
+    "path": "AnonymousSubmission2027.tex",
+    "sha256": "95a9e0ee566c6f76276c9dcad09a83637542dac168383213252671daec3408ab",
+    "bytes": 59071
+  },
+  {
+    "path": "Figures/figure2.pdf",
+    "sha256": "8899687a74776c5ba3179f630f14a946c36278560a997fbac0cde58cdca1750f",
+    "bytes": 1099641
+  },
+  {
+    "path": "Figures/figure1.pdf",
+    "sha256": "29e16580aae21c9c7785b6851d244a9948c6ccf96e308ee366fa651db22c922b",
+    "bytes": 252557
+  },
+  {
+    "path": "ReproducibilityChecklist.pdf",
+    "sha256": "5118f14146d36d76205b4ffb94ab9cff0916b6bd243eb2dcbebe897c831dcb39",
+    "bytes": 95814
+  },
+  {
+    "path": "AnonymousSubmission2027.pdf",
+    "sha256": "101906ebaa386de03d6aca8cde1e18000467e74365dc024d0372d6e9c7926c43",
+    "bytes": 1548950
+  },
+  {
+    "path": "CameraReady2027.pdf",
+    "sha256": "db17f6c4ff7e803d835be3ccf695f07b8eb32693b28d20d5490405e3d2e409a6",
+    "bytes": 1562820
+  },
+  {
+    "path": "aaai2027.sty",
+    "sha256": "01990f8d3716f8e39c5b28a7478f3ac6e28630d1161de6105a7217f5e7f60e43",
+    "bytes": 20264
+  }
+]

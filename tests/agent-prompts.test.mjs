@@ -17,7 +17,7 @@ test('Checker and final Reviewer have separate contracts',()=>{
   const checker=read('agents/slr-checker.md'), reviewer=read('agents/slr-reviewer.md');
   assert.match(checker,/name: slr-checker/);assert.match(checker,/Do not search, edit or delegate/);
   assert.match(reviewer,/name: slr-reviewer/);assert.match(reviewer,/WebSearch, WebFetch/);
-  assert.match(reviewer,/Twenty|twenty/);assert.match(reviewer,/Scoper/);assert.match(reviewer,/Manager/);assert.match(reviewer,/Worker/);
+  assert.match(reviewer,/six dimensions/);assert.match(reviewer,/Scoper/);assert.match(reviewer,/Manager/);assert.match(reviewer,/Worker/);
   assert.match(read('skills/paper/SKILL.md'),/final-review.mjs status/);
   assert.match(read('skills/paper/references/final-review.md'),/three completed revisions/);
   for(const file of ['scripts/pipeline.mjs','agents/slr-checker.md','skills/review/references/workflow.md'])
@@ -84,4 +84,35 @@ test('bounded workflow routes Worker delivery to Manager and uses staged source/
   assert.match(read('agents/slr-reviewer.md'),/assigned score artifact/);
   assert.match(read('skills/paper/references/staged-execution.md'),/fresh Reviewer/);
   assert.match(read('skills/review/references/context-workflow.md'),/Hooks never trigger \/compact/);
+});
+
+
+test('Reviewer scope alignment and transferable strategy instructions preserve input limits',()=>{
+  const role=read('agents/slr-reviewer.md'),rubric=read('skills/paper/references/rubric.md');
+  assert.match(role,/approved SCOPE.md snapshot/);assert.match(role,/Do not read other scope files/);
+  assert.match(role,/domain materials\s+are replaced/);assert.match(role,/Reserve kind scope/);
+  assert.doesNotMatch(role,/twenty original items|historical.*rubric/i);
+  assert.match(rubric,/one score and one set/);assert.match(rubric,/0%, 20%, 40%, 60%, 80% and 100%/);
+  assert.match(rubric,/Scope guides reference selection/);
+  assert.match(read('skills/paper/references/reviewer-input.md'),/Shared experience JSON contract/);
+});
+
+
+test('Reviewer uses the shared experience fields without role quotas or Markdown advice',()=>{
+  const role=read('agents/slr-reviewer.md'),contract=read('skills/paper/references/reviewer-input.md');
+  for(const name of ['sourceType','role','executionSummary','strategy','stage','task','applicability'])assert.ok(contract.includes(name),name);
+  assert.match(role,/exactly four REQUIRED/);assert.match(role,/always "review"/);
+  assert.match(role,/Empty\s+experiences: \[\] is valid/);assert.match(role,/ONE experiences.json/);
+  assert.match(role,/No experience Markdown is produced/);
+  assert.match(role,/1–3 short sentences/);assert.match(role,/null\/empty strings/);
+  assert.doesNotMatch(contract,/"suggestions":/);
+});
+
+
+test('entrypoint, workspace contract and library index agree with the current pipeline',()=>{
+  const workflow=read('skills/review/references/workflow.md'),schema=read('skills/review/references/workspace-schemas.md');
+  assert.match(workflow,/six manuscript dimensions/);assert.doesNotMatch(workflow,/scores twenty/);
+  assert.match(schema,/experiences.json/);assert.doesNotMatch(schema,/experience\.md/);
+  const index=read('skills/paper/template/library/README.md');
+  assert.doesNotMatch(index,/selection and adaptation are follow-up work|current pipeline still uses/);
 });

@@ -4,7 +4,7 @@ A Claude Code plugin for human-approved, hierarchical literature reviews. Scoper
 
 ## Use
 
-Load locally with `claude --plugin-dir <absolute-plugin-directory>`, or install `slr-harness@rail-research` from your configured marketplace. Node.js 18+, Git and Claude Code are required; this checkout is tested against the installed version recorded in docs/pipeline-validation.md. PDF delivery uses latexmk, XeLaTeX and BibTeX. Optional paper-search metadata discovery falls back to available web/MCP retrieval; the plugin never installs tools during a review.
+Load locally with `claude --plugin-dir <absolute-plugin-directory>`, or install `slr-harness@rail-research` from your configured marketplace. Node.js 18+, Git and Claude Code are required; this checkout is tested against the installed version recorded in docs/pipeline-validation.md. PDF delivery uses latexmk, verified pdfLaTeX/XeLaTeX template profiles and BibTeX. Optional paper-search metadata discovery falls back to available web/MCP retrieval; the plugin never installs tools during a review.
 
 - `/slr-harness:review <topic>` applies defaults to missing settings without an initial configuration questionnaire, starts scope reconnaissance, then waits for explicit human approval of the proposed scope.
 - `/slr-harness:review status <slug>` is read-only.
@@ -16,15 +16,33 @@ New workspaces use schema 2. Historical schema-1 workspaces retain status and co
 
 ## Evidence and execution
 
-Main owns scope approval, global state, canonical identity/ownership, Git and compilation. Managers own topic plans, chapter.md and synthesis.md. Workers own assigned task logs and canonical paper metadata.json/note.md. Independent Checkers read chapter evidence and return issues. The final Reviewer may retrieve reference surveys and write only its assigned staged report draft; manuscript, evidence and state stay read-only and delegation is forbidden. Paper Agent writes main.tex, references.bib and its bounded writing-handoff.md. Runtime Agent IDs and task leases constrain writes through PreToolUse hooks; no global permission bypass is needed.
+Main owns scope approval, global state, canonical identity/ownership, Git and compilation. Managers own topic plans, chapter.md and synthesis.md. Workers own assigned task logs and canonical paper metadata.json/note.md. Independent Checkers read chapter evidence and return issues. The final Reviewer may retrieve reference surveys and write only its assigned staged report draft; manuscript, evidence and state stay read-only and delegation is forbidden. Paper Agent writes main.tex, references.bib and its bounded writing-handoff.md in writing/repair stages; format checks retrieve selected official requirements and directly repair the same sources, without a format report. Runtime Agent IDs and task leases constrain writes through PreToolUse hooks; no global permission bypass is needed.
 
-Default budgets: five shared research rounds, at most nine concurrent Workers across all Managers, two attempts per task phase, stop after two low-yield rounds. Chapter review allows an initial review plus two repair cycles. Writing uses nonblocking self-proofreading. After compilation the final Reviewer applies 20 items (0–5 each): coverage 15, taxonomy 15, evidence 25, synthesis 20, critique 15, presentation 10. A total >=70 passes without additional vetoes. Each low-score repair allows one extra research round; three failed reassessments pause for explicit continuation. Nested Manager → Worker dispatch is probed on the host; main-session dispatch uses identical plans and leases if nesting is unavailable.
+Default budgets: five shared research rounds, at most nine concurrent Workers across all Managers, two attempts per task phase, stop after two low-yield rounds. Chapter review allows an initial review plus two repair cycles. Writing uses nonblocking self-proofreading. After compilation the final Reviewer uses survey-2 with six direct integer scores: coverage /15, taxonomy /15, evidence /25, synthesis /20, critique /15, presentation /10. Coverage includes alignment with the approved scope. A total >=70 passes without additional vetoes. Each low-score repair allows one extra research round; three failed reassessments pause for explicit continuation. Nested Manager → Worker dispatch is probed on the host; main-session dispatch uses identical plans and leases if nesting is unavailable.
 
 Every substantive synthesis claim links a stable paper ID and original location. Shared papers have one formal record. Version/identifier conflicts require resolution before reuse. Acceptance fingerprints detect stale chapters after evidence changes. Fact verification and review verdicts determine whether evidence supports prose; literature order follows taxonomy, method relationships and narrative needs.
 
-Final delivery: paper/main.tex, references.bib, neurips_2026.sty and main.pdf, plus versioned assessment/comparison and experience.md (Scoper, Manager, Worker and Paper Agent strategies) under paper/reviews/submission-NNNN/. Compiled drafts remain available below 70. Overall completion requires both a passing current assessment and a completed reference comparison. Background OR Preliminaries and Taxonomy OR Unified Framework each use one suitable title. The 3–5 major topics become directly named sections. Default English, author–year, 6,000–9,000 words; authors only from supplied information. Build artifacts remain in paper/.build/. A failed build never presents an old PDF as current. Controlled final-review repairs retain the initial slr-complete checkpoint and create new evidence checkpoints.
+Final delivery: paper/main.tex, references.bib, selected official template dependencies and main.pdf, plus versioned assessment/comparison and experiences.json (Scoper, Manager, Worker and Paper Agent strategies) under paper/reviews/submission-NNNN/. Compiled drafts remain available below 70. Overall completion requires both a passing current assessment and a completed reference comparison. Background OR Preliminaries and Taxonomy OR Unified Framework each use one suitable title. The 3–5 major topics become directly named sections. Default English, author–year, 6,000–9,000 words; authors only from supplied information. Build artifacts remain in paper/.build/. A failed build never presents an old PDF as current. Controlled final-review repairs retain the initial slr-complete checkpoint and create new evidence checkpoints.
 
 ## Development
+
+Official conference template sources for ICLR, ICML, AAAI, ACL, EMNLP and NeurIPS
+are stored in the [paper template library](skills/paper/template/library/README.md).
+Its [source directory](skills/paper/template/library/SOURCES.md) records official
+websites and submission/formatting requirements. New workspaces default to NeurIPS. Explicit conference/template requests in the
+initial prompt select a registered edition without another question. All use a
+preprint profile, preserve survey length and exclude submission page caps/anonymity.
+Writers use a compact local guide; a fresh Paper Agent then checks official URLs
+and the compiled PDF independently before Reviewer. Up to three format repairs
+are allowed. Unresolved major defects pause; unavailable official sites permit
+Reviewer with an explicit `official_unverified` disclosure. Existing workspaces
+without a paper config retain their previous NeurIPS path.
+
+See [format control](skills/paper/references/conference-format.md) and
+[validation](docs/conference-format-validation.md). Six English adapters and five
+Chinese adapters are verified; AAAI 2027 forbids XeLaTeX and is English-only here.
+ICLR's neutral preprint header and ICML's empty-identity wrapper are local skeleton
+adaptations; official style files remain byte-identical.
 
 `node --test tests/*.test.mjs` runs deterministic tests. See [design](docs/design.md), [validation](docs/pipeline-validation.md), [eval scenarios](evals/README.md) and [workflow](skills/review/references/workflow.md). Deterministic acceptance, real Agent dispatch, semantic review and a complete scientific literature review are separate validation levels.
 
@@ -93,3 +111,21 @@ recovery. Default summaries/handbacks are 8000 characters; text reads 24000
 characters and PDF reads at most five pages. These limits are not token guarantees.
 Existing schema 2 workspaces opt in only during explicit resume, after active
 leases are resolved; historical files and budgets are preserved.
+
+New Reviewer inputs are limited to approved snapshot/SCOPE.md, the frozen manuscript
+(PDF and its TeX/BibTeX), independently retrieved human-authored surveys and rubric. Its own staged findings
+and prior manuscript issues support continuation; research artifacts stay private
+to orchestration. Main maps manuscript issues to Managers. Strategy recipients
+remain Scoper, Manager, Worker and Paper; unseen process causes are hypotheses.
+
+Reference selection follows the approved scope even if the manuscript drifts. Only
+this scope file is an exception to process-input isolation. Current fixes go into
+issues; experiences.json contains transferable, conditional execution strategies with
+inputs, steps, outputs and acceptance tests. Concrete topics/papers remain provenance
+examples. Only the current six-dimension rubric is supported. Historical files are not rewritten.
+
+Experience delivery uses {"experiences":[...]}. Each record requires sourceType,
+role, executionSummary and strategy; optional stage, task and applicability may be strings, null, empty or omitted.
+role is exactly paper/manager/scoper/worker. The shared format accepts review or
+trajectory origins; Reviewer emits only review. Empty arrays are valid. No Markdown
+advice file or trajectory extractor is produced by the current review workflow.

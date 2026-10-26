@@ -36,11 +36,21 @@ Initial/partial sources are never delivered as a complete manuscript.
 
 ## Reviewer
 
-After complete writer phases, compile, inspect PDF and save checkpoint-paper.
-Submit freezes the evidence/manuscript as before. For every review unit initialize a
+After complete writer phases, compile, run conference-format.md for configured
+workspaces, inspect the resulting PDF and save checkpoint-paper. Format checks directly repair sources using fresh Paper Agent IDs with exclusive
+writer access; no format report is created. Main owns minimal format control. A repaired source updates writing output hashes before recompilation.
+Submit freezes evidence internally for main's recovery. Reviewer receives only
+main.tex, references.bib, main.pdf, rubric.md, reviewer-input.md,
+retrieved human surveys, and approved snapshot/SCOPE.md. No other
+scope files, chapter, synthesis, notes, metadata cards or evidence chain. Own
+current findings and prior-issues.json support staged continuation. Main renders
+PDF pages under the current submission/manuscript-pages/ and caches reference
+surveys under its references/. Never pass the full snapshot or other role prompts. For every review unit initialize a
 fresh Reviewer, bind it to the pending submission, then review-start
 {submissionId,agentId}. It returns exactly one artifact path and input fingerprint.
-Units cover all main.tex/references.bib characters in chunks of at most 24000,
+Bounded scope units come first and retain scope clauses/search framing
+in their <=8000-character findings. Units then
+cover all main.tex/references.bib characters in chunks of at most 24000,
 then reference-comparison, pdf-layout and score. Read the assigned slice via the
 bounded reader or native line ranges; the limit does not authorize whole-file reads.
 
@@ -60,7 +70,7 @@ the resulting paths. No available visual tooling means a recorded operational bl
 not a fabricated inspection. Findings must include source locations and uncertainty.
 
 Score is last. It reads every completed findings file incrementally plus prior issues,
-performs targeted verification and judges all twenty rubric items anew. It writes
+performs targeted verification and judges all six dimensions anew. It writes
 `drafts/score.json` with the original exact final-review envelope plus unitId:"score".
 Never average unit scores. Main review-finish, then `final-review.mjs record-file
 <workspace>` loads this exact file, verifies complete coverage records, frozen

@@ -19,7 +19,7 @@ previously reverted unified-Checker redesign, nor automatic /compact execution.
   The handoff is bounded and evidence/output hashes gate compilation and submission.
 - Context-enabled Reviewers have one writable draft artifact per active unit.
   Completed unit hashes and complete source coverage gate record-file. The final
-  twenty-item rubric and repair sequence are unchanged.
+  current rubric and repair budgets remain fixed per sequence.
 
 The guard is a cooperative host-tool boundary, not an OS security sandbox. Runtime
 stopped evidence and semantic review remain agent judgments; file validation cannot
@@ -69,3 +69,14 @@ compile path, not model writing quality. The fixture uses synthetic role identit
 Manual /compact with live siblings, real nested Worker delivery, and a complete
 real-literature writing/review/repair run remain unverified. Unit tests use mocked
 Agent observations and controlled scores; they are reported separately.
+
+## Format context isolation
+
+The conference format pass uses a fresh Paper Agent after compilation. It fetches
+only selected official requirements, checks bounded manuscript/PDF chunks and fixes
+sources directly. It creates no format report. Main retains only completion and
+fingerprints, compiles changes and checks the new PDF before Reviewer. Reviewer
+reads only the approved scope snapshot, manuscript, human surveys,
+assigned rubric and its own continuation findings; other research process files
+remain excluded by the read guard. Bounded scope units run before manuscript units
+and preserve the search framing for later fresh contexts.

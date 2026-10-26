@@ -66,7 +66,9 @@ Assign one Worker to each ready subtopic task in the current phase when slots ar
 After paper assembly, lightweight proofreading and compilation, schema 2 enters
 skills/paper/references/final-review.md. Final-review status is distinct from research
 completion and compilation success. The new reviewer searches real authored surveys,
-returns role-specific candidate experience and scores twenty manuscript items.
+returns unified experiences.json records and scores six manuscript dimensions.
+Reviewer reads approved SCOPE.md and the finished manuscript, retrieves reference
+surveys, and receives no other research process materials.
 Below 70 main opens a controlled repair; each repair has one extra research round,
 nine shared Worker slots, and fresh chapter checks. Three failed reassessments pause
 for explicit continuation. Keep the original slr-complete tag; new accepted evidence
@@ -81,3 +83,14 @@ policy automatically. On explicit resume of older schema 2, resolve old active
 leases before context-control enable; never migrate during status. Main reads the
 bounded summary and targeted queries, not complete state JSON. Existing passed
 deliveries need no opt-in or regeneration. Schema 1 remains unchanged.
+
+## Conference configuration
+
+For new pipeline init, include paperConfig only when the initial prompt explicitly
+selects a conference/template/year; otherwise the controller persists NeurIPS.
+NIPS is an alias. Set manuscript language to the research language. No template
+question or submission-vs-template intent split. Record resolved version in scope.
+See ../paper/references/conference-format.md (from review skill root). Existing
+workspaces without this sidecar keep legacy behavior. Resume never re-infers the
+selection. Before final Reviewer, configured papers require current official format
+audit (passed or explicitly official_unverified) after every manuscript revision.

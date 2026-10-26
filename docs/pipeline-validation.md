@@ -134,3 +134,39 @@ The production workflow includes an explicit `main-dispatch` fallback, using the
 ## Not executed
 
 A full model-driven review with actual searches, full-text reading, independent semantic review and final research manuscript was **not executed**. Checker's ability to detect real unsupported claims, incomparable experiments or hidden limitations remains a live eval requirement; review-repair and hierarchical-live scenarios specify it. No cross-task literature library, experience memory or RL work is included. No repository commit or push was performed.
+
+## Current implementation: six dimensions and shared experience JSON — 2026-10-26
+
+The only supported rubric has six direct integer dimensions (15/15/25/20/15/10),
+with >=70 passing. Its identifier protects fingerprints from stale scores; no old
+scoring definitions or continuation dispatcher remain. Each dimension has one set
+of locations, evidence and rationale. Unsupported scores are not converted.
+
+Only approved frozen SCOPE.md is added to Reviewer scientific inputs. It must match
+SCOPE_ORIGINAL.md and the approval hash. Bounded scope units precede manuscript units;
+reference selection and coverage judgment use approved scope. Ordinary coverage
+repairs preserve scope; actual scope changes require user approval. Notes, chapter
+materials, task logs and internal state remain unavailable to Reviewer.
+
+experiences.json contains exactly an experiences array. Required fields: sourceType,
+role, executionSummary and strategy. Roles: paper/manager/scoper/worker. The shared
+validator accepts review/trajectory; Reviewer emits review only. Optional stage,
+task and applicability may be omitted, null or empty. executionSummary briefly
+records comparison evidence (1–3 sentences); strategy states transferable actions.
+No per-role quota, experience Markdown, trajectory extractor or memory store is added.
+Historical workspace files and official upstream templates remain untouched.
+
+Pre-push review corrected stale main-workflow/schema instructions, outdated library
+readmes and repeated host entries. The canonical Reviewer envelope is maintained
+only in reviewer-input.md. Writing and format checks share one source hash function.
+
+Final cleanup verification: **111 deterministic tests passed, 0 failed**
+(`node --test tests/*.test.mjs`, transcript `../output/auto-survey-prepush-tests.txt`).
+All script/eval syntax checks, git diff checks and `claude plugin validate .` passed.
+All 38 unique upstream files and six writing guides matched their recorded hashes.
+Active prompts/contracts contain no retired scoring or advice-output path. Historical
+release notes remain explicitly historical. No generated workspace/output is committed.
+Real Agent format verification, scope-based reference selection, semantic scoring,
+strategy transfer and a complete live repair run have not been executed. Fixtures
+validate control behavior and schema only; actual TeX/PDF evidence is documented
+separately in conference-format-validation.md.

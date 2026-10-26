@@ -24,62 +24,60 @@ function finishRevision(root,n=1) {
   mutate(root,'finalize',{scaleReason:'Synthetic control-flow fixture deliberately uses one shared paper; no real coverage claimed.'});fs.appendFileSync(path.join(root,'paper/main.tex'),`\n% repaired ${n}\n`);mockCompile(root);
 }
 
-test('twenty items use exact IDs, integer scores and 69/70 threshold without critical veto',()=>{
+test('six dimensions use exact IDs, integer scores and 69/70 threshold without critical veto',()=>{
   assert.deepEqual(validateAssessment(assessment(69),topics),{total:69,passed:false});
   const passed=assessment(70);passed.issues=assessment(69).issues;
   assert.deepEqual(validateAssessment(passed,topics),{total:70,passed:true});
-  for(const change of [r=>r.items.pop(),r=>r.items[0].score=1.5,r=>r.items[0].score=6,r=>r.items[0].id=r.items[1].id,r=>r.total++,r=>r.passed=true,r=>r.items[0].evidence='',r=>r.issues=[]]) {
+  for(const change of [r=>r.items.pop(),r=>r.items[0].score=1.5,r=>r.items[0].score=16,r=>r.items[0].id=r.items[1].id,r=>r.total++,r=>r.passed=true,r=>r.items[0].evidence='',r=>r.issues=[]]) {
     const r=assessment(69);change(r);assert.throws(()=>validateAssessment(r,topics));
   }
 });
-test('reference matching, source locations, attribution and empty role suggestions',()=>{
+test('reference matching, source locations, attribution and empty experiences',()=>{
   for(const match of ['same','overlapping','adjacent'])assert.equal(validateAssessment(assessment(70,{match}),topics).passed,true);
   const adjacent=assessment(70,{match:'adjacent'});adjacent.comparison.differences[0].dimension='coverage';assert.throws(()=>validateAssessment(adjacent,topics),/adjacent/);
   const unavailable=assessment(70,{available:false});assert.equal(validateAssessment(unavailable,topics).passed,true);
-  for(const change of [r=>r.comparison.references[0].fulltext='unavailable',r=>r.comparison.differences[0].referenceLocation='',r=>r.suggestions.manager[0].attribution='certain',r=>r.suggestions.manager[0].differenceId='unknown']){
+  for(const change of [r=>r.comparison.references[0].fulltext='unavailable',r=>r.comparison.differences[0].referenceLocation='']){
     const r=assessment(70);change(r);assert.throws(()=>validateAssessment(r,topics));
   }
 });
-test('snapshot, Markdown advice, idempotent passing delivery and read-only status',t=>{
+test('snapshot, unified JSON experience, idempotent passing delivery and read-only status',t=>{
   const {root}=setup(t),before=fs.readFileSync(statePath(root));
   const c=submitAndRecord(root,assessment(70));assert.equal(c.status,'passed');
   const dir=path.join(root,'paper/reviews/submission-0001');
-  for(const f of ['assessment.json','assessment.md','comparison.md','experience.md','snapshot/paper/main.pdf','snapshot/papers','research-state.json'])assert.ok(fs.existsSync(path.join(dir,f)),f);
-  assert.match(fs.readFileSync(path.join(dir,'experience.md'),'utf8'),/hypothesis/);
-  assert.match(fs.readFileSync(path.join(dir,'experience.md'),'utf8'),/No evidence-backed/);
+  for(const f of ['assessment.json','assessment.md','comparison.md','experiences.json','snapshot/paper/main.pdf','snapshot/papers','research-state.json'])assert.ok(fs.existsSync(path.join(dir,f)),f);
+  assert.deepEqual(JSON.parse(fs.readFileSync(path.join(dir,'experiences.json'),'utf8')),{experiences:assessment(70).experiences});
+  assert.equal(fs.existsSync(path.join(dir,'experience.md')),false);
   for(const role of ['scoper','manager','worker','paper'])assert.equal(fs.existsSync(path.join(dir,`${role}.md`)),false);
   const saved=fs.readFileSync(path.join(root,'.slr/final-review.json'));
   assert.equal(finalReviewStatus(root).complete,true);assert.deepEqual(fs.readFileSync(path.join(root,'.slr/final-review.json')),saved);
   assert.equal(control(root,'submit').submissions.length,1);assert.deepEqual(fs.readFileSync(statePath(root)),before);
 });
 
-test('four role strategy lists are required and Paper strategies retain attribution and comparison links',t=>{
-  const report=assessment(70);
-  report.suggestions.paper=[{...report.suggestions.manager[0],role:'paper',
-    action:'1. Read accepted synthesis tables. 2. Align comparable conditions. 3. Write a sourced cross-topic comparison.',
-    conditions:'Only when accepted inputs contain matching conditions; do not combine unmatched results.',
-    acceptance:'Each comparison sentence maps to a sourced row with matching conditions.'}];
+test('minimal four-field experience is preserved, optional fields survive and legacy Markdown is untouched',t=>{
+  const report=assessment(70);report.experiences=[
+    {sourceType:'review',role:'worker',executionSummary:'The manuscript does not identify dataset versions.',strategy:'Record dataset versions alongside metrics and experimental settings.'},
+    {sourceType:'review',role:'paper',executionSummary:'The manuscript ranks results collected under different conditions.',strategy:'Separate incompatible comparison settings and avoid a unified ranking.',stage:null,task:'',applicability:null}
+  ];
   assert.equal(validateAssessment(report,topics).passed,true);
-  for(const change of [r=>delete r.suggestions.paper,r=>r.suggestions.paper[0].role='manager',r=>r.suggestions.paper[0].differenceId='missing',r=>r.suggestions.paper[0].conditions='',r=>r.suggestions.paper[0].acceptance='']) {
+  for(const change of [r=>delete r.experiences,r=>r.experiences[0].role='reviewer',r=>r.experiences[0].sourceType='trajectory',r=>r.experiences[0].strategy='',r=>r.experiences[0].executionSummary=' ',r=>r.experiences[0].stage=42,r=>r.suggestions={}]) {
     const invalid=structuredClone(report);change(invalid);assert.throws(()=>validateAssessment(invalid,topics));
   }
-  const {root}=setup(t);submitAndRecord(root,report);
-  const text=fs.readFileSync(path.join(root,'paper/reviews/submission-0001/experience.md'),'utf8');
-  for(const role of ['scoper','manager','worker','Paper Agent'])assert.ok(text.includes(`## ${role}`));
-  assert.ok(text.includes(report.suggestions.paper[0].action));
-  for(const field of ['manuscriptLocation','referenceLocation','observation'])assert.ok(text.includes(report.comparison.differences[0][field]));
-  assert.match(text,/Application result: not established/);
+  const {root}=setup(t);const sub=control(root,'submit').submissions.at(-1);
+  const dir=path.join(root,'paper/reviews',sub.id),old=path.join(dir,'experience.md');
+  fs.writeFileSync(old,'Historical Markdown retained.');submitAndRecord(root,report);
+  assert.deepEqual(JSON.parse(fs.readFileSync(path.join(dir,'experiences.json'),'utf8')),{experiences:report.experiences});
+  assert.equal(fs.readFileSync(old,'utf8'),'Historical Markdown retained.');
+  const before=fs.readFileSync(path.join(dir,'experiences.json'));control(root,'submit');
+  assert.deepEqual(fs.readFileSync(path.join(dir,'experiences.json')),before);
 });
 
-test('historical three-role reports remain readable without rewriting old role files',t=>{
-  const {root}=setup(t);submitAndRecord(root,assessment(70));
-  const file=path.join(root,'.slr/final-review.json'),c=JSON.parse(fs.readFileSync(file));
-  delete c.submissions[0].assessment.suggestions.paper;atomicJSON(file,c);
-  const old=path.join(root,'paper/reviews/submission-0001/manager.md');fs.writeFileSync(old,'Historical advice retained.');
-  const before=fs.readFileSync(file);
-  assert.equal(finalReviewStatus(root).complete,true);
-  assert.deepEqual(fs.readFileSync(file),before);assert.equal(fs.readFileSync(old,'utf8'),'Historical advice retained.');
+test('unsupported or unavailable comparison emits empty experiences without fabricated roles',t=>{
+  const report=assessment(70,{available:false});report.experiences=assessment(70).experiences;
+  assert.throws(()=>validateAssessment(report),/completed reference comparison/);
+  report.experiences=[];const {root}=setup(t);submitAndRecord(root,report);
+  assert.deepEqual(JSON.parse(fs.readFileSync(path.join(root,'paper/reviews/submission-0001/experiences.json'),'utf8')),{experiences:[]});
 });
+
 test('stale manuscript, evidence and PDF cannot inherit acceptance',t=>{
   const {root}=setup(t);submitAndRecord(root,assessment(70));
   fs.appendFileSync(path.join(root,'paper/main.tex'),'\n% change');assert.equal(finalReviewStatus(root).complete,false);
@@ -92,7 +90,7 @@ test('missing reference stays pending; comparison retry appends an immutable att
   const {root}=setup(t);submitAndRecord(root,assessment(70,{available:false}));assert.equal(finalReviewStatus(root).complete,false);
   const old=fs.readFileSync(path.join(root,'paper/reviews/submission-0001/assessment.json'));
   const c=control(root,'retry-comparison');assert.equal(c.submissions.length,2);assert.equal(c.status,'awaiting_review');
-  assert.equal(fs.existsSync(path.join(root,'paper/reviews/submission-0002/experience.md')),false);
+  assert.equal(fs.existsSync(path.join(root,'paper/reviews/submission-0002/experiences.json')),false);
   submitAndRecord(root,assessment(70));assert.equal(finalReviewStatus(root).complete,true);
   assert.deepEqual(fs.readFileSync(path.join(root,'paper/reviews/submission-0001/assessment.json')),old);
 });
@@ -136,7 +134,7 @@ test('tool pause preserves repair budget and blocks writes until recovery',t=>{
 test('Reviewer can retrieve only when bound, never write/delegate or run arbitrary shell',t=>{
   const {root,project}=setup(t);control(root,'submit');control(root,'bind',{agentId:'r'});
   const hook=(tool,args={},id='r')=>evaluateHook({project_dir:project,agent_type:'slr-harness:slr-reviewer',agent_id:id,tool_name:tool,tool_input:args}).allowed;
-  for(const tool of ['Read','WebSearch','WebFetch','mcp__papers__search_papers'])assert.equal(hook(tool),true,tool);
+  for(const tool of ['WebSearch','WebFetch','mcp__papers__search_papers'])assert.equal(hook(tool),true,tool);
   assert.equal(hook('Bash',{command:'paper-search sources'}),true);
   for(const tool of ['Write','Edit','Agent','Skill','mcp__papers__delete'])assert.equal(hook(tool,{file_path:path.join(root,'paper/main.tex')}),false,tool);
   assert.equal(hook('Bash',{command:'node scripts/final-review.mjs record x'}),false);
@@ -199,4 +197,73 @@ test('frozen snapshot tampering invalidates delivery even when live sources are 
   fs.appendFileSync(path.join(root,'paper/reviews/submission-0001/snapshot/paper/main.tex'),'tamper');
   assert.equal(finalReviewStatus(root).complete,false);assert.match(finalReviewStatus(root).error,/snapshot changed/);
   assert.throws(()=>control(root,'submit'),/snapshot changed/);
+});
+
+
+test('Reviewer reads manuscript and reference surveys but not research process artifacts',t=>{
+  const {root,project}=setup(t),c=control(root,'submit'),sub=c.submissions.at(-1);
+  control(root,'bind',{agentId:'reader'});
+  const base=path.join(root,'paper/reviews',sub.id);
+  const hook=(tool_name,tool_input)=>evaluateHook({project_dir:project,agent_type:'slr-reviewer',agent_id:'reader',tool_name,tool_input}).allowed;
+  for(const name of ['snapshot/SCOPE.md','snapshot/paper/main.tex','snapshot/paper/references.bib','snapshot/paper/main.pdf','prior-issues.json','references/survey.pdf','manuscript-pages/page-1.png'])
+    assert.equal(hook('Read',{file_path:path.join(base,name),...(name.endsWith('.pdf')?{pages:'1'}:{})}),true,name);
+  for(const name of ['SCOPE.md','topics/retrieval/chapter.md','topics/retrieval/synthesis.md','.slr/state.json','paper/main.tex'])
+    assert.equal(hook('Read',{file_path:path.join(root,name)}),false,name);
+  for(const name of ['snapshot/SCOPE_ORIGINAL.md','snapshot/scoping.md','research-state.json','manifest.json','snapshot/papers/p1/note.md','snapshot/papers/p1/metadata.json'])
+    assert.equal(hook('Read',{file_path:path.join(base,name)}),false,name);
+  assert.equal(hook('Grep',{pattern:'.',path:root}),false);
+  assert.equal(hook('Glob',{pattern:'**/*',path:path.join(base,'snapshot')}),false);
+  assert.equal(hook('Read',{}),false);
+  assert.equal(hook('Glob',{pattern:'../../snapshot/topics/**/*',path:path.join(base,'references')}),false);
+  assert.equal(hook('Grep',{pattern:'claim',path:path.join(base,'snapshot/paper/main.tex')}),true);
+});
+
+test('main routes manuscript-only issues without rewriting the Reviewer assessment',t=>{
+  const {root}=setup(t),r=assessment(69);r.issues[0].topicIds=[];
+  submitAndRecord(root,r);
+  assert.throws(()=>control(root,'begin-revision'),/main must route/);
+  assert.throws(()=>control(root,'begin-revision',{issueRoutes:[{issueId:r.issues[0].id,topicIds:['unknown'],reason:'Wrong route'}]}),/invalid.*route/);
+  control(root,'begin-revision',{issueRoutes:[{issueId:r.issues[0].id,topicIds:['retrieval'],reason:'Issue location maps to retrieval chapter'}]});
+  assert.deepEqual(loadState(root).revisionContext.topicIds,['retrieval']);
+  assert.deepEqual(finalReviewStatus(root).submissions[0].assessment.issues[0].topicIds,[]);
+  finishRevision(root);const next=control(root,'submit').submissions.at(-1);
+  const prior=JSON.parse(fs.readFileSync(path.join(root,'paper/reviews',next.id,'prior-issues.json'),'utf8'));
+  assert.equal(prior[0].id,r.issues[0].id);assert.equal(prior[0].topicIds,undefined);
+});
+
+
+test('six dimension maxima, IDs and malformed scores are checked independently',()=>{
+  const maxima={coverage:15,taxonomy:15,evidence:25,synthesis:20,critique:15,presentation:10};
+  const perfect=assessment(100);assert.deepEqual(Object.fromEntries(perfect.items.map(i=>[i.id,i.score])),maxima);
+  assert.equal(validateAssessment(perfect).total,100);
+  for(let index=0;index<6;index++)for(const invalid of [-1,0.5,maxima[perfect.items[index].id]+1]) {
+    const bad=structuredClone(perfect);bad.items[index].score=invalid;bad.total=bad.items.reduce((n,i)=>n+i.score,0);bad.passed=bad.total>=70;
+    assert.throws(()=>validateAssessment(bad),/invalid rubric item/);
+  }
+  const wrong=structuredClone(perfect);wrong.items[0].id='coverage.scope';assert.throws(()=>validateAssessment(wrong));
+  assert.throws(()=>validateAssessment({...perfect,rubricVersion:'unknown'}),/unsupported/);
+  const oversized=structuredClone(perfect);oversized.items=Array.from({length:20},()=>({...perfect.items[0],score:5}));
+  assert.throws(()=>validateAssessment(oversized),/exactly 6/);
+});
+
+test('approved scope must match both immutable original and approval hash without silent edits',t=>{
+  const {root}=setup(t),scope=path.join(root,'SCOPE.md'),original=path.join(root,'SCOPE_ORIGINAL.md');
+  const bytes=fs.readFileSync(scope),stateBefore=fs.readFileSync(statePath(root));
+  fs.appendFileSync(scope,'\nChanged boundary');assert.throws(()=>control(root,'submit'),/approved scope mismatch/);
+  assert.deepEqual(fs.readFileSync(original),bytes);assert.deepEqual(fs.readFileSync(statePath(root)),stateBefore);
+  fs.copyFileSync(scope,original);assert.throws(()=>control(root,'submit'),/approved scope mismatch/);
+  fs.writeFileSync(scope,bytes);fs.writeFileSync(original,bytes);submitAndRecord(root,assessment(70));
+  assert.equal(finalReviewStatus(root).complete,true);fs.appendFileSync(scope,'\nLater change');
+  assert.equal(finalReviewStatus(root).complete,false);assert.match(finalReviewStatus(root).error,/approved scope mismatch/);
+});
+
+test('restoring scope coverage is ordinary repair and six-dimensional report shows actual maxima',t=>{
+  const {root}=setup(t),failed=assessment(69);failed.issues[0].topicIds=[];
+  failed.issues[0].location='SCOPE.md research line 1; manuscript Section 4';
+  failed.issues[0].action='Restore the omitted comparison inside the approved boundary';
+  const c=submitAndRecord(root,failed);const rendered=fs.readFileSync(path.join(root,'paper/reviews',c.submissions[0].id,'assessment.md'),'utf8');
+  assert.match(rendered,/coverage: 15\/15/);assert.match(rendered,/evidence: 25\/25/);
+  const scope=fs.readFileSync(path.join(root,'SCOPE.md'));
+  control(root,'begin-revision',{issueRoutes:[{issueId:'issue-1',topicIds:['retrieval'],reason:'Restore approved research line'}]});
+  assert.equal(loadState(root).revisionContext.active,true);assert.deepEqual(fs.readFileSync(path.join(root,'SCOPE.md')),scope);
 });

@@ -21,18 +21,20 @@ share `.slr/paper-bindings.json`. No future memory-store interface is introduced
    actual content hashes and rubric version. Preserve `research-state.json`,
    `manifest.json` and `snapshot/` unchanged. A current completed submission is reused.
 3. Launch one `slr-harness:slr-reviewer` with INITIALIZE/READY, then `bind {agentId}`.
-   Resume with absolute snapshot and contract paths, the four role prompts (Scoper, Manager, Worker and Paper writer),
-   submission ID, fingerprint and previous assessment. Give access to original
-   scholarly sources for independent retrieval and targeted verification. Main can
-   render PDFs for the reviewer with available tools; never claim visual inspection
-   that was unavailable. Unstaged Reviewer writes no files; staged draft permissions are defined in staged-execution.md.
+   Resume with the frozen main.tex/references.bib/main.pdf paths, rubric.md,
+   and snapshot/SCOPE.md,
+   reviewer-input.md, assignment IDs and prior-issues.json. Do not send the full
+   snapshot, role prompts or research artifacts. The Reviewer retrieves its own
+   human-authored reference surveys matched to the approved scope. Main may cache reference full texts and render
+   manuscript pages in the current submission's references/ and manuscript-pages/
+   folders. Internal snapshots remain for main's recovery and repair only.
 4. Main saves the exact returned envelope as a request and calls `record`. Correct
    malformed JSON/arithmetic by requesting a corrected response, never by changing
    substantive scores. Invalid records do not consume a revision. The helper saves
-   assessment.json, assessment.md, comparison.md and one experience.md in that
-   immutable submission folder. experience.md groups executable candidate strategies
-   by Scoper, Manager, Worker and Paper Agent, including empty sections. Keep both
-   source locations, actions, conditions and acceptance tests linked.
+   assessment.json, assessment.md, comparison.md and experiences.json in that
+   immutable submission folder. experiences.json contains the shared flat array;
+   role is an enum, with no mandatory entry for each role. Keep comparison provenance
+   in executionSummary and the comparison report.
 5. `status.complete` requires >=70, completed comparison and current inputs/PDF.
    A passing score with no readable reference gives comparison_pending. Preserve
    the score and draft; `retry-comparison` creates a new attempt with the same frozen
@@ -41,50 +43,12 @@ share `.slr/paper-bindings.json`. No future memory-store interface is introduced
 Snapshot hash checking is mechanical. Semantic support, author identity, full-text
 reading and relevance still require actual Reviewer judgment and recorded evidence.
 
-## Exact returned envelope
+## Output contract
 
-Return one JSON object with `submissionId`, `fingerprint`, `reviewerId` (main supplies
-the actual runtime ID), and `report` with these fields:
-
-```json
-{
-  "rubricVersion": "survey-1",
-  "items": [{"id":"coverage.scope","score":3,"location":"Introduction, paragraph 2","evidence":"Specific observed content or source contradiction","reason":"Explain points gained and lost"}],
-  "total": 0,
-  "passed": false,
-  "comparison": {
-    "status":"complete",
-    "searchLog":"Queries, candidates, exclusions and access outcomes",
-    "alignment":"Both scopes, dates, audiences and lengths; justified comparison boundaries",
-    "references":[{"id":"ref-1","title":"Real survey title","authors":["Verified author"],"year":2025,"url":"https://example.org/replace-with-verified-source","version":"Recorded version","fulltext":"fulltext_read","match":"same","reason":"Why selected","verification":"Identity/full-text checks and source locations"}],
-    "differences":[{"id":"diff-1","referenceId":"ref-1","kind":"gap","dimension":"synthesis","manuscriptLocation":"Section and example","referenceLocation":"Section/page and example","observation":"Concrete difference, not causal speculation","conditions":"Why comparable and when relevant"}]
-  },
-  "suggestions": {
-    "scoper": [],
-    "manager": [{"role":"manager","differenceId":"diff-1","attribution":"hypothesis","attributionEvidence":"What task/chapter artifacts establish or leave uncertain","action":"Ordered operations on identified inputs, producing a specific artifact","conditions":"When applicable, prerequisites and when not to apply","expectedImprovement":"Expected outcome","acceptance":"Observable verification"}],
-    "worker": [],
-    "paper": []
-  },
-  "issues": [{"id":"issue-1","kind":"topic","severity":"major","topicIds":["actual-topic-id"],"location":"Exact location","evidence":"Reason and supporting source","action":"Repair instruction","acceptance":"Checkable completion criterion"}],
-  "priorIssueChecks": []
-}
-```
-
-This is a shape illustration, not a valid scored example: return all twenty exact
-rubric IDs, correct total, real sources/locations and actual topic IDs. Never reuse
-example authors/links. comparison.status is complete or unavailable; unavailable
-requires unavailableReason and may have empty references/differences and empty
-lists in all four suggestions roles; the four role keys are still required.
-Reference match is same, overlapping or adjacent; fulltext is fulltext_read or
-unavailable. Difference kind is gap, reasonable_difference, manuscript_strength or
-insufficient_evidence; dimension is coverage, organization, synthesis, evidence or
-critique. Adjacent references cannot support coverage-gap findings. Suggestion
-attribution is supported or hypothesis. Issue kind is topic, global, evidence or
-scope; severity is minor, major or critical. Topic/evidence issues require topic IDs;
-global issues may have none. Failed assessments require actionable issues.
-For reassessment, priorIssueChecks must cover every previous issue exactly once:
-`{issueId,status:"resolved|partial|unresolved",evidence}`. Check current content;
-record actual applied suggestions and task-specific outcomes in this evidence.
+The single canonical Reviewer envelope and experience field definitions are in
+reviewer-input.md. Pass that reference to Reviewer; main validates the returned
+report through final-review.mjs rather than loading/copying its full schema into
+its conversation. The six-dimension scoring criteria are in rubric.md.
 
 ## Below 70: controlled repair
 
@@ -99,8 +63,10 @@ and concrete action, plus coordinatorTopicId. The decision is archived with the 
 This permits narrowing unsupported claims while retaining the approved scope; actual
 scope expansion requires a new separately approved workspace.
 
-Call `begin-revision {coordinatorTopicId}`. The helper derives affected topics from
-issues; choose an existing Manager as coordinator for global/cross-topic issues.
+Main maps manuscript locations to topic IDs and calls `begin-revision
+{issueRoutes:[{issueId,topicIds,reason}],coordinatorTopicId}`. Every topic/evidence
+issue lacking historical IDs needs an explicit route. Choose an existing Manager
+as coordinator for global/cross-topic issues. Never ask Reviewer for internal IDs.
 It journals repair intent, reopens research and invalidates only assigned chapters.
 Repeating this command recovers an interruption between intent and state writes.
 
@@ -148,7 +114,7 @@ its reviewed inputs before opening the authorized repair.
 Commit only explicit manuscript, review-result, snapshot, control and changed
 authorized research paths; never stage .build/ or unrelated files. Preserve all
 prior reviews. Report score and itemized reasons, comparison reference(s), candidate
-experience.md, repair count, remaining issues and current PDF. Separate compiled
+experiences.json, repair count, remaining issues and current PDF. Separate compiled
 draft availability from final review completion. Passing with outstanding issues is
 allowed by the rubric; keep those issues visible. Missing comparison prevents overall
 completion even when the quality score passes.
@@ -160,35 +126,52 @@ the existing supplemental round; do not start a new tier-sized corpus. When call
 pipeline finalize, supply a current scaleReason if accepted count differs from target.
 No-profile historical workspaces retain their previous behavior.
 
-## Executable comparison-derived experience
+## Comparison-derived experience delivery
 
-Keep the JSON key suggestions for transport compatibility; its four required arrays
-are scoper, manager, worker and paper. Each item.role must match its array. Read all
-four role prompts before attribution. These entries are executable candidate
-strategies extracted from actual comparison, not generic improvement suggestions.
-Use action for ordered steps specifying inputs, transformations and an output
-artifact; conditions for trigger, prerequisites and exclusions; acceptance for an
-observable check on that artifact. Preserve attribution evidence and mark uncertain
-causes as hypothesis. Ground every entry in a difference and both source locations.
-Do not force entries for every role; four empty arrays are valid when unsupported.
+Use the flat experiences array and shared contract below. Main saves experiences.json
+as {"experiences": report.experiences}, preserving field values exactly. Reviewer
+still writes only its assigned draft. assessment.md and comparison.md remain separate
+review outputs. Existing historical Markdown files are left untouched; do not create
+new experience.md or per-role advice files. Comparison retries must not copy prior
+experiences.json into the new submission; new conclusions belong to that submission.
 
-Paper Agent strategies concern global-section writing, cross-topic synthesis,
-terminology, transitions and whole-manuscript organization. Inspect accepted chapters,
-synthesis material and the manuscript before attributing failures: a missing Worker
-source or Manager synthesis input is not automatically a Paper Agent writing failure.
-Do not recommend inventing evidence or taking over topic research. Main routes actual
-global writing repairs through the existing Paper stages; candidate strategy creation
-does not itself trigger repair or change the scoring rubric.
+Paper strategies concern global writing, cross-topic synthesis, terminology and
+organization. Roles identify future recipients, not proven internal causes. Record
+actual strategy application only in later priorIssueChecks evidence, identifying the
+source submission and experiences array index. One successful repair establishes
+only a task-specific result. No memory API or trajectory extractor is added here.
 
-All four roles are grouped in one experience.md per submission. The helper renders
-it from the validated report; Reviewer still writes only its assigned draft. Keep
-assessment.md and comparison.md as separate existing reports. Historical three-role
-reports and separate role files remain unchanged and readable; new reports must
-include paper, even if empty. An already prepared old-format pending draft must be
-completed by Reviewer with the new field, not silently padded by main.
+Configured manuscripts require current format-check canReview=true before each submit. Keep only format completion/fingerprint state; there is no format report or source-report snapshot to deliver. Final Reviewer sees neither this internal state nor process artifacts.
 
-These artifacts can inform later experience storage, but no storage/retrieval API,
-experience database or automatic application is introduced here. Record actual
-application and verification only in subsequent priorIssueChecks evidence when it
-really occurred; identify the source submission and strategy (role/index). A single
-verified repair establishes a task-specific result, not a universally proven rule.
+## Main-only issue routing
+
+For new Reviewer issues with empty topicIds, main reads its own topic registry and
+maps the paper location to the responsible Manager(s). Pass begin-revision
+issueRoutes:[{issueId,topicIds:[...],reason}]. Every topic/evidence issue with no
+existing route needs a nonempty valid mapping. Routes are stored in the revision
+record and do not rewrite the immutable Reviewer assessment. Global issues still
+require a coordinating Manager. Keep research snapshots for invalidation/recovery,
+but never pass them to the Reviewer. Historical assessments with topic IDs remain
+readable. Scope-change proposals are interpreted by main against the approved
+scope; explicit user scope approval requirements remain unchanged.
+
+## Experience contract reference
+
+Use reviewer-input.md for the shared JSON field definitions and output example.
+Main persists report.experiences as {"experiences":[...]} without converting values.
+The shared validator is scripts/experiences.mjs; final-review.mjs additionally
+requires sourceType review and an actual completed reference comparison.
+
+## Current rubric and approved scope
+
+Only the six-dimension rubric is supported, with maxima 15/15/25/20/15/10.
+The survey-2 identifier protects score records and fingerprints from stale data.
+Old rule definitions and continuation paths are removed; do not convert historical
+scores or relabel them as current. Workspace history is not rewritten automatically.
+
+Before submission, SCOPE.md must equal SCOPE_ORIGINAL.md and match the
+recorded approval hash. Resolve mismatch before dispatch, without overwriting either
+file or treating current manuscript drift as a new approved scope. Only frozen
+SCOPE.md is passed to Reviewer; all other process artifacts stay private to main.
+Scope mismatch in the manuscript is an ordinary topic/global repair. Only an actual
+proposal to change the approved scope uses kind scope and user approval.

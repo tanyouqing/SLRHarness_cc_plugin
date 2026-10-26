@@ -1,0 +1,70 @@
+\documentclass{article}
+\usepackage[preprint]{icml2026}
+\newif\ifsurveychinese
+\surveychinesefalse
+\usepackage{iftex}
+\ifPDFTeX
+  \usepackage[T1]{fontenc}
+  \usepackage[utf8]{inputenc}
+\else
+  \usepackage{fontspec}
+  \setmainfont{TeX Gyre Termes}
+\fi
+\ifsurveychinese
+  \usepackage[UTF8,fontset=fandol,scheme=plain]{ctex}
+\fi
+\usepackage{amsmath,amssymb,booktabs,tabularx,graphicx}
+\usepackage{microtype,url,hyperref}
+% BEGIN SLR PREPRINT ADAPTER
+% Preserve an empty identity without the upstream AUTHORERR placeholder.
+\usepackage{etoolbox}
+\makeatletter
+\patchcmd{\printAffiliationsAndNotice}{{\bf AUTHORERR: Missing \textbackslash{}icmlcorrespondingauthor.}}{}{}{\PackageError{survey}{ICML preprint adapter failed}{}}
+\newcommand{\surveyAffiliationsAndNotice}{%
+  \ifnum\value{@affiliationcounter}=0
+    \ifdefined\icmlcorrespondingauthor@text
+      \printAffiliationsAndNotice{}
+    \else
+      \global\icml@noticeprintedtrue
+      {\let\thefootnote\relax\footnotetext{\Notice@String}}
+    \fi
+  \else
+    \printAffiliationsAndNotice{}
+  \fi}
+\makeatother
+% END SLR PREPRINT ADAPTER
+\icmltitlerunning{Survey Title}
+\begin{document}
+\twocolumn[
+\icmltitle{Survey Title}
+\begin{icmlauthorlist}
+% Only user-provided authors and affiliations.
+\end{icmlauthorlist}
+\vskip 0.3in
+]
+\surveyAffiliationsAndNotice
+\begin{abstract}
+% Context, scope, evidence base, synthesis and limitations.
+\end{abstract}
+\section{Introduction}\label{sec:introduction}
+% Motivation, previous surveys, scope, contributions and reading guide.
+% Include documented search/screening methods in a short subsection.
+% Choose ONE title: Background OR Preliminaries. Do not print both.
+\section{Background}\label{sec:background}
+% Define necessary tasks, notation and foundations with citations.
+% Choose ONE title: Taxonomy OR Unified Framework. Do not print both.
+\section{Taxonomy}\label{sec:taxonomy}
+% Explain classification criteria, boundaries and links to topic chapters.
+% Expand this topic block once per topic in the initial reconnaissance-based
+% Survey Outline recorded in scope. There is no fixed topic count.
+\section{Topic Name}\label{sec:topic-slug}
+% Synthesize problems, methods, progression, conditions and limitations.
+\section{Comparative Analysis and Evaluation}\label{sec:comparison}
+% Explicit task/data/metric/budget conditions, coverage, conflicts and limitations.
+\section{Challenges and Future Directions}\label{sec:challenges}
+% Link challenges to evidenced gaps; distinguish inference from source claims.
+\section{Conclusion}\label{sec:conclusion}
+% Supported insights and boundaries, without new evidence.
+\bibliographystyle{icml2026}
+\bibliography{references}
+\end{document}

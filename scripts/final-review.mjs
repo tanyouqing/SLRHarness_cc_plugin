@@ -1,3 +1,7 @@
+import {validateExperiences} from './experiences.mjs';
+import {RUBRIC_VERSION,rubricFor} from './review-rubrics.mjs';
+import {formatStatus} from './format-check.mjs';
+import {paperConfig,paperFiles} from './paper-config.mjs';
 import {reviewSummary,reviewQuery,safePath} from './bounded-output.mjs';
 import {writerReady,reviewReady} from './work-stages.mjs';
 import {enabled} from './context-control.mjs';
@@ -7,17 +11,8 @@ import {fileURLToPath} from 'node:url';
 import {loadState, statePath, atomicJSON, hash, withLock, openRevisionState, reviewFingerprint, paperFingerprint} from './pipeline.mjs';
 import {paperStatus} from './paper-build.mjs';
 
-export const RUBRIC_VERSION='survey-1';
-export const EXPERIENCE_ROLES=['scoper','manager','worker','paper'];
-export const RUBRIC={
-  coverage:['scope','research-lines','search-transparency'],
-  taxonomy:['basis','boundaries','alignment'],
-  evidence:['identity','claim-support','numbers-conditions','attribution','epistemic-status'],
-  synthesis:['question-driven','method-relations','comparability','cross-topic'],
-  critique:['limitations','conflicts-gaps','directions'],
-  presentation:['clarity','layout']
-};
-export const ITEM_IDS=Object.entries(RUBRIC).flatMap(([group,items])=>items.map(id=>`${group}.${id}`));
+export {RUBRIC_VERSION,RUBRIC,ITEM_IDS} from './review-rubrics.mjs';
+export {EXPERIENCE_ROLES} from './experiences.mjs';
 const terminal=s=>['completed','completed_with_limitations'].includes(s.stage);
 const requireValue=(ok,message)=>{if(!ok)throw new Error(message);};
 const nonempty=v=>typeof v==='string' && !!v.trim();
@@ -52,7 +47,7 @@ function addTree(root,files,relative) {
 function copyFrozenTree(source,target,top=true) {
   fs.mkdirSync(target,{recursive:true});
   for(const e of fs.readdirSync(source,{withFileTypes:true})) {
-    if(top && ['drafts','assessment.json','assessment.md','comparison.md','experience.md','scoper.md','manager.md','worker.md'].includes(e.name))continue;
+    if(top && ['drafts','assessment.json','assessment.md','comparison.md','experiences.json','experience.md','scoper.md','manager.md','worker.md'].includes(e.name))continue;
     requireValue(!e.isSymbolicLink(),'snapshot refuses symbolic links');
     const from=path.join(source,e.name),to=path.join(target,e.name);
     if(e.isDirectory())copyFrozenTree(from,to,false);
@@ -61,21 +56,26 @@ function copyFrozenTree(source,target,top=true) {
   }
 }
 function verifySnapshot(root,sub) {
+  rubricFor(sub.rubricVersion);
   const dir=reportDir(root,sub.id),saved=json(path.join(dir,'manifest.json'));
-  requireValue(saved.fingerprint===sub.fingerprint && hash(JSON.stringify({rubricVersion:RUBRIC_VERSION,manifest:saved.manifest}))===sub.fingerprint,'snapshot manifest changed');
+  requireValue(saved.fingerprint===sub.fingerprint && hash(JSON.stringify({rubricVersion:sub.rubricVersion,manifest:saved.manifest}))===sub.fingerprint,'snapshot manifest changed');
   for(const [name,digest] of Object.entries(saved.manifest)) {
     requireValue(!path.isAbsolute(name) && !name.split(/[\\/]/).includes('..'),'invalid snapshot path');
     requireValue(hash(fs.readFileSync(path.join(dir,'snapshot',name)))===digest,'frozen snapshot changed');
   }
 }
 export function reviewInputs(root) {
+  rubricFor(readControl(root).rubricVersion);
   const s=loadState(root);
   requireValue(s.schemaVersion===2 && terminal(s),'final review requires completed v2 research');
   requireValue(paperStatus(path.join(root,'paper')).current,'current compiled PDF required');
   for(const t of s.topics)requireValue(t.status==='completed' && t.reviewHash===reviewFingerprint(root,t.id),'chapter evidence acceptance is stale');
   for(const p of Object.values(s.papers))requireValue(p.status==='final' && p.fingerprint===paperFingerprint(root,p.id),'paper evidence acceptance is stale');
   const files={};
-  for(const f of ['SCOPE_ORIGINAL.md','SCOPE.md','paper/main.tex','paper/references.bib','paper/neurips_2026.sty','paper/main.pdf'])addFile(root,files,f);
+  const formatting=formatStatus(root);requireValue(formatting.canReview,'complete current format check or record official-unverified before Reviewer');
+  for(const f of ['SCOPE_ORIGINAL.md','SCOPE.md',...paperFiles(path.join(root,'paper')).map(f=>`paper/${f}`),'paper/main.pdf'])addFile(root,files,f);
+  requireValue(files['SCOPE.md'].equals(files['SCOPE_ORIGINAL.md']) && hash(files['SCOPE.md'])===s.approval?.scopeHash,'approved scope mismatch; resolve before submission');
+  if(paperConfig(root))addFile(root,files,'.slr/paper-config.json');
   for(const f of ['scoping.md','REPORT.md'])addFile(root,files,f,true);
   for(const dir of ['scope','topics','papers'])addTree(root,files,dir);
   // Runtime IDs and review counters do not change scientific inputs.
@@ -86,10 +86,10 @@ export function reviewInputs(root) {
 }
 
 export function validateAssessment(report,topicIds=[]) {
-  requireValue(report?.rubricVersion===RUBRIC_VERSION,'rubric version mismatch');
-  requireValue(Array.isArray(report.items) && report.items.length===20,'exactly twenty rubric items required');
-  requireValue(new Set(report.items.map(i=>i.id)).size===20,'duplicate rubric item');
-  for(const i of report.items)requireValue(ITEM_IDS.includes(i.id) && Number.isInteger(i.score) && i.score>=0 && i.score<=5
+  const rubric=rubricFor(report?.rubricVersion),ids=Object.keys(rubric.maxima);
+  requireValue(Array.isArray(report.items) && report.items.length===ids.length,`exactly ${ids.length} rubric items required`);
+  requireValue(new Set(report.items.map(i=>i.id)).size===ids.length,'duplicate rubric item');
+  for(const i of report.items)requireValue(ids.includes(i.id) && Number.isInteger(i.score) && i.score>=0 && i.score<=rubric.maxima[i.id]
     && nonempty(i.location) && nonempty(i.evidence) && nonempty(i.reason),'invalid rubric item or missing scoring evidence');
   const total=report.items.reduce((n,i)=>n+i.score,0);
   requireValue(report.total===total && report.passed===(total>=70),'incorrect total or threshold verdict');
@@ -116,16 +116,13 @@ export function validateAssessment(report,topicIds=[]) {
     requireValue(!(ref.match==='adjacent' && d.dimension==='coverage' && d.kind==='gap'),'adjacent reference cannot establish coverage omissions');
     differences.set(d.id,d);
   }
-  requireValue(report.suggestions && EXPERIENCE_ROLES.every(role=>Array.isArray(report.suggestions[role])) && Object.keys(report.suggestions).every(role=>EXPERIENCE_ROLES.includes(role)),'four role strategy lists required (scoper, manager, worker, paper)');
-  for(const role of EXPERIENCE_ROLES)for(const a of report.suggestions[role]) {
-    requireValue(a.role===role && differences.has(a.differenceId) && ['supported','hypothesis'].includes(a.attribution)
-      && ['attributionEvidence','action','conditions','expectedImprovement','acceptance'].every(k=>nonempty(a[k])),'invalid role suggestion');
-  }
+  requireValue(!Object.hasOwn(report,'suggestions'),'use experiences, not the retired suggestions format');
+  validateExperiences({experiences:report.experiences},{sourceType:'review'});
+  requireValue(report.experiences.length===0 || (comparison.status==='complete' && differences.size>0),'review experiences require completed reference comparison and observed differences');
   requireValue(Array.isArray(report.issues) && new Set(report.issues.map(i=>i.id)).size===report.issues.length,'invalid/duplicate issues');
   for(const i of report.issues)requireValue(nonempty(i.id) && ['location','evidence','action','acceptance'].every(k=>nonempty(i[k]))
     && ['minor','major','critical'].includes(i.severity) && ['topic','global','evidence','scope'].includes(i.kind)
-    && Array.isArray(i.topicIds) && i.topicIds.every(id=>topicIds.includes(id))
-    && (!['topic','evidence'].includes(i.kind) || i.topicIds.length>0),'invalid repair issue');
+    && Array.isArray(i.topicIds) && i.topicIds.every(id=>topicIds.includes(id)),'invalid repair issue');
   if(!report.passed)requireValue(report.issues.length>0,'failed review requires actionable issues');
   requireValue(Array.isArray(report.priorIssueChecks),'prior issue checks required');
   for(const p of report.priorIssueChecks)requireValue(nonempty(p.issueId) && ['resolved','partial','unresolved'].includes(p.status) && nonempty(p.evidence),'invalid prior issue check');
@@ -136,19 +133,13 @@ function renderReports(root,sub,report) {
   const dir=reportDir(root,sub.id);
   const save=(name,body)=>fs.writeFileSync(path.join(dir,name),`${body}\n`);
   save('assessment.md',`# Manuscript assessment: ${report.total}/100 — ${report.passed?'passed':'revision required'}\n\nRubric: ${report.rubricVersion}. Submission: ${sub.id}.\n\n`+
-    report.items.map(i=>`## ${i.id}: ${i.score}/5\n\nLocation: ${i.location}\n\nEvidence: ${i.evidence}\n\nReason: ${i.reason}`).join('\n\n')+
+    report.items.map(i=>`## ${i.id}: ${i.score}/${rubricFor(report.rubricVersion).maxima[i.id]}\n\nLocation: ${i.location}\n\nEvidence: ${i.evidence}\n\nReason: ${i.reason}`).join('\n\n')+
     '\n\n## Repair issues\n\n'+report.issues.map(i=>`### ${i.id} (${i.severity}; ${i.kind})\n\n${i.location}\n\n${i.evidence}\n\nAction: ${i.action}\n\nAcceptance: ${i.acceptance}\n\nTopics: ${i.topicIds.join(', ')}`).join('\n\n')+
     '\n\n## Previous issue verification\n\n'+report.priorIssueChecks.map(p=>`${p.issueId}: ${p.status}. ${p.evidence}`).join('\n\n'));
   save('comparison.md',`# Reference survey comparison\n\nStatus: ${report.comparison.status}\n\nSearch: ${report.comparison.searchLog}\n\nAlignment: ${report.comparison.alignment}\n\n${report.comparison.unavailableReason??''}\n\n`+
     report.comparison.references.map(r=>`## ${r.id}: ${r.title}\n\n${r.authors.join(', ')} (${r.year}). ${r.url}\n\nVersion: ${r.version}; access: ${r.fulltext}; match: ${r.match}\n\n${r.reason}\n\nVerification: ${r.verification}`).join('\n\n')+
     '\n\n## Differences\n\n'+report.comparison.differences.map(d=>`### ${d.id}: ${d.kind} / ${d.dimension}\n\nManuscript: ${d.manuscriptLocation}\n\nReference: ${d.referenceId}, ${d.referenceLocation}\n\n${d.observation}\n\nConditions: ${d.conditions}`).join('\n\n'));
-  save('experience.md',`# Comparison-derived candidate strategies and experience\n\nSubmission: ${sub.id}. Fingerprint: ${sub.fingerprint}.\n\nThese strategies are candidates, not validated general rules. Apply only under the recorded conditions. No application result is established by this report alone.\n\n`+
-    EXPERIENCE_ROLES.map(role=>`## ${role==='paper'?'Paper Agent':role}\n\n`+
-      (report.suggestions[role].map((a,index)=>{
-        const d=report.comparison.differences.find(d=>d.id===a.differenceId);
-        const ref=report.comparison.references.find(r=>r.id===d.referenceId);
-        return `### ${role}-${index+1}: candidate strategy\n\nObserved difference (${d.id}; ${d.kind}): ${d.observation}\n\nManuscript location: ${d.manuscriptLocation}\n\nReference: ${ref.title} — ${ref.url} (${ref.version})\n\nReference location: ${d.referenceLocation}\n\nComparison boundaries: ${d.conditions}\n\nAttribution: ${a.attribution}. ${a.attributionEvidence}\n\nApplicability and exclusions: ${a.conditions}\n\nExecutable strategy: ${a.action}\n\nExpected improvement: ${a.expectedImprovement}\n\nAcceptance test: ${a.acceptance}\n\nApplication result: not established; see later assessment prior-issue checks for task-specific verification.`;
-      }).join('\n\n')||'No evidence-backed strategy for this role.')).join('\n\n'));
+  atomicJSON(path.join(dir,'experiences.json'),{experiences:report.experiences});
 
 }
 
@@ -160,7 +151,7 @@ export function finalReviewStatus(root) {
     try {coverage=reviewReady(root,sub.id,sub.reviewerId);}catch(e){coverage=false;error??=e.message;}
     if(!coverage)error??='review coverage records changed or incomplete';
   }
-  return {...c,current,complete:c.status==='passed' && current && coverage,error};
+  return {...c,format:formatStatus(root),current,complete:c.status==='passed' && current && coverage,error};
 }
 
 // All mutations use the same lock as research operations; delegated roles cannot run this CLI.
@@ -175,7 +166,7 @@ export function finalReviewControl(root,action,args={}) {
   return withLock(root,()=>{
     const state=loadState(root),c=readControl(root);
     requireValue(state.schemaVersion===2,'legacy workspace: final review and research revision are disabled');
-    requireValue(c.rubricVersion===RUBRIC_VERSION,'fixed rubric version is unavailable');
+    rubricFor(c.rubricVersion);
     const save=()=>{c.updatedAt=now();atomicJSON(controlPath(root),c);return c;};
     if(action==='submit') {
       requireValue(writerReady(root),'complete current writing stages before submission');
@@ -195,10 +186,13 @@ export function finalReviewControl(root,action,args={}) {
         const f=path.join(dir,'snapshot',name);fs.mkdirSync(path.dirname(f),{recursive:true});
         if(fs.existsSync(f))requireValue(hash(fs.readFileSync(f))===hash(bytes),'snapshot content changed');else fs.writeFileSync(f,bytes);
       }
+      const priorIssuesFile=path.join(dir,'prior-issues.json');
+      const prior=revision?c.submissions.find(s=>s.id===revision.sourceSubmission)?.assessment:old?.assessment;
+      if(!fs.existsSync(priorIssuesFile))atomicJSON(priorIssuesFile,(prior?.issues??[]).map(({id,kind,severity,location,evidence,action,acceptance})=>({id,kind,severity,location,evidence,action,acceptance})));
       const stateSnapshot=path.join(dir,'research-state.json');if(!fs.existsSync(stateSnapshot))atomicJSON(stateSnapshot,state);
       if(old?.assessment && !revision) c.batchStart=c.revisions.filter(r=>r.assessed).length;
       c.submissions.push({id,fingerprint:input.fingerprint,evidenceHash:input.evidenceHash,evidenceRef:args.evidenceRef??`sha256:${input.evidenceHash}`,
-        rubricVersion:RUBRIC_VERSION,revisionId:revision?.id??null,createdAt:now(),assessment:null});
+        rubricVersion:c.rubricVersion,inputPolicy:rubricFor(c.rubricVersion).inputPolicy,revisionId:revision?.id??null,createdAt:now(),assessment:null});
       c.status='awaiting_review';c.pause=null;return save();
     }
     const sub=latest(c);requireValue(sub,'submit a manuscript first');
@@ -247,12 +241,18 @@ export function finalReviewControl(root,action,args={}) {
       const scopeIssue=sub.assessment.issues.some(i=>i.kind==='scope');
       if(scopeIssue)requireValue(args.scopeResolution?.withinApprovedScope===true && args.scopeResolution.explicitUserDecision===true
         && nonempty(args.scopeResolution.userMessage) && nonempty(args.scopeResolution.action),'scope change requires user decision; cannot revise scope automatically');
-      const issueIds=sub.assessment.issues.map(i=>i.id),topicIds=[...new Set(sub.assessment.issues.flatMap(i=>i.topicIds))];
-      if(sub.assessment.issues.some(i=>i.topicIds.length>1 || i.kind==='global' || i.kind==='scope')) {
+      const issueIds=sub.assessment.issues.map(i=>i.id),routes=args.issueRoutes??[];
+      requireValue(Array.isArray(routes)&&new Set(routes.map(r=>r.issueId)).size===routes.length,'unique main-session issue routes required');
+      for(const route of routes)requireValue(issueIds.includes(route.issueId)&&nonempty(route.reason)&&Array.isArray(route.topicIds)&&route.topicIds.length>0
+        && route.topicIds.every(id=>state.topics.some(t=>t.id===id)),'invalid main-session issue route');
+      for(const issue of sub.assessment.issues)if(['topic','evidence'].includes(issue.kind)&&!issue.topicIds.length)
+        requireValue(routes.some(r=>r.issueId===issue.id),'main must route manuscript-only topic/evidence issues before revision');
+      const topicIds=[...new Set(sub.assessment.issues.flatMap(i=>routes.find(r=>r.issueId===i.id)?.topicIds??i.topicIds))];
+      if(sub.assessment.issues.some(i=>(routes.find(r=>r.issueId===i.id)?.topicIds??i.topicIds).length>1 || i.kind==='global' || i.kind==='scope')) {
         requireValue(state.topics.some(t=>t.id===args.coordinatorTopicId),'choose a coordinating Manager');
         if(!topicIds.includes(args.coordinatorTopicId))topicIds.push(args.coordinatorTopicId);
       }
-      const r={id:`revision-${c.revisions.length+1}`,sourceSubmission:sub.id,issueIds,topicIds,coordinatorTopicId:args.coordinatorTopicId??null,assessed:false,createdAt:now(),...(scopeIssue?{scopeResolution:args.scopeResolution}:{})};
+      const r={id:`revision-${c.revisions.length+1}`,sourceSubmission:sub.id,issueIds,topicIds,issueRoutes:routes,coordinatorTopicId:args.coordinatorTopicId??null,assessed:false,createdAt:now(),...(scopeIssue?{scopeResolution:args.scopeResolution}:{})};
       const next=openRevisionState(state,r);
       c.revisions.push(r);c.activeRevisionId=r.id;c.status='repairing';save();atomicJSON(statePath(root),next);return c;
     }

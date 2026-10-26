@@ -1,3 +1,5 @@
+import {rubricFor} from './review-rubrics.mjs';
+import {paperConfig} from './paper-config.mjs';
 import fs from 'node:fs';
 import path from 'node:path';
 import {fileURLToPath} from 'node:url';
@@ -10,18 +12,20 @@ const file=root=>path.join(root,'.slr/work-stages.json');
 export const stages=root=>fs.existsSync(file(root))?json(file(root)):{version:1,writers:[],reviews:{}};
 const binding=(root,id)=>json(path.join(root,'.slr/paper-bindings.json'))[id];
 const digestFiles=(root,names)=>hash(names.map(n=>`${n}\0${fs.existsSync(safePath(root,n))?hash(fs.readFileSync(safePath(root,n))):'absent'}`).join('\n'));
-const sources=['paper/main.tex','paper/references.bib','paper/writing-handoff.md'];
+export const writerSources=Object.freeze(['paper/main.tex','paper/references.bib','paper/writing-handoff.md']);
+export const writerOutputHash=root=>digestFiles(root,writerSources);
 export function writerEvidence(root) {
   const s=loadState(root);need(['completed','completed_with_limitations'].includes(s.stage),'completed research required');
   const files=['SCOPE_ORIGINAL.md','SCOPE.md',...s.topics.flatMap(t=>[`topics/${t.id}/chapter.md`,`topics/${t.id}/synthesis.md`])];
   for(const t of s.topics)need(t.status==='completed' && t.reviewHash===reviewFingerprint(root,t.id),'stale accepted topic evidence');
-  return hash(digestFiles(root,files)+JSON.stringify(Object.values(s.papers).map(p=>[p.id,p.fingerprint])));
+  const config=paperConfig(root);
+  return hash(digestFiles(root,files)+JSON.stringify(Object.values(s.papers).map(p=>[p.id,p.fingerprint]))+(config?JSON.stringify(config):''));
 }
 export function writerReady(root) {
   if(!enabled(root))return true;
   try {
     const w=stages(root).writers.at(-1);
-    return !!w && !w.active && w.phases.every(p=>p.status==='complete') && w.evidenceHash===writerEvidence(root) && w.outputHash===digestFiles(root,sources);
+    return !!w && !w.active && w.phases.every(p=>p.status==='complete') && w.evidenceHash===writerEvidence(root) && w.outputHash===writerOutputHash(root);
   } catch {return false;}
 }
 function snapshot(root,submissionId) {
@@ -62,6 +66,8 @@ export function stageControl(root,action,args={}) {
     if(action==='writer-start') {
       need(binding(root,args.agentId)?.role==='paper','bound Paper Agent required');
       const evidenceHash=writerEvidence(root);let w=all.writers.at(-1);
+      need(!all.format?.active,'format check is active');
+      need(!Object.values(all.reviews).some(r=>r.active),'Reviewer is active; stop it before writing');
       need(!w?.active,'another writer is active; verify stop before abandoning');
       if(!w || w.evidenceHash!==evidenceHash || args.newRevision===true) {
         if(w && w.evidenceHash===evidenceHash)need(typeof args.reason==='string'&&args.reason.trim(),'explicit manuscript revision reason required');
@@ -72,14 +78,14 @@ export function stageControl(root,action,args={}) {
           need(Array.isArray(args.phaseIds)&&args.phaseIds.length&&args.phaseIds.every(id=>defaults.includes(id)),'invalid focused writing phases');
           selected=[...new Set([...args.phaseIds.filter(id=>id!=='polish'),'polish'])];
         }
-        w={id:`writing-${all.writers.length+1}`,evidenceHash,phases:selected.map(id=>({id,status:'pending'})),outputHash:digestFiles(root,sources),active:null};
+        w={id:`writing-${all.writers.length+1}`,evidenceHash,phases:selected.map(id=>({id,status:'pending'})),outputHash:writerOutputHash(root),active:null};
         all.writers.push(w);
       }
-      need(w.outputHash===digestFiles(root,sources),'sources changed outside the last writer phase; inspect before starting a revision');
+      need(w.outputHash===writerOutputHash(root),'sources changed outside the last writer phase; inspect before starting a revision');
       need(!all.writers.some(x=>x.phases.some(p=>p.agentId===args.agentId)),'each writer phase needs a fresh Agent ID');
       const phase=w.phases.find(p=>p.status!=='complete');need(phase,'writing already complete');
       w.active={phaseId:phase.id,agentId:args.agentId};phase.agentId=args.agentId;
-      return save({ok:true,generation:w.id,phase:phase.id,agentId:args.agentId,inputHash:evidenceHash,outputs:sources});
+      return save({ok:true,generation:w.id,phase:phase.id,agentId:args.agentId,inputHash:evidenceHash,outputs:writerSources});
     }
     if(action==='writer-finish'||action==='writer-abandon') {
       const w=all.writers.at(-1);need(w?.active?.agentId===args.agentId,'writer assignment mismatch');
@@ -87,28 +93,30 @@ export function stageControl(root,action,args={}) {
       const phase=w.phases.find(p=>p.id===w.active.phaseId);
       if(action==='writer-finish') {
         need(w.evidenceHash===writerEvidence(root),'evidence changed during writing');
-        for(const name of sources)need(fs.existsSync(safePath(root,name)),'missing writing artifact');
-        const handoff=fs.readFileSync(safePath(root,sources[2]),'utf8');
+        for(const name of writerSources)need(fs.existsSync(safePath(root,name)),'missing writing artifact');
+        const handoff=fs.readFileSync(safePath(root,writerSources[2]),'utf8');
         need(handoff.trim()&&handoff.length<=8000,'writing handoff must be nonempty and at most 8000 characters');
         need(args.phase===phase.id && args.inputHash===w.evidenceHash,'phase/evidence mismatch');
-        phase.status='complete';phase.outputHash=digestFiles(root,sources);
+        phase.status='complete';phase.outputHash=writerOutputHash(root);
       } else {
         need(typeof args.reason==='string'&&args.reason.trim(),'abandon reason required');
         (phase.interruptions??=[]).push({agentId:args.agentId,reason:args.reason});
       }
       // Partial source files are retained and become the explicit next phase baseline.
-      w.outputHash=digestFiles(root,sources);w.active=null;return save({ok:true,phase:phase.id,status:phase.status});
+      w.outputHash=writerOutputHash(root);w.active=null;return save({ok:true,phase:phase.id,status:phase.status});
     }
     if(action==='review-start') {
+      need(!all.format?.active && !all.writers.at(-1)?.active,'writing/format phase is active');
       const {base,manifest}=snapshot(root,args.submissionId),b=binding(root,args.agentId);
       need(b?.role==='reviewer'&&b.submissionId===args.submissionId,'bound Reviewer required');
       const control=json(path.join(root,'.slr/final-review.json'));need(control.status==='awaiting_review'&&control.submissions.at(-1)?.id===args.submissionId,'pending current submission required');
+      const rubricVersion=control.submissions.at(-1).rubricVersion,rubric=rubricFor(rubricVersion);
       let r=all.reviews[args.submissionId];
       if(!r) {
         const units=[];
-        for(const name of ['paper/main.tex','paper/references.bib']) {
+        for(const name of ['SCOPE.md','paper/main.tex','paper/references.bib']) {
           const text=fs.readFileSync(safePath(root,`${base}/snapshot/${name}`),'utf8');
-          for(let offset=0;offset<text.length;offset+=24000)units.push({id:`part-${units.length+1}`,file:`${base}/snapshot/${name}`,offset,limit:Math.min(24000,text.length-offset)});
+          for(let offset=0;offset<text.length;offset+=24000)units.push({id:name==='SCOPE.md'?`scope-${units.length+1}`:`part-${units.length+1}`,file:`${base}/snapshot/${name}`,offset,limit:Math.min(24000,text.length-offset)});
         }
         units.push({id:'reference-comparison'},{id:'pdf-layout'},{id:'score'});
         r={submissionId:args.submissionId,fingerprint:manifest.fingerprint,active:null,units:units.map(u=>({...u,status:'pending',artifact:`${base}/drafts/${u.id}.json`}))};all.reviews[args.submissionId]=r;
@@ -117,7 +125,7 @@ export function stageControl(root,action,args={}) {
       need(!r.units.some(u=>u.agentId===args.agentId),'each review unit needs a fresh Agent ID');
       const unit=r.units.find(u=>u.status!=='complete');need(unit,'review units already complete');
       unit.agentId=args.agentId;r.active={unitId:unit.id,agentId:args.agentId};
-      return save({ok:true,fingerprint:r.fingerprint,...unit});
+      return save({ok:true,fingerprint:r.fingerprint,...unit,inputPolicy:rubric.inputPolicy,rubricVersion,rubricPath:path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..',rubric.path),scopePath:`${base}/snapshot/SCOPE.md`,manuscript:[`${base}/snapshot/paper/main.tex`,`${base}/snapshot/paper/references.bib`,`${base}/snapshot/paper/main.pdf`],references:`${base}/references`,priorIssues:`${base}/prior-issues.json`});
     }
     if(action==='review-finish'||action==='review-abandon') {
       const r=all.reviews[args.submissionId];need(r?.active?.agentId===args.agentId,'review unit assignment mismatch');

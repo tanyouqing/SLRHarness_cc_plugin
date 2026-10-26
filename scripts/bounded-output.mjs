@@ -1,3 +1,5 @@
+import {rubricFor} from './review-rubrics.mjs';
+import {fileURLToPath} from 'node:url';
 import fs from 'node:fs';
 import path from 'node:path';
 import {researchScale} from './research-profile.mjs';
@@ -39,8 +41,11 @@ export function readSlice(root,{file,offset=0,limit=READ_LIMIT}) {
   return {file,offset,text:text.slice(offset,end),nextOffset:end<text.length?end:null,total:text.length};
 }
 export function researchSummary(s,action='status',root='.') {
+  const cfg=path.join(root,'.slr/paper-config.json');
+  const paperConfig=fs.existsSync(cfg)?JSON.parse(fs.readFileSync(cfg,'utf8')):null;
   return bounded({ok:true,action,reviewId:s.reviewId,stage:s.stage,round:s.currentRound,maxRounds:s.maxRounds,maxWorkers:s.maxWorkers,
     researchScale:researchScale(s),scaleCompletion:s.scaleCompletion??null,
+    paperConfig:paperConfig?{status:paperConfig.status,templateId:paperConfig.templateId,version:paperConfig.version,language:paperConfig.language,source:cfg}:null,
     roundOpen:s.roundOpen,topics:s.topics?.map(t=>({id:t.id,status:t.status,tasks:t.tasks.length})),
     counts:{papers:Object.keys(s.papers??{}).length,activeWorkers:Object.values(s.leases??{}).filter(l=>l.active).length},
     source:path.join(root,'.slr/state.json'),next:'query collections: topics, tasks, papers, leases; inspect only relevant IDs'},path.join(root,'.slr/state.json'));
@@ -56,8 +61,11 @@ export function researchQuery(s,args={},root='.') {
   return page(id?items.filter(x=>x.id===id):items,args,path.join(root,'.slr/state.json'));
 }
 export function reviewSummary(c,action='status',root='.') {
-  const sub=c.submissions?.at(-1);
-  return bounded({ok:true,action,status:c.status,current:c.current,complete:c.complete,error:c.error,
+  const sub=c.submissions?.at(-1),version=sub?.rubricVersion??c.rubricVersion;
+  const rubric=version?rubricFor(version):null;
+  return bounded({ok:true,action,status:c.status,current:c.current,complete:c.complete,error:c.error,format:c.format,rubricVersion:version,
+    ...(rubric?{rubricPath:path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..',rubric.path),inputPolicy:rubric.inputPolicy}:{}),
+    ...(sub&&rubric?{scopePath:path.join(root,'paper/reviews',sub.id,'snapshot/SCOPE.md')}:{}),
     submission:sub?{id:sub.id,fingerprint:sub.fingerprint,total:sub.assessment?.total,passed:sub.assessment?.passed,
       issues:sub.assessment?.issues?.length,comparison:sub.assessment?.comparison?.status}:null,
     revisions:c.revisions?.length,pause:c.pause,source:path.join(root,'.slr/final-review.json'),next:'query submissions, revisions or one submission report collection'},path.join(root,'.slr/final-review.json'));
