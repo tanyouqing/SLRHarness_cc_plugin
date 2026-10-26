@@ -90,8 +90,16 @@ Each object has exactly four REQUIRED nonempty string fields:
   commands or vague improvement slogans.
 
 OPTIONAL fields: stage (applicable phase), task (concrete reviewed task), applicability
-(conditions/restrictions). Fill them only when clear from the comparison. When unclear,
-omit them or use null/empty strings; all are valid. Never invent hidden task IDs or
+(conditions/restrictions). When applicable, prefer scope_planning, task_planning,
+paper_discovery, paper_reading, topic_synthesis or paper_writing for stage; use the
+meanings in reviewer-input.md. These are naming suggestions, not an enum or a fixed
+role-to-stage mapping. Another clear stage name is allowed. Classify repairs by the
+actual work: supplementary reading is paper_reading, revising synthesis conclusions
+is topic_synthesis, and revising manuscript wording is paper_writing.
+Infer task only when the visible comparison supports a clear task description.
+If stage or task is difficult to infer or uncertain, omit that field. Do not infer
+either solely from the recipient role or claim knowledge of hidden execution.
+All optional fields still accept null/empty strings in storage. Never invent hidden task IDs or
 conditions merely to fill fields. Do not add old action/conditions/acceptance/differenceId
 fields. Essential restrictions can be expressed within strategy when applicable.
 

@@ -73,6 +73,29 @@ these are valid. Never guess values to complete the record. Four fields alone
 are valid; role coverage is not a quota and an empty array is valid. A review requires
 an actual completed reference comparison to produce nonempty experiences.
 
+### Recommended stage names
+
+Prefer these names when they describe the strategy's applicable work. This is a
+prompt naming convention only; stage remains an optional free-form string, not a
+storage enum. The typical roles below are guidance, not validation restrictions.
+
+| stage | Applicable work | Typical roles |
+|---|---|---|
+| scope_planning | Research questions, scope and taxonomy planning | scoper |
+| task_planning | Topic decomposition, task scheduling and coverage planning | manager |
+| paper_discovery | Paper search and candidate screening | worker |
+| paper_reading | Reading, evidence extraction, supplementary reading and note acceptance | worker, manager |
+| topic_synthesis | Cross-paper comparison and chapter synthesis | manager |
+| paper_writing | Whole-manuscript organization, writing and revision | paper |
+
+Use another clear stage name when none fits. Classify repairs by the actual work:
+supplementary reading uses paper_reading; revising synthesis conclusions uses
+topic_synthesis; revising manuscript wording uses paper_writing. Do not assign a
+stage solely from role. Infer task from the visible comparison only when a concrete
+task is clear; no fixed task vocabulary is required. If stage or task is difficult
+to infer or uncertain, omit it. Null and empty strings remain valid storage values;
+neither field is required and neither should be filled just to complete a record.
+
 executionSummary is the short source evidence for the strategy: in 1–3 short
 sentences contrast this manuscript with the human survey and identify the relevant
 difference. Compact locations/difference IDs may be included; detailed evidence
