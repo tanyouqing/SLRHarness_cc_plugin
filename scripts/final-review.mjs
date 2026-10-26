@@ -8,6 +8,7 @@ import {loadState, statePath, atomicJSON, hash, withLock, openRevisionState, rev
 import {paperStatus} from './paper-build.mjs';
 
 export const RUBRIC_VERSION='survey-1';
+export const EXPERIENCE_ROLES=['scoper','manager','worker','paper'];
 export const RUBRIC={
   coverage:['scope','research-lines','search-transparency'],
   taxonomy:['basis','boundaries','alignment'],
@@ -51,7 +52,7 @@ function addTree(root,files,relative) {
 function copyFrozenTree(source,target,top=true) {
   fs.mkdirSync(target,{recursive:true});
   for(const e of fs.readdirSync(source,{withFileTypes:true})) {
-    if(top && ['drafts','assessment.json','assessment.md','comparison.md','scoper.md','manager.md','worker.md'].includes(e.name))continue;
+    if(top && ['drafts','assessment.json','assessment.md','comparison.md','experience.md','scoper.md','manager.md','worker.md'].includes(e.name))continue;
     requireValue(!e.isSymbolicLink(),'snapshot refuses symbolic links');
     const from=path.join(source,e.name),to=path.join(target,e.name);
     if(e.isDirectory())copyFrozenTree(from,to,false);
@@ -115,8 +116,8 @@ export function validateAssessment(report,topicIds=[]) {
     requireValue(!(ref.match==='adjacent' && d.dimension==='coverage' && d.kind==='gap'),'adjacent reference cannot establish coverage omissions');
     differences.set(d.id,d);
   }
-  requireValue(report.suggestions && ['scoper','manager','worker'].every(role=>Array.isArray(report.suggestions[role])),'three role suggestion lists required');
-  for(const role of ['scoper','manager','worker'])for(const a of report.suggestions[role]) {
+  requireValue(report.suggestions && EXPERIENCE_ROLES.every(role=>Array.isArray(report.suggestions[role])) && Object.keys(report.suggestions).every(role=>EXPERIENCE_ROLES.includes(role)),'four role strategy lists required (scoper, manager, worker, paper)');
+  for(const role of EXPERIENCE_ROLES)for(const a of report.suggestions[role]) {
     requireValue(a.role===role && differences.has(a.differenceId) && ['supported','hypothesis'].includes(a.attribution)
       && ['attributionEvidence','action','conditions','expectedImprovement','acceptance'].every(k=>nonempty(a[k])),'invalid role suggestion');
   }
@@ -141,8 +142,14 @@ function renderReports(root,sub,report) {
   save('comparison.md',`# Reference survey comparison\n\nStatus: ${report.comparison.status}\n\nSearch: ${report.comparison.searchLog}\n\nAlignment: ${report.comparison.alignment}\n\n${report.comparison.unavailableReason??''}\n\n`+
     report.comparison.references.map(r=>`## ${r.id}: ${r.title}\n\n${r.authors.join(', ')} (${r.year}). ${r.url}\n\nVersion: ${r.version}; access: ${r.fulltext}; match: ${r.match}\n\n${r.reason}\n\nVerification: ${r.verification}`).join('\n\n')+
     '\n\n## Differences\n\n'+report.comparison.differences.map(d=>`### ${d.id}: ${d.kind} / ${d.dimension}\n\nManuscript: ${d.manuscriptLocation}\n\nReference: ${d.referenceId}, ${d.referenceLocation}\n\n${d.observation}\n\nConditions: ${d.conditions}`).join('\n\n'));
-  for(const role of ['scoper','manager','worker'])save(`${role}.md`,`# ${role} candidate experience\n\nThese are candidate suggestions, not established general rules.\n\n`+
-    (report.suggestions[role].map((a,index)=>`## ${index+1}. ${a.action}\n\nDifference: ${a.differenceId} (see comparison.md for both source locations)\n\nAttribution: ${a.attribution}. ${a.attributionEvidence}\n\nConditions: ${a.conditions}\n\nExpected improvement: ${a.expectedImprovement}\n\nAcceptance: ${a.acceptance}\n\nApplication result: not established; see later assessment prior-issue checks for task-specific verification.`).join('\n\n')||'No evidence-backed recommendation for this role.'));
+  save('experience.md',`# Comparison-derived candidate strategies and experience\n\nSubmission: ${sub.id}. Fingerprint: ${sub.fingerprint}.\n\nThese strategies are candidates, not validated general rules. Apply only under the recorded conditions. No application result is established by this report alone.\n\n`+
+    EXPERIENCE_ROLES.map(role=>`## ${role==='paper'?'Paper Agent':role}\n\n`+
+      (report.suggestions[role].map((a,index)=>{
+        const d=report.comparison.differences.find(d=>d.id===a.differenceId);
+        const ref=report.comparison.references.find(r=>r.id===d.referenceId);
+        return `### ${role}-${index+1}: candidate strategy\n\nObserved difference (${d.id}; ${d.kind}): ${d.observation}\n\nManuscript location: ${d.manuscriptLocation}\n\nReference: ${ref.title} — ${ref.url} (${ref.version})\n\nReference location: ${d.referenceLocation}\n\nComparison boundaries: ${d.conditions}\n\nAttribution: ${a.attribution}. ${a.attributionEvidence}\n\nApplicability and exclusions: ${a.conditions}\n\nExecutable strategy: ${a.action}\n\nExpected improvement: ${a.expectedImprovement}\n\nAcceptance test: ${a.acceptance}\n\nApplication result: not established; see later assessment prior-issue checks for task-specific verification.`;
+      }).join('\n\n')||'No evidence-backed strategy for this role.')).join('\n\n'));
+
 }
 
 export function finalReviewStatus(root) {

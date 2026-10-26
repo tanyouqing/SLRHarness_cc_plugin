@@ -85,3 +85,20 @@ not a completion or scoring threshold. Count deviations require an explanation a
 finalize, while existing chapter and budget checks remain authoritative. Historical
 workspaces without a profile are not implicitly assigned one. See the research-scale
 contract for the API, ownership and restore behavior.
+
+## Comparison-derived strategies (2026-10-26)
+
+Reviewer now extracts executable candidate experience for Scoper, Manager, Worker
+and Paper Agent. Paper strategies focus on global writing, cross-topic synthesis
+and manuscript organization, with upstream evidence gaps attributed separately.
+The existing suggestions transport gains a required paper array (possibly empty).
+All four roles are rendered into one experience.md per submission, with both source
+locations, attribution, applicability/exclusions, concrete operations and acceptance
+tests. Existing reports/files remain readable and are not rewritten. No experience
+storage/retrieval interface or automatic application is added; this output can feed
+later storage work. Current review scoring and repair routing remain unchanged.
+
+Validation: 89 deterministic tests passed, including four-role validation, consolidated
+output, source traceability, historical report reads, retry isolation and existing
+69/70 repair tests. Script syntax, plugin manifest and diff checks passed. Real Agent
+strategy quality and downstream experience storage/application were not tested.

@@ -87,7 +87,7 @@ The reusable single-paper note skeleton is paper-note.md. Manuscript runtime bin
 
 Main owns .slr/final-review.json and paper/reviews/submission-NNNN/. Each submission
 contains immutable snapshot/, manifest.json, research-state.json, assessment.json,
-assessment.md, comparison.md and scoper.md/manager.md/worker.md candidate advice.
+assessment.md, comparison.md and experience.md with four role sections of executable candidate strategies.
 The exact assessment envelope and rubric are in the paper skill references.
 Reviewer runtime bindings use role reviewer plus submissionId in paper-bindings.json;
 Checker bindings continue to use role checker and checkerId in chapter requests.

@@ -44,12 +44,41 @@ test('snapshot, Markdown advice, idempotent passing delivery and read-only statu
   const {root}=setup(t),before=fs.readFileSync(statePath(root));
   const c=submitAndRecord(root,assessment(70));assert.equal(c.status,'passed');
   const dir=path.join(root,'paper/reviews/submission-0001');
-  for(const f of ['assessment.json','assessment.md','comparison.md','scoper.md','manager.md','worker.md','snapshot/paper/main.pdf','snapshot/papers','research-state.json'])assert.ok(fs.existsSync(path.join(dir,f)),f);
-  assert.match(fs.readFileSync(path.join(dir,'manager.md'),'utf8'),/hypothesis/);
-  assert.match(fs.readFileSync(path.join(dir,'worker.md'),'utf8'),/No evidence-backed/);
+  for(const f of ['assessment.json','assessment.md','comparison.md','experience.md','snapshot/paper/main.pdf','snapshot/papers','research-state.json'])assert.ok(fs.existsSync(path.join(dir,f)),f);
+  assert.match(fs.readFileSync(path.join(dir,'experience.md'),'utf8'),/hypothesis/);
+  assert.match(fs.readFileSync(path.join(dir,'experience.md'),'utf8'),/No evidence-backed/);
+  for(const role of ['scoper','manager','worker','paper'])assert.equal(fs.existsSync(path.join(dir,`${role}.md`)),false);
   const saved=fs.readFileSync(path.join(root,'.slr/final-review.json'));
   assert.equal(finalReviewStatus(root).complete,true);assert.deepEqual(fs.readFileSync(path.join(root,'.slr/final-review.json')),saved);
   assert.equal(control(root,'submit').submissions.length,1);assert.deepEqual(fs.readFileSync(statePath(root)),before);
+});
+
+test('four role strategy lists are required and Paper strategies retain attribution and comparison links',t=>{
+  const report=assessment(70);
+  report.suggestions.paper=[{...report.suggestions.manager[0],role:'paper',
+    action:'1. Read accepted synthesis tables. 2. Align comparable conditions. 3. Write a sourced cross-topic comparison.',
+    conditions:'Only when accepted inputs contain matching conditions; do not combine unmatched results.',
+    acceptance:'Each comparison sentence maps to a sourced row with matching conditions.'}];
+  assert.equal(validateAssessment(report,topics).passed,true);
+  for(const change of [r=>delete r.suggestions.paper,r=>r.suggestions.paper[0].role='manager',r=>r.suggestions.paper[0].differenceId='missing',r=>r.suggestions.paper[0].conditions='',r=>r.suggestions.paper[0].acceptance='']) {
+    const invalid=structuredClone(report);change(invalid);assert.throws(()=>validateAssessment(invalid,topics));
+  }
+  const {root}=setup(t);submitAndRecord(root,report);
+  const text=fs.readFileSync(path.join(root,'paper/reviews/submission-0001/experience.md'),'utf8');
+  for(const role of ['scoper','manager','worker','Paper Agent'])assert.ok(text.includes(`## ${role}`));
+  assert.ok(text.includes(report.suggestions.paper[0].action));
+  for(const field of ['manuscriptLocation','referenceLocation','observation'])assert.ok(text.includes(report.comparison.differences[0][field]));
+  assert.match(text,/Application result: not established/);
+});
+
+test('historical three-role reports remain readable without rewriting old role files',t=>{
+  const {root}=setup(t);submitAndRecord(root,assessment(70));
+  const file=path.join(root,'.slr/final-review.json'),c=JSON.parse(fs.readFileSync(file));
+  delete c.submissions[0].assessment.suggestions.paper;atomicJSON(file,c);
+  const old=path.join(root,'paper/reviews/submission-0001/manager.md');fs.writeFileSync(old,'Historical advice retained.');
+  const before=fs.readFileSync(file);
+  assert.equal(finalReviewStatus(root).complete,true);
+  assert.deepEqual(fs.readFileSync(file),before);assert.equal(fs.readFileSync(old,'utf8'),'Historical advice retained.');
 });
 test('stale manuscript, evidence and PDF cannot inherit acceptance',t=>{
   const {root}=setup(t);submitAndRecord(root,assessment(70));
@@ -63,6 +92,7 @@ test('missing reference stays pending; comparison retry appends an immutable att
   const {root}=setup(t);submitAndRecord(root,assessment(70,{available:false}));assert.equal(finalReviewStatus(root).complete,false);
   const old=fs.readFileSync(path.join(root,'paper/reviews/submission-0001/assessment.json'));
   const c=control(root,'retry-comparison');assert.equal(c.submissions.length,2);assert.equal(c.status,'awaiting_review');
+  assert.equal(fs.existsSync(path.join(root,'paper/reviews/submission-0002/experience.md')),false);
   submitAndRecord(root,assessment(70));assert.equal(finalReviewStatus(root).complete,true);
   assert.deepEqual(fs.readFileSync(path.join(root,'paper/reviews/submission-0001/assessment.json')),old);
 });

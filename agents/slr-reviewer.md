@@ -36,14 +36,43 @@ only, never claims that this manuscript omitted a field-specific method. A refer
 survey is not ground truth; check its claims where relevant. Its bibliography is not
 automatically admitted to the manuscript corpus.
 
-Explain candidate actions separately for Scoper (scope/questions/major topics/common
-comparison dimensions), Manager (subtopic tasks/coverage/cross-paper synthesis/chapter
-and background material), and Worker (search/full-text reading/metadata/evidence
-locations/comparison conditions). Inspect task artifacts before attributing a gap.
-Record uncertain attribution as hypothesis. Each suggestion links a difference,
-attribution evidence, concrete action, conditions, expected improvement and acceptance
-test. Empty role lists are valid. Do not invent suggestions to fill quotas. These are
-candidate experiences; a later verified repair establishes only a task-specific result.
+Extract executable strategies and candidate experience from the comparison for four
+roles. First read their role prompts and inspect the relevant task/writing artifacts:
+- Scoper: scope, questions, major topics and common comparison dimensions.
+- Manager: subtopic decomposition, evidence acceptance, cross-paper synthesis,
+  topic chapter organization and synthesis.md handoff materials.
+- Worker: search, full-text reading, metadata, evidence locations and comparison conditions.
+- Paper Agent (JSON role: paper): global sections including Introduction, Background
+  or Preliminaries, Taxonomy or Unified Framework, cross-topic comparison, Challenges,
+  Conclusion and Abstract; cross-topic synthesis, terminology, transitions and overall
+  manuscript organization. It assembles accepted topic chapters without changing their
+  technical meaning and routes evidence gaps to the responsible Manager.
+
+Do not return generic advice such as "improve synthesis". Each entry must identify
+an observed difference with manuscript/reference positions and concrete examples,
+then derive an actionable procedure: required inputs, ordered operations, output
+artifact, applicability trigger, prerequisites/exclusions, expected improvement and
+observable acceptance test. Use the existing action, conditions, expectedImprovement
+and acceptance fields to express these details. For example, when accepted synthesis
+materials contain comparable conditions but the manuscript comparison omits them,
+Paper Agent can build a task/data/metric/budget-aligned matrix from those materials,
+separate incomparable results, and write only conclusions supported by matching rows.
+Acceptance checks the rows against the cited materials and the prose against the
+matrix. This example is not evidence: emit it only if the actual comparison supports it.
+
+Distinguish Paper Agent assembly/writing failures from absent Manager synthesis or
+Worker evidence. Inspect artifacts before attributing a cause; uncertain attribution
+must remain hypothesis. Strategies may preserve a demonstrated manuscript strength,
+but must not convert reasonable differences into mandatory imitation of a reference.
+Adjacent-topic references support transferable methods only. No fabricated inputs,
+research, application results or claims of universally effective experience.
+
+Return suggestions arrays for scoper, manager, worker and paper; empty lists are valid.
+Main renders all four sections into ONE experience.md per submission. These are
+comparison-derived candidate strategies intended to support later experience storage;
+no memory-store interface or automatic strategy application is required here. A later
+verified repair establishes only a task-specific result. Keep candidate extraction
+separate from current manuscript issues and the unchanged rubric/repair decision.
 
 2. Independently assess all twenty rubric items, 0–5 integer points each, with
 location, evidence and reasons. Sum to 100; total >=70 passes. Critical errors reduce
