@@ -26,7 +26,7 @@ Final delivery: paper/main.tex, references.bib, selected official template depen
 
 ## Development
 
-Version 0.9.1 provides optional Survey KB integration for new investigations. It defaults
+Version 0.9.2 provides optional Survey KB integration for new investigations. It defaults
 on; an explicit request such as “这次不需要 survey kb” persists false for the run,
 including resume. Only Workers retrieve papers. Worker, Manager, Scoper and Paper
 retrieve their own strategies; Checker and Reviewer have no KB read access. A
@@ -37,8 +37,9 @@ invalidate delivery. Existing KB interfaces and database remain unchanged.
 
 Follow the [Chinese Git upgrade and cloud verification manual](docs/survey-kb-deployment.zh-CN.md)
 before enabling KB: configure the project HTTP connection, verify native output
-replacement/timeout, and use kb-run.mjs to synchronize after Claude exits. No resident
-sync service is needed; kb-sync once/resume supports manual completion and recovery. The [validation record](docs/sprint2-b-validation.md)
+replacement/timeout, and load the plugin with Claude. After a successful delivery,
+the Stop hook starts one detached finite sync process; the conversation can remain open.
+A frozen native-trajectory boundary excludes later chat. No resident sync service is needed; kb-sync once/resume supports manual completion and recovery. The [validation record](docs/sprint2-b-validation.md)
 separates offline evidence from cloud checks. No old-run migration or mid-run toggle
 is provided. Role instructions and the common workflow remain a single set.
 
@@ -65,8 +66,8 @@ adaptations; official style files remain byte-identical.
 Read [final review and repair](skills/paper/references/final-review.md) and the
 [fixed rubric](skills/paper/references/rubric.md) for command contracts and score anchors.
 Reference surveys are comparison evidence; their bibliographies do not automatically
-become read manuscript sources. Candidate advice is stored as Markdown only; no
-cross-task experience library is implemented in this release.
+become read manuscript sources. Role-specific advice is stored in experiences.json; optional Survey KB integration
+submits only the final consolidated version after whole-run success.
 
 Subagent delivery uses native SubagentHandback when exposed, otherwise final text. READY is initialization only; missing reports receive bounded recovery and never substitute self-review. See [delivery repair](docs/subagent-handback.md) and [orchestration contract](skills/review/references/handback.md).
 

@@ -198,3 +198,13 @@ template remains; KB's own distillation worker is unchanged.
 Offline coverage totals 140 tests; current report and cloud-only checks are in
 [sprint2-b-validation.md](sprint2-b-validation.md). No real models, databases or
 cloud connections were used for verification.
+
+## 2026-10-27：成功 Stop 自动同步（0.9.2）
+
+以 5b9ca83 为实现基线，替代 0.9.1 的退出触发方式。主会话成功 Stop 使用运行/审稿/成果指纹登记批次，并启动日志重定向、无 Shell 的独立一次性进程；无需退出 Claude。kb-run 保留为便利启动器，退出不再触发第二次上传。
+
+轨迹按 Stop 时的字节边界、来源和前缀哈希冻结；当前最终回复最多等待 30 秒完整写入，通过 last_assistant_message 匹配确认，拒绝把下一轮用户消息或改写前缀当成完整收尾。冻结后的批次不收录后续聊天。自动与手动同步共享进程所有权、逐项租约和内容幂等，失败明确恢复，已有 job ID 只查原任务。成功状态/收尾身份改变时停止后续请求。
+
+本机全量离线测试 **152 项通过，0 失败**（原 140 项与新增 12 项）。新增覆盖成功/失败门控、缺失原生任务注册字段、重复 Stop、关闭模式、延迟及半行轨迹、后续聊天隔离、轮转与子轨迹、启动失败、脱离进程参数、自动/手动恢复、死进程接管和成果变化。全部使用临时文件、模拟时钟/进程启动/MCP 响应，没有调用真实服务或模型。
+
+服务器交付范围为 Git 快进、npm ci、私有环境及启动入口调整、JavaScript/插件/Compose 静态校验；不执行真实探针、同步或研究，不清空数据。真实原生 Hook、独立进程存活和服务联调由用户按升级手册验收。本节替代上文历史版本中“退出后上传”的当前行为描述。

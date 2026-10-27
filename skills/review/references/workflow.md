@@ -102,7 +102,9 @@ pass only the saved switch and bounded cache references to roles. Manager handle
 ordinary KB identity/coverage questions with Workers. Accepted papers are frozen locally
 by the acceptance helper without main copying their text. After finalReviewStatus.complete,
 finish the normal delivery response; the Stop hook records a success handoff only
-when no tracked child or active work unit remains. The external one-shot synchronizer
-uploads papers, final experiences and trajectories only after Claude exits normally.
+when no tracked child or active work unit remains and the native task registries
+explicitly show no background work. That hook starts a detached finite synchronizer
+without requiring Claude to exit. It freezes the completed turn boundary, excludes
+later chat and uploads only after the current completion remains valid.
 Main never starts the uploader inside the conversation. Use kb-sync status to report pending
 or failed synchronization; never delay delivery waiting for distillation.

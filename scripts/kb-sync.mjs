@@ -10,6 +10,7 @@ import {finalReviewStatus} from './final-review.mjs';
 import {stages,writerReady} from './work-stages.mjs';
 import {saveImports} from './kb-control.mjs';
 import {capture,locateNative} from './kb-trajectory.mjs';
+import {batchFile,freezeStopBatch} from './kb-boundary.mjs';
 
 export function success(root) {
   const s=loadState(root),work=stages(root),rt=runtime(root);
@@ -22,7 +23,8 @@ export function uploadReady(root) {
   try {
     if(!enabled(root)||!success(root))return false;
     const last=json(safe(root,'.slr/final-review.json')).submissions.at(-1);
-    return runtime(root).finishRequested?.fingerprint===last?.fingerprint;
+    const finish=runtime(root).finishRequested;
+    return finish?.fingerprint===last?.fingerprint&&(!finish.submissionId||finish.submissionId===last.id);
   }catch{return false;}
 }
 export function reconcile(root,{isSuccess=success}={}) {
@@ -32,13 +34,14 @@ export function reconcile(root,{isSuccess=success}={}) {
     if(!rt.finishRequested||!isSuccess(root))return {notReady:true,warnings:[]};
     const control=json(safe(root,'.slr/final-review.json')),last=control.submissions.at(-1);
     if(rt.finishRequested.fingerprint!==last.fingerprint)return {staleFinish:true,warnings:[]};
+    if(rt.finishRequested.batchId&&!json(batchFile(root,rt.finishRequested.batchId)).frozen)return {notReady:true,warnings:['Stop boundary not frozen']};
     const s=loadState(root),warnings=[];
     for(const receipt of Object.values(s.managerRequests??{}))try{saveImports(root,receipt.kbImports??[],s);}catch(e){warning(root,'imports',e);}
     for(const p of Object.values(s.papers))if(p.status==='final')try {
       enqueue(root,'submit_paper',paperPayload(root,p),{kind:'paper',localId:p.id,fingerprint:p.fingerprint});
     }catch(e){warning(root,`paper:${p.id}`,e);warnings.push(p.id);}
     // Capture and seal only after the complete investigation has succeeded.
-    if(!fs.existsSync(kbPath(root,'sealed.json'))) {
+    if(!rt.finishRequested.batchId&&!fs.existsSync(kbPath(root,'sealed.json'))) {
       for(const [id,a] of Object.entries(rt.agents))try {
         const file=a.transcript??locateNative(rt,a.sessionId,id);
         if(!file)throw new Error('native child transcript missing; synchronization incomplete');
@@ -60,7 +63,7 @@ export function reconcile(root,{isSuccess=success}={}) {
       if(sha(content)!==t.hash)throw new Error('trajectory archive hash changed');
       enqueue(root,'submit_trajectory',{content},{kind:'trajectory',archive:t.archive,trajectoryKey:key,hash:t.hash});
     }catch(e){warning(root,`trajectory:${key}`,e);warnings.push(key);}
-    if(!warnings.length)atomic(kbPath(root,'sealed.json'),{fingerprint:last.fingerprint,at:Date.now()});
+    if(!warnings.length)atomic(kbPath(root,'sealed.json'),{fingerprint:last.fingerprint,batchId:rt.finishRequested.batchId??null,at:Date.now()});
     return {sealed:!warnings.length,warnings};
   });
 }
@@ -96,7 +99,7 @@ export async function connect() {
   if(!token)throw Object.assign(new Error('SURVEY_KB_TOKEN is missing'),{permanent:true});
   const {Client}=await import('@modelcontextprotocol/sdk/client/index.js');
   const {StreamableHTTPClientTransport}=await import('@modelcontextprotocol/sdk/client/streamableHttp.js');
-  const client=new Client({name:'survey-pipeline-sync',version:'0.9.1'});
+  const client=new Client({name:'survey-pipeline-sync',version:'0.9.2'});
   const transport=new StreamableHTTPClientTransport(new URL(process.env.SURVEY_KB_URL??'http://127.0.0.1:3000/mcp'),{requestInit:{headers:{Authorization:`Bearer ${token}`}}});
   let timer;
   try {await Promise.race([client.connect(transport),new Promise((_,reject)=>{timer=setTimeout(()=>reject(new Error('KB connection timed out')),20000);})]);}
@@ -150,19 +153,30 @@ export function resume(root) {
 export function summary(root) {
   const counts={};for(const x of items(root))counts[x.status]=(counts[x.status]??0)+1;
   const file=kbPath(root,'last-sync.json'),last=fs.existsSync(file)?json(file):null;
+  const id=runtime(root).finishRequested?.batchId,batch=id?json(batchFile(root,id)):null;
   return {enabled:enabled(root),readyForUpload:uploadReady(root),counts,records:'.slr/kb/outbox/',warningsPath:'.slr/kb/warnings/',
+    automatic:batch?{batchId:id,status:batch.status,frozen:batch.frozen,log:`.slr/kb/batches/${id}.log`}:null,
     lastRun:last?{status:last.status,reason:last.reason,finishedAt:last.finishedAt}:null};
 }
 export function projectRoots(project) {
   const dir=safe(project,'workspaces');return fs.existsSync(dir)?fs.readdirSync(dir,{withFileTypes:true}).filter(e=>e.isDirectory()&&!e.isSymbolicLink()).map(e=>path.join(dir,e.name)).filter(enabled):[];
 }
 // One finite batch: drain all due submissions, honor retry/poll delays, then exit.
-export async function runOnce(root,{transport,retryFailed=false,maxWaitMs=1800000,clock=Date.now,
+async function drainOnce(root,{transport,retryFailed=false,maxWaitMs=1800000,clock=Date.now,
   sleep=ms=>new Promise(resolve=>setTimeout(resolve,ms)),signal,onProgress=()=>{},isReady=uploadReady,prepare=reconcile}={}) {
   if(!Number.isFinite(maxWaitMs)||maxWaitMs<1)throw new Error('positive finite max wait required');
   if(!enabled(root))return {status:'disabled',...summary(root)};
   if(!isReady(root))return {status:'not_ready',reason:'current successful final review and normal Stop handoff required',...summary(root)};
   const startedAt=clock(),deadline=startedAt+maxWaitMs;
+  const batchId=runtime(root).finishRequested?.batchId;
+  if(batchId) {
+    const frozen=await freezeStopBatch(root,batchId,{clock,sleep,waitMs:Math.min(30000,maxWaitMs)});
+    if(!frozen.frozen) {
+      const result={status:'incomplete',reason:'Stop boundary could not be frozen',warnings:frozen.warnings,startedAt,finishedAt:clock(),...summary(root)};
+      atomic(kbPath(root,'last-sync.json'),result);return result;
+    }
+    if(!isReady(root))return {status:'not_ready',...summary(root)};
+  }
   const prepared=prepare(root);
   if(prepared.notReady||prepared.staleFinish)return {status:'not_ready',...summary(root)};
   // A new invocation can follow a job whose prior polling window expired. Failed
@@ -196,6 +210,32 @@ export async function runOnce(root,{transport,retryFailed=false,maxWaitMs=180000
     all.some(x=>x.status!=='succeeded')?'pending':warnings.length?'incomplete':'complete';
   const result={status,reason,warnings,startedAt,finishedAt:clock(),...state};
   atomic(kbPath(root,'last-sync.json'),result);return result;
+}
+// Shared by automatic Stop processes and manual recovery. A living owner is never
+// displaced; a dead process can be recovered without waiting for the old deadline.
+export async function runOnce(root,options={}) {
+  if(!enabled(root))return {status:'disabled',...summary(root)};
+  const finish=runtime(root).finishRequested,identity=f=>JSON.stringify([f?.batchId,f?.submissionId,f?.fingerprint]);
+  const isReady=options.isReady??uploadReady;
+  const file=kbPath(root,'sync-process.json'),token=randomUUID();
+  const acquired=locked(root,'sync-process',()=>{
+    const old=fs.existsSync(file)?json(file):null;
+    if(old) {
+      try{process.kill(old.pid,0);return false;}catch(e){if(e.code!=='ESRCH')return false;}
+    }
+    atomic(file,{token,pid:process.pid,startedAt:Date.now(),until:Date.now()+120000});return true;
+  });
+  if(!acquired)return {status:'pending',reason:'sync_running',...summary(root)};
+  const timer=setInterval(()=>{try{locked(root,'sync-process',()=>{const s=json(file);if(s.token===token)atomic(file,{...s,until:Date.now()+120000});});}catch{}},30000);timer.unref();
+  try {
+    const result=await drainOnce(root,{...options,isReady:r=>identity(runtime(r).finishRequested)===identity(finish)&&isReady(r)});
+    const id=finish?.batchId;
+    if(id)locked(root,'auto-sync',()=>{const f=batchFile(root,id),b=json(f);atomic(f,{...b,status:result.status,finishedAt:Date.now()});});
+    return result;
+  }finally {
+    clearInterval(timer);
+    locked(root,'sync-process',()=>{if(fs.existsSync(file)&&json(file).token===token)fs.unlinkSync(file);});
+  }
 }
 export function parseSyncArgs(argv) {
   const [action,directory,...extra]=argv;

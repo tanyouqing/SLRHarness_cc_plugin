@@ -4,7 +4,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {KB_PREFIX,atomic,json,sha,safe,kbPath,enabled,config,locked,warning,runtime,rootsFor,resolveCaller,storeResponse} from './kb-core.mjs';
-import {success} from './kb-sync.mjs';
+import {scheduleStop} from './kb-stop.mjs';
 
 const mainFile=input=>safe(path.resolve(input.project_dir??process.env.CLAUDE_PROJECT_DIR??input.cwd??'.'),`.slr-kb-sessions/${sha(String(input.session_id))}.json`);
 export function noteSession(input) {
@@ -51,6 +51,17 @@ export function lifecycle(input) {
     if(candidates.length===1)root=candidates[0];
   }
   if(!root||!enabled(root))return;
+  const attached=runtime(root).sessions[input.session_id];
+  if(!input.agent_id&&attached&&input.transcript_path&&path.resolve(input.transcript_path)!==attached.transcript)locked(root,'runtime',()=>{
+    const current=runtime(root),s=current.sessions[input.session_id];
+    (s.segments??=[]).push({transcript:s.transcript,start:s.start});s.transcript=path.resolve(input.transcript_path);s.start=0;
+    atomic(kbPath(root,'runtime.json'),current);
+  });
+  // Stop captures the boundary itself. After handoff, later chat must not append
+  // to live archives while the detached process waits for the final native line.
+  if(input.hook_event_name==='Stop'&&!input.agent_id) {
+    const stopped=scheduleStop(root,input);if(stopped.batchId)return;
+  }
   let rt=runtime(root),agent=input.agent_id;
   const type=String(input.agent_type??'').split(':').at(-1),roles={'slr-worker':'worker','slr-manager':'manager','slr-scoper':'scoper','slr-paper-writer':'paper','slr-checker':'checker','slr-reviewer':'reviewer'};
   if(agent)locked(root,'runtime',()=>{
@@ -71,22 +82,13 @@ export function lifecycle(input) {
         a.parentAgentId=a.role==='worker'&&parents.length===1?parents[0][0]:null;
         a.parentSessionId=input.session_id;atomic(kbPath(root,'runtime.json'),fresh);
       });
-      capture(root,{file:subfile,agentId:agent,sessionId:input.session_id,role:roles[type]??'other',task:runtime(root).agents[agent].task});
+      if(!rt.finishRequested?.batchId)capture(root,{file:subfile,agentId:agent,sessionId:input.session_id,role:roles[type]??'other',task:runtime(root).agents[agent].task});
     }
     if(!agent&&rt.sessions[input.session_id]) {
-      if(input.transcript_path&&path.resolve(input.transcript_path)!==rt.sessions[input.session_id].transcript)locked(root,'runtime',()=>{
-        const current=runtime(root),s=current.sessions[input.session_id];
-        (s.segments??=[]).push({transcript:s.transcript,start:s.start});s.transcript=path.resolve(input.transcript_path);s.start=0;
-        atomic(kbPath(root,'runtime.json'),current);
-      });
       const session=runtime(root).sessions[input.session_id];
-      capture(root,{file:session.transcript,agentId:'main',sessionId:input.session_id,role:'main',start:session.start});
+      if(!rt.finishRequested?.batchId)capture(root,{file:session.transcript,agentId:'main',sessionId:input.session_id,role:'main',start:session.start});
     }
   }catch(e){warning(root,`capture:${agent??input.session_id}`,e);}
-  if(input.hook_event_name==='Stop'&&!agent&&!input.background_tasks?.length&&!input.session_crons?.length&&success(root))locked(root,'runtime',()=>{
-    rt=runtime(root);rt.finishRequested={fingerprint:json(safe(root,'.slr/final-review.json')).submissions.at(-1).fingerprint,at:Date.now()};
-    atomic(kbPath(root,'runtime.json'),rt);
-  });
 }
 export function hook(input) {
   let output={};

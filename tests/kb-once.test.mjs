@@ -103,11 +103,11 @@ test('interruption preserves pending jobs and revoked success stops later reques
   assert.equal(second.reason,'interrupted');assert.equal(items(root).find(x=>x.jobId)?.jobId,'j');
 });
 
-test('launcher synchronizes only successful handoffs from its own normally exited session',async t=>{
+test('optional launcher never uploads or retries on session exit; Stop owns synchronization',async t=>{
   const project=directory(t),old=path.join(project,'workspaces/old'),fresh=path.join(project,'workspaces/new');ready(old);
   let exited=false;const synced=[];
   const result=await runPipeline(project,{launch:async()=>{ready(fresh);exited=true;return {code:0};},synchronize:async root=>{assert.ok(exited);synced.push(root);throw new Error('KB unavailable');}});
-  assert.deepEqual(synced,[fresh]);assert.equal(result.claudeExitCode,0);assert.equal(result.sync[0].status,'failed');
+  assert.deepEqual(synced,[]);assert.equal(result.claudeExitCode,0);assert.deepEqual(result.sync,[]);
   const interrupted=await runPipeline(project,{launch:async()=>{const rt=runtime(fresh);rt.finishRequested.at++;atomic(kbPath(fresh,'runtime.json'),rt);return {code:1};},synchronize:async()=>assert.fail('upload after interruption')});
   assert.equal(interrupted.sync.length,0);
 });

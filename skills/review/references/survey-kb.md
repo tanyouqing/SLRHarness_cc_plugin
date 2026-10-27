@@ -26,8 +26,8 @@ node "<plugin>/scripts/kb-control.mjs" bind-scoper "<workspace>" "<actual-agent-
 ```
 
 Then resume reconnaissance. Worker/Manager use existing research bindings; Paper
-uses the current writing-phase binding. Keep status read-only. The one-shot sync script runs outside Claude after its normal exit, through the
-operator's kb-run launcher or manual kb-sync once; there is no resident sync worker.
+uses the current writing-phase binding. Keep status read-only. The Stop hook starts a detached one-shot sync after successful delivery.
+The conversation may remain open; no exit or resident service is required.
 
 ## Retrieval rules
 
@@ -71,12 +71,14 @@ Main never retypes or uploads the text.
 Reviewer score units receive their own prior-experiences.json, never upstream
 research artifacts or KB strategies. The final successful report is the consolidated
 experience version. Null/blank optional values are omitted only on outbound upload.
-After verified final completion, deliver normally and let the Stop hook record the
-success handoff. Tell the user to exit Claude normally; the external kb-run launcher
-then executes one finite sync batch. All papers, final experiences and trajectories
-wait for whole-run success. Failed/paused runs upload none of them. Do not execute
-once/resume inside the main or delegated Agent session. Without the launcher, show
-the operator the manual command: node "<plugin>/scripts/kb-sync.mjs" once "<workspace>".
+After verified final completion, deliver normally. The Stop hook records the
+run/review/fingerprint batch, freezes its native-trajectory boundary and starts a
+detached finite sync. Do not ask the user to exit or await upload. Later chat is
+excluded; repeated Stops do not restart a completed, failed or interrupted batch.
+All papers, final experiences and trajectories wait for whole-run success. Failed/paused
+runs upload none of them. Do not execute once/resume inside main or delegated Agent
+sessions. The operator can explicitly recover with kb-sync once/resume.
+Do not claim upload succeeded from research success alone; inspect kb-sync status.
 
 To show synchronization status without reading payloads:
 
