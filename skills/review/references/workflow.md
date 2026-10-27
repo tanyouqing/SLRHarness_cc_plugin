@@ -99,9 +99,10 @@ audit (passed or explicitly official_unverified) after every manuscript revision
 
 Apply survey-kb.md for new runs. Initialize before Scoper, attach the session, and
 pass only the saved switch and bounded cache references to roles. Manager handles
-ordinary KB identity/coverage questions with Workers. Accepted papers are collected
-by the sync worker without main copying their text. After finalReviewStatus.complete,
+ordinary KB identity/coverage questions with Workers. Accepted papers are frozen locally
+by the acceptance helper without main copying their text. After finalReviewStatus.complete,
 finish the normal delivery response; the Stop hook records a success handoff only
-when no tracked child or active work unit remains. The background synchronizer
-uploads final experiences and trajectories. Use kb-sync status to report pending
+when no tracked child or active work unit remains. The external one-shot synchronizer
+uploads papers, final experiences and trajectories only after Claude exits normally.
+Main never starts the uploader inside the conversation. Use kb-sync status to report pending
 or failed synchronization; never delay delivery waiting for distillation.

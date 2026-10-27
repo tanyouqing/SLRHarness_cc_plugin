@@ -10,7 +10,7 @@ export function checkSetup(project) {
   const c=json(path.join(project,'.mcp.json')).mcpServers?.['survey-kb'];
   if(c?.type!=='http'||c.timeout!==20000||c.url!==(process.env.SURVEY_KB_URL??'http://127.0.0.1:3000/mcp'))throw new Error('survey-kb must use the expected HTTP URL and timeout:20000');
   if(c.headers?.Authorization!=='Bearer ${SURVEY_KB_TOKEN}')throw new Error('MCP config must reference SURVEY_KB_TOKEN, not a literal credential');checks.push('HTTP config and per-server timeout');
-  if(!process.env.SURVEY_KB_TOKEN)throw new Error('export SURVEY_KB_TOKEN for Claude Code and the sync service');checks.push('token present (not displayed)');
+  if(!process.env.SURVEY_KB_TOKEN)throw new Error('export SURVEY_KB_TOKEN for Claude Code and the one-shot sync script');checks.push('token present (not displayed)');
   const plugin=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..'),hooks=json(path.join(plugin,'hooks/hooks.json')).hooks;
   for(const event of ['PreToolUse','PostToolUse','SubagentStop','Stop'])if(!hooks[event]?.some(x=>x.hooks.some(h=>h.command?.includes('kb-hook.mjs'))))throw new Error('missing KB hook '+event);
   checks.push('plugin hook configuration');

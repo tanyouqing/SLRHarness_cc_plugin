@@ -36,7 +36,7 @@ test('KB switch is immutable, default-on, disabled makes no queue/network calls'
   const f=setup(t,false);assert.equal(config(f.root).enabled,false);assert.throws(()=>configure(f.root),/immutable/);
   assert.equal(evaluateHook(f.input('search_papers',{query:'x'})).allowed,false);
   assert.equal(enqueue(f.root,'submit_trajectory',{content:'{}\n'},{}),null);
-  assert.equal(await processOne(f.root,{transport:{call:()=>assert.fail('network')}}),null);
+  assert.equal(await processOne(f.root,{isReady:()=>true,transport:{call:()=>assert.fail('network')}}),null);
   assert.equal(items(f.root).length,0);
 });
 test('KB roles, exact server, active bindings, type and own strategy role are enforced',t=>{
@@ -121,20 +121,20 @@ test('durable queue reuses frozen payload after lost response and polls original
   const f=setup(t),payload={content:'{}\n'},id=enqueue(f.root,'submit_trajectory',payload,{});
   assert.equal(enqueue(f.root,'submit_trajectory',payload,{}),id);
   let n=0;const calls=[],transport={call:async(name,args)=>{calls.push([name,args]);if(n++===0)throw new Error('lost response');if(name==='get_job')return {status:'succeeded',result:{ids:['strategy']}};return {status:'stored',id:'trace',job_id:'job'};}};
-  let now=Date.now();await processOne(f.root,{transport,now});assert.equal(items(f.root)[0].status,'retry');
-  now+=2000;await processOne(f.root,{transport,now});assert.equal(items(f.root)[0].jobId,'job');
-  now+=15000;await processOne(f.root,{transport,now});assert.equal(items(f.root)[0].status,'succeeded');
+  let now=Date.now();await processOne(f.root,{isReady:()=>true,transport,now});assert.equal(items(f.root)[0].status,'retry');
+  now+=2000;await processOne(f.root,{isReady:()=>true,transport,now});assert.equal(items(f.root)[0].jobId,'job');
+  now+=15000;await processOne(f.root,{isReady:()=>true,transport,now});assert.equal(items(f.root)[0].status,'succeeded');
   assert.deepEqual(calls[0],calls[1]);assert.equal(calls[2][0],'get_job');
 });
 test('retry cap, permanent rejection, polling expiry and lease recovery are bounded',async t=>{
   const f=setup(t),id=enqueue(f.root,'submit_paper',{note:'n'},{});let now=Date.now();
-  for(let i=0;i<3;i++){await processOne(f.root,{transport:{call:async()=>{throw new Error('offline');}},now});now+=5000;}
+  for(let i=0;i<3;i++){await processOne(f.root,{isReady:()=>true,transport:{call:async()=>{throw new Error('offline');}},now});now+=5000;}
   assert.equal(items(f.root)[0].status,'failed');assert.equal(items(f.root)[0].attempts,3);resume(f.root);
   const claimed=claim(f.root,now);assert.ok(claimed);assert.equal(claim(f.root,now+1),null);assert.ok(claim(f.root,now+120001));
   const file=kbPath(f.root,`outbox/${id}.json`),x=json(file);x.lease=null;x.status='tracking';x.jobId='job';x.trackUntil=now-1;atomic(file,x);
   assert.equal(claim(f.root,now),null);assert.equal(items(f.root)[0].status,'waiting');resume(f.root);
-  await processOne(f.root,{transport:{call:async(name)=>{assert.equal(name,'get_job');return {status:'failed'};}},now:Date.now()});assert.equal(items(f.root)[0].jobId,'job');
-  resume(f.root);await processOne(f.root,{transport:{call:async()=>{throw Object.assign(new Error('unauthorized'),{status:401});}},now:Date.now()});assert.equal(items(f.root)[0].status,'failed');
+  await processOne(f.root,{isReady:()=>true,transport:{call:async(name)=>{assert.equal(name,'get_job');return {status:'failed'};}},now:Date.now()});assert.equal(items(f.root)[0].jobId,'job');
+  resume(f.root);await processOne(f.root,{isReady:()=>true,transport:{call:async()=>{throw Object.assign(new Error('unauthorized'),{status:401});}},now:Date.now()});assert.equal(items(f.root)[0].status,'failed');
   const crashed=setup(t);enqueue(crashed.root,'submit_trajectory',{content:'{}\n'},{});
   for(let i=0;i<3;i++)assert.ok(claim(crashed.root,now+i*120001));
   assert.equal(claim(crashed.root,now+3*120001),null);assert.equal(items(crashed.root)[0].status,'failed');assert.equal(items(crashed.root)[0].totalAttempts,3);

@@ -185,3 +185,16 @@ syntax checks, generated probe-hook syntax, plugin validation and diff check pas
 No real database, Embedding, model, cloud deployment or native model probe was run.
 See [implementation evidence](sprint2-b-validation.md) and the
 [Chinese deployment manual](survey-kb-deployment.zh-CN.md) for cloud-only acceptance.
+
+## 2026-10-27 — Success-only one-shot synchronization (0.9.1)
+
+Supersedes the resident synchronizer in 0.9.0. All three submission types now wait
+for current whole-research success and the Stop handoff. Accepted papers freeze
+locally during execution. kb-sync once drains a finite batch; resume retries failed
+items without resubmitting known jobs. kb-run waits for normal Claude exit before
+processing handoffs completed during that invocation. No watch command or systemd
+template remains; KB's own distillation worker is unchanged.
+
+Offline coverage totals 140 tests; current report and cloud-only checks are in
+[sprint2-b-validation.md](sprint2-b-validation.md). No real models, databases or
+cloud connections were used for verification.

@@ -5,7 +5,7 @@ import path from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {randomUUID} from 'node:crypto';
 import {atomic,json,sha,safe,kbPath,enabled,config,locked,warning,runtime,normalizeExperience} from './kb-core.mjs';
-import {paperFingerprint,loadState} from './pipeline.mjs';
+import {loadState} from './pipeline.mjs';
 import {finalReviewStatus} from './final-review.mjs';
 import {stages,writerReady} from './work-stages.mjs';
 import {saveImports} from './kb-control.mjs';
@@ -18,19 +18,26 @@ export function success(root) {
   if(Object.values(rt.agents).some(a=>a.active)||!writerReady(root))return false;
   return finalReviewStatus(root).complete===true;
 }
+export function uploadReady(root) {
+  try {
+    if(!enabled(root)||!success(root))return false;
+    const last=json(safe(root,'.slr/final-review.json')).submissions.at(-1);
+    return runtime(root).finishRequested?.fingerprint===last?.fingerprint;
+  }catch{return false;}
+}
 export function reconcile(root,{isSuccess=success}={}) {
   if(!enabled(root))return {disabled:true};
   return locked(root,'queue',()=>{
+    const rt=runtime(root);
+    if(!rt.finishRequested||!isSuccess(root))return {notReady:true,warnings:[]};
+    const control=json(safe(root,'.slr/final-review.json')),last=control.submissions.at(-1);
+    if(rt.finishRequested.fingerprint!==last.fingerprint)return {staleFinish:true,warnings:[]};
     const s=loadState(root),warnings=[];
     for(const receipt of Object.values(s.managerRequests??{}))try{saveImports(root,receipt.kbImports??[],s);}catch(e){warning(root,'imports',e);}
     for(const p of Object.values(s.papers))if(p.status==='final')try {
       enqueue(root,'submit_paper',paperPayload(root,p),{kind:'paper',localId:p.id,fingerprint:p.fingerprint});
     }catch(e){warning(root,`paper:${p.id}`,e);warnings.push(p.id);}
-    // A Stop event seals the main transcript after current successful delivery.
-    const rt=runtime(root);
-    if(!rt.finishRequested||!isSuccess(root))return {papers:Object.keys(s.papers).length,warnings};
-    const control=json(safe(root,'.slr/final-review.json')),last=control.submissions.at(-1);
-    if(rt.finishRequested.fingerprint!==last.fingerprint)return {staleFinish:true};
+    // Capture and seal only after the complete investigation has succeeded.
     if(!fs.existsSync(kbPath(root,'sealed.json'))) {
       for(const [id,a] of Object.entries(rt.agents))try {
         const file=a.transcript??locateNative(rt,a.sessionId,id);
@@ -64,7 +71,7 @@ export function claim(root,now=Date.now()) {
   if(!enabled(root))return null;
   return locked(root,'queue',()=>{
     const all=items(root);
-    // One in-flight request per workspace, even with concurrent watcher processes.
+    // One in-flight request per workspace, even with concurrent one-shot processes.
     if(all.some(x=>x.lease&&x.lease.until>now))return null;
     const item=all.filter(x=>['pending','retry','tracking'].includes(x.status)&&x.nextAt<=now&&(!x.lease||x.lease.until<=now)).sort((a,b)=>a.nextAt-b.nextAt||a.createdAt-b.createdAt)[0];
     if(!item)return null;
@@ -89,7 +96,7 @@ export async function connect() {
   if(!token)throw Object.assign(new Error('SURVEY_KB_TOKEN is missing'),{permanent:true});
   const {Client}=await import('@modelcontextprotocol/sdk/client/index.js');
   const {StreamableHTTPClientTransport}=await import('@modelcontextprotocol/sdk/client/streamableHttp.js');
-  const client=new Client({name:'survey-pipeline-sync',version:'0.9.0'});
+  const client=new Client({name:'survey-pipeline-sync',version:'0.9.1'});
   const transport=new StreamableHTTPClientTransport(new URL(process.env.SURVEY_KB_URL??'http://127.0.0.1:3000/mcp'),{requestInit:{headers:{Authorization:`Bearer ${token}`}}});
   let timer;
   try {await Promise.race([client.connect(transport),new Promise((_,reject)=>{timer=setTimeout(()=>reject(new Error('KB connection timed out')),20000);})]);}
@@ -103,11 +110,13 @@ export async function connect() {
     return result.structuredContent??JSON.parse(result.content.filter(c=>c.type==='text').map(c=>c.text).join('\n'));
   },close:()=>client.close()};
 }
-export async function processOne(root,{transport,now=Date.now()}={}) {
+export async function processOne(root,{transport,now=Date.now(),isReady=uploadReady}={}) {
+  if(!enabled(root)||!isReady(root))return null;
   const item=claim(root,now);if(!item)return null;
   let client=transport;
   try {
     client??=await connect();
+    if(!isReady(root))return persistClaim(root,item,{error:'Investigation is no longer ready; upload deferred'});
     const value=await client.call(item.jobId?'get_job':item.tool,item.jobId?{job_id:item.jobId}:item.payload);
     let change;
     if(item.jobId) {
@@ -140,25 +149,75 @@ export function resume(root) {
 }
 export function summary(root) {
   const counts={};for(const x of items(root))counts[x.status]=(counts[x.status]??0)+1;
-  return {enabled:enabled(root),counts,records:'.slr/kb/outbox/',warnings:'.slr/kb/warnings/'};
+  const file=kbPath(root,'last-sync.json'),last=fs.existsSync(file)?json(file):null;
+  return {enabled:enabled(root),readyForUpload:uploadReady(root),counts,records:'.slr/kb/outbox/',warningsPath:'.slr/kb/warnings/',
+    lastRun:last?{status:last.status,reason:last.reason,finishedAt:last.finishedAt}:null};
 }
 export function projectRoots(project) {
   const dir=safe(project,'workspaces');return fs.existsSync(dir)?fs.readdirSync(dir,{withFileTypes:true}).filter(e=>e.isDirectory()&&!e.isSymbolicLink()).map(e=>path.join(dir,e.name)).filter(enabled):[];
 }
+// One finite batch: drain all due submissions, honor retry/poll delays, then exit.
+export async function runOnce(root,{transport,retryFailed=false,maxWaitMs=1800000,clock=Date.now,
+  sleep=ms=>new Promise(resolve=>setTimeout(resolve,ms)),signal,onProgress=()=>{},isReady=uploadReady,prepare=reconcile}={}) {
+  if(!Number.isFinite(maxWaitMs)||maxWaitMs<1)throw new Error('positive finite max wait required');
+  if(!enabled(root))return {status:'disabled',...summary(root)};
+  if(!isReady(root))return {status:'not_ready',reason:'current successful final review and normal Stop handoff required',...summary(root)};
+  const startedAt=clock(),deadline=startedAt+maxWaitMs;
+  const prepared=prepare(root);
+  if(prepared.notReady||prepared.staleFinish)return {status:'not_ready',...summary(root)};
+  // A new invocation can follow a job whose prior polling window expired. Failed
+  // submissions/jobs require the explicit resume command; successful items stay intact.
+  if(retryFailed)resume(root);
+  else locked(root,'queue',()=>{
+    for(const x of items(root))if(x.status==='waiting'||x.status==='tracking'&&x.trackUntil<=startedAt&&(!x.lease||x.lease.until<=startedAt)) {
+      Object.assign(x,{status:x.jobId?'tracking':'pending',nextAt:0,trackUntil:startedAt+1800000,lease:null});
+      atomic(kbPath(root,`outbox/${x.id}.json`),x);
+    }
+  });
+  let reason=null;
+  while(true) {
+    if(signal?.aborted){reason='interrupted';break;}
+    if(!isReady(root)){reason='not_ready';break;}
+    const pending=items(root).filter(x=>['pending','retry','tracking'].includes(x.status));
+    if(!pending.length)break;
+    if(clock()>=deadline){reason='time_limit';break;}
+    const result=await processOne(root,{transport,now:clock(),isReady});
+    if(result)onProgress({id:result.id,status:result.status,jobId:result.jobId});
+    else {
+      const now=clock(),next=items(root).filter(x=>['pending','retry','tracking'].includes(x.status));
+      if(!next.length)continue;
+      const active=next.find(x=>x.lease?.until>now);
+      const wake=active?active.lease.until:Math.min(...next.map(x=>x.nextAt));
+      await sleep(Math.min(15000,Math.max(1,wake-now),Math.max(1,deadline-now)));
+    }
+  }
+  const state=summary(root),all=items(root),warnings=prepared.warnings??[];
+  const status=reason==='not_ready'?'not_ready':reason?'pending':all.some(x=>x.status==='failed')?'failed':
+    all.some(x=>x.status!=='succeeded')?'pending':warnings.length?'incomplete':'complete';
+  const result={status,reason,warnings,startedAt,finishedAt:clock(),...state};
+  atomic(kbPath(root,'last-sync.json'),result);return result;
+}
+export function parseSyncArgs(argv) {
+  const [action,directory,...extra]=argv;
+  if(!['status','once','resume'].includes(action))throw new Error('use status, once or resume <workspace>; watch was removed (no resident service)');
+  if(!path.isAbsolute(directory??''))throw new Error('absolute workspace required');
+  let maxWaitMs=1800000;
+  if(extra.length) {
+    if(action==='status'||extra.length!==2||extra[0]!=='--max-wait-seconds'||!/^\d+$/.test(extra[1])||Number(extra[1])<1||Number(extra[1])>86400)throw new Error('use --max-wait-seconds 1..86400');
+    maxWaitMs=Number(extra[1])*1000;
+  }
+  return {action,directory,maxWaitMs};
+}
 if(process.argv[1]&&path.resolve(process.argv[1])===fileURLToPath(import.meta.url)) {
-  const [action,directory]=process.argv.slice(2);
   try {
-    if(!path.isAbsolute(directory??''))throw new Error('absolute project/workspace required');
-    if(action==='status')console.log(JSON.stringify(summary(directory)));
-    else if(action==='resume')console.log(JSON.stringify(resume(directory)));
-    else if(action==='once') {reconcile(directory);console.log(JSON.stringify(await processOne(directory) ? summary(directory):{...summary(directory),idle:true}));}
-    else if(action==='watch') {
-      let running=true;process.on('SIGTERM',()=>{running=false;});process.on('SIGINT',()=>{running=false;});
-      console.log(JSON.stringify({event:'watching',project:directory,concurrency:1}));
-      while(running) {
-        for(const root of projectRoots(directory))try{reconcile(root);const result=await processOne(root);if(result)console.log(JSON.stringify({workspace:path.basename(root),id:result.id,status:result.status,jobId:result.jobId}));}catch(e){warning(root,'sync',e);}
-        if(running)await new Promise(r=>setTimeout(r,2000));
-      }
-    } else throw new Error('use status, once, resume <workspace> or watch <project>');
+    const {action,directory,maxWaitMs}=parseSyncArgs(process.argv.slice(2));
+    if(action==='status')console.log(JSON.stringify(summary(directory),null,2));
+    else {
+      const controller=new AbortController();for(const name of ['SIGINT','SIGTERM'])process.once(name,()=>controller.abort());
+      const result=await runOnce(directory,{retryFailed:action==='resume',maxWaitMs,signal:controller.signal,
+        onProgress:event=>console.error(JSON.stringify(event))});
+      console.log(JSON.stringify(result,null,2));
+      if(!['complete','disabled'].includes(result.status))process.exitCode=2;
+    }
   }catch(e){console.error(e.message);process.exitCode=1;}
 }

@@ -26,18 +26,19 @@ Final delivery: paper/main.tex, references.bib, selected official template depen
 
 ## Development
 
-Version 0.9.0 adds optional Survey KB integration for new investigations. It defaults
+Version 0.9.1 provides optional Survey KB integration for new investigations. It defaults
 on; an explicit request such as “这次不需要 survey kb” persists false for the run,
 including resume. Only Workers retrieve papers. Worker, Manager, Scoper and Paper
 retrieve their own strategies; Checker and Reviewer have no KB read access. A
-synchronous hook saves complete responses and bounds context, while a separate
-serial synchronization service submits accepted papers and, after current final
-review passes, final review experiences and native trajectories. KB failures do not
+synchronous hook saves complete responses and bounds context, while a finite
+one-shot script submits frozen papers, final review experiences and native
+trajectories only after the entire investigation passes its current final review. KB failures do not
 invalidate delivery. Existing KB interfaces and database remain unchanged.
 
 Follow the [Chinese Git upgrade and cloud verification manual](docs/survey-kb-deployment.zh-CN.md)
 before enabling KB: configure the project HTTP connection, verify native output
-replacement/timeout, and start the sync service. The [validation record](docs/sprint2-b-validation.md)
+replacement/timeout, and use kb-run.mjs to synchronize after Claude exits. No resident
+sync service is needed; kb-sync once/resume supports manual completion and recovery. The [validation record](docs/sprint2-b-validation.md)
 separates offline evidence from cloud checks. No old-run migration or mid-run toggle
 is provided. Role instructions and the common workflow remain a single set.
 

@@ -26,8 +26,8 @@ node "<plugin>/scripts/kb-control.mjs" bind-scoper "<workspace>" "<actual-agent-
 ```
 
 Then resume reconnaissance. Worker/Manager use existing research bindings; Paper
-uses the current writing-phase binding. Keep status read-only. The background sync
-worker is a separate process started by the operator, not an Agent-owned shell.
+uses the current writing-phase binding. Keep status read-only. The one-shot sync script runs outside Claude after its normal exit, through the
+operator's kb-run launcher or manual kb-sync once; there is no resident sync worker.
 
 ## Retrieval rules
 
@@ -63,16 +63,20 @@ reference in reading assignments. The raw imported note remains separate; Worker
 writes the normal local metadata.json/note.md with local ID and required sections.
 Reuse sufficient evidence directly and fill only genuine gaps. Missing metadata or
 verification remains unknown. Manager accepts through the existing procedure.
-The sync service snapshots accepted notes; main never retypes or uploads the text.
+Acceptance freezes notes locally; no upload occurs before whole-run success.
+Main never retypes or uploads the text.
 
 ## Final handoff
 
 Reviewer score units receive their own prior-experiences.json, never upstream
 research artifacts or KB strategies. The final successful report is the consolidated
 experience version. Null/blank optional values are omitted only on outbound upload.
-After verified final completion, deliver normally and let the Stop hook capture the
-success handoff. Failed/paused runs do not upload trajectories or review experience.
-Accepted paper submissions may already have occurred independently.
+After verified final completion, deliver normally and let the Stop hook record the
+success handoff. Tell the user to exit Claude normally; the external kb-run launcher
+then executes one finite sync batch. All papers, final experiences and trajectories
+wait for whole-run success. Failed/paused runs upload none of them. Do not execute
+once/resume inside the main or delegated Agent session. Without the launcher, show
+the operator the manual command: node "<plugin>/scripts/kb-sync.mjs" once "<workspace>".
 
 To show synchronization status without reading payloads:
 

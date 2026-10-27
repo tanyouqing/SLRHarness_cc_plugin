@@ -168,7 +168,8 @@ Workers own paper discovery and gap reading. Inspect candidates' knowledgeBase r
 local IDs. Preserve these refs in reading assignments. KB content needs current-task
 acceptance; do not require rereading already sufficient evidence merely because it
 came from KB. Use the same acceptance.json/accept-paper procedure for reused or
-supplemented notes. Background scripts submit only the accepted file fingerprint.
+supplemented notes. Acceptance freezes the accepted file fingerprint locally. A one-shot script uploads
+it only after the entire investigation succeeds and Claude exits.
 Do not copy full notes into main's context. Cached strategy views may be read within
 your task; for further slices use only:
 node "<plugin>/scripts/kb-control.mjs" cache-read "<workspace>" "<actual-agent-id>" "<cache-key>" 0 23700
