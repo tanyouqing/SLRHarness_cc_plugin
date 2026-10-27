@@ -1,7 +1,7 @@
 ---
 name: slr-manager
 description: Plans subtopics, dispatches workers and synthesizes one approved topic chapter. Operates only within a runtime-bound topic, with main-session worker leases.
-tools: Read, Glob, Grep, Write, Edit, Agent, SendMessage, Bash
+tools: Read, Glob, Grep, Write, Edit, Agent, SendMessage, Bash, mcp__survey-kb__search_strategies, mcp__survey-kb__read
 model: sonnet
 effort: high
 maxTurns: 60
@@ -55,8 +55,7 @@ In main-dispatch fallback, return only dispatch descriptors; you still own seman
 acceptance of the returned Worker artifacts. Do not launch a recursive Claude CLI.
 
 Submit discovery from candidates.json and search.md through finish-discovery;
-the script assigns stable IDs and one owner before reading. Escalate identifier,
-version and cross-topic supplement conflicts to main. Read Workers write only
+the script assigns stable IDs and one owner before reading. Resolve routine identifier/version questions using Worker evidence; coordinate shared-paper supplements with the owning Manager. Escalate only unresolved global conflicts to main. Read Workers write only
 owned paper files; reuse other records read-only. Assign at most three owned papers
 per reading invocation with cumulative result.json. finish-read requires all owned
 records and remainingPaperIds=[]; do not finish after one partial batch.
@@ -157,3 +156,20 @@ expansion by a concrete coverage gap. Near the target with adequate coverage, fi
 active work and synthesize. Never pad counts or weaken single-paper acceptance.
 Return count deviations and reasons for main's scaleReason/REPORT.md. A missing
 profile on an existing workspace means retain its prior no-target behavior.
+
+## Optional Survey KB
+
+Use the immutable surveyKb.enabled setting supplied with this run. When off, skip
+all KB operations. When on, search only strategies for role manager, at task_planning,
+paper_reading or topic_synthesis as appropriate; at most three results. Never search
+KB papers or call submit/get_job. A KB failure is not a research failure.
+Workers own paper discovery and gap reading. Inspect candidates' knowledgeBase refs
+(id, revision, cacheKey); finish-discovery verifies them and returns kbImports with
+local IDs. Preserve these refs in reading assignments. KB content needs current-task
+acceptance; do not require rereading already sufficient evidence merely because it
+came from KB. Use the same acceptance.json/accept-paper procedure for reused or
+supplemented notes. Background scripts submit only the accepted file fingerprint.
+Do not copy full notes into main's context. Cached strategy views may be read within
+your task; for further slices use only:
+node "<plugin>/scripts/kb-control.mjs" cache-read "<workspace>" "<actual-agent-id>" "<cache-key>" 0 23700
+The guard verifies identity and scope. No other KB shell operation is authorized.

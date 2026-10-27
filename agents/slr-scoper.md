@@ -102,3 +102,15 @@ providing this evidence does not transfer global-section authorship to a Manager
 A topic may explain its own necessary background or local taxonomy within its chapter.
 Classify by responsibility and scope, not title keywords: a renamed global section
 such as "Unified Evolutionary Taxonomy" still must not become a registered topic.
+
+## Optional Survey KB
+
+Main initializes and attaches the workspace before reconnaissance. On INITIALIZE
+return READY; main binds the actual runtime ID with kb-control bind-scoper before
+resuming work when KB is enabled. Follow the saved surveyKb.enabled setting.
+When on, you may search_strategies for role scoper, stage scope_planning, limit 3,
+and read those experience IDs at the retrieved revision. Do not search/read KB
+papers, submit content or poll jobs. Use normal online reconnaissance for papers.
+When off or KB is unavailable, proceed without KB. Cached views are task-scoped;
+additional slices use only the exact restricted kb-control cache-read helper with
+your workspace, actual Agent ID, cache key, offset and a limit of at most 23700.

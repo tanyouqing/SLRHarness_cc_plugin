@@ -1,4 +1,6 @@
+import {freezeAccepted} from './kb-outbox.mjs';
 import {configurePaper,paperConfig} from './paper-config.mjs';
+import {configure as configureKb,warning as kbWarning} from './kb-core.mjs';
 import {bounded,researchSummary,researchQuery,readSlice} from './bounded-output.mjs';
 import {normalizeResearchProfile,validateResearchProfile,researchScale,scaleCompletion} from './research-profile.mjs';
 import {checkpoint,saveRecovery,contextControl} from './context-control.mjs';
@@ -359,6 +361,7 @@ export function mutate(root, action, args) {
     }
     for(const p of Object.values(next.papers)) fs.mkdirSync(path.join(root,'papers',p.id),{recursive:true});
     atomicJSON(statePath(root),next);
+    if(action==='accept-paper')freezeAccepted(root,next.papers[args.paperId]);
     if(action==='review-topic' && args.verdict==='passed') checkpoint(root,`topic:${args.topicId}`,next.topics.find(t=>t.id===args.topicId).reviewHash);
     else saveRecovery(root);
     return next;
@@ -374,7 +377,11 @@ async function cli() {
   if(command==='init') {
     required(!fs.existsSync(root),'workspace already exists');
     const s=createState(readJSON(input)); required(path.basename(root)===s.reviewId,'directory must match reviewId');
-    required(!validateV2(s).length,'invalid initial settings'); fs.mkdirSync(root,{recursive:true}); atomicJSON(statePath(root),s); configurePaper(root,{...readJSON(input).paperConfig,language:readJSON(input).paperConfig?.language??s.language??'english'}); contextControl(root,'enable'); emit(full?s:{...researchSummary(s,command,root),paperConfig:paperConfig(root)}); return;
+    const settings=readJSON(input);
+    if(settings.surveyKb!==undefined && (!settings.surveyKb || typeof settings.surveyKb!=='object' || Array.isArray(settings.surveyKb) || Object.keys(settings.surveyKb).some(k=>k!=='enabled') || settings.surveyKb.enabled!==undefined&&typeof settings.surveyKb.enabled!=='boolean'))throw new Error('surveyKb accepts a boolean enabled setting');
+    required(!validateV2(s).length,'invalid initial settings'); fs.mkdirSync(root,{recursive:true}); atomicJSON(statePath(root),s); configurePaper(root,{...settings.paperConfig,language:settings.paperConfig?.language??s.language??'english'});
+    try{configureKb(root,settings.surveyKb);}catch(e){kbWarning(root,'configuration',e);}
+    contextControl(root,'enable'); emit(full?s:{...researchSummary(s,command,root),paperConfig:paperConfig(root)}); return;
   }
   if(command==='status') { const s=loadState(root);emit(full?s:researchSummary(s,command,root)); return; }
   if(command==='query') { emit(researchQuery(loadState(root),input?readJSON(input):{},root));return; }

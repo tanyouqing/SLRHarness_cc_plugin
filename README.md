@@ -4,7 +4,7 @@ A Claude Code plugin for human-approved, hierarchical literature reviews. Scoper
 
 ## Use
 
-Load locally with `claude --plugin-dir <absolute-plugin-directory>`, or install `slr-harness@rail-research` from your configured marketplace. Node.js 18+, Git and Claude Code are required; this checkout is tested against the installed version recorded in docs/pipeline-validation.md. PDF delivery uses latexmk, verified pdfLaTeX/XeLaTeX template profiles and BibTeX. Optional paper-search metadata discovery falls back to available web/MCP retrieval; the plugin never installs tools during a review.
+Load locally with `claude --plugin-dir <absolute-plugin-directory>`, or install `slr-harness@rail-research` from your configured marketplace. Install dependencies with `npm ci --ignore-scripts`. Node.js 22 LTS (>=22.19.0), Git and Claude Code are required; this checkout is tested against the installed version recorded in docs/pipeline-validation.md. PDF delivery uses latexmk, verified pdfLaTeX/XeLaTeX template profiles and BibTeX. Optional paper-search metadata discovery falls back to available web/MCP retrieval; the plugin never installs tools during a review.
 
 - `/slr-harness:review <topic>` applies defaults to missing settings without an initial configuration questionnaire, starts scope reconnaissance, then waits for explicit human approval of the proposed scope.
 - `/slr-harness:review status <slug>` is read-only.
@@ -25,6 +25,21 @@ Every substantive synthesis claim links a stable paper ID and original location.
 Final delivery: paper/main.tex, references.bib, selected official template dependencies and main.pdf, plus versioned assessment/comparison and experiences.json (Scoper, Manager, Worker and Paper Agent strategies) under paper/reviews/submission-NNNN/. Compiled drafts remain available below 70. Overall completion requires both a passing current assessment and a completed reference comparison. Background OR Preliminaries and Taxonomy OR Unified Framework each use one suitable title. The 3–5 major topics become directly named sections. Default English, author–year, 6,000–9,000 words; authors only from supplied information. Build artifacts remain in paper/.build/. A failed build never presents an old PDF as current. Controlled final-review repairs retain the initial slr-complete checkpoint and create new evidence checkpoints.
 
 ## Development
+
+Version 0.9.0 adds optional Survey KB integration for new investigations. It defaults
+on; an explicit request such as “这次不需要 survey kb” persists false for the run,
+including resume. Only Workers retrieve papers. Worker, Manager, Scoper and Paper
+retrieve their own strategies; Checker and Reviewer have no KB read access. A
+synchronous hook saves complete responses and bounds context, while a separate
+serial synchronization service submits accepted papers and, after current final
+review passes, final review experiences and native trajectories. KB failures do not
+invalidate delivery. Existing KB interfaces and database remain unchanged.
+
+Follow the [Chinese Git upgrade and cloud verification manual](docs/survey-kb-deployment.zh-CN.md)
+before enabling KB: configure the project HTTP connection, verify native output
+replacement/timeout, and start the sync service. The [validation record](docs/sprint2-b-validation.md)
+separates offline evidence from cloud checks. No old-run migration or mid-run toggle
+is provided. Role instructions and the common workflow remain a single set.
 
 Official conference template sources for ICLR, ICML, AAAI, ACL, EMNLP and NeurIPS
 are stored in the [paper template library](skills/paper/template/library/README.md).

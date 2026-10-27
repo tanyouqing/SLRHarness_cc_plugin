@@ -86,3 +86,34 @@ other hits, screening decisions and deferred candidates in search.md. Report nec
 expansions with coverage reasons to the Manager. Do not fabricate or lower evidence
 standards to fill numbers, nor silently drop already assigned papers when the global
 target is reached. Finish reading in the existing at-most-three-paper batches.
+
+## Optional Survey KB
+
+Follow the persisted surveyKb.enabled setting. When off, use the existing online
+retrieval workflow with no KB calls. When on, first check task-local cached views,
+then search_strategies for role worker (paper_discovery or paper_reading) with limit 3,
+and search_papers with limit 5. Search only through the configured survey-kb server.
+A tool error/timeout is an unavailable source; continue normal research and report
+it briefly. Do not repeatedly retry or interpret an error as zero matching papers.
+
+Read a selected paper with its returned ID AND revision. Keep the returned cacheKey.
+Discovery candidates may add knowledgeBase: {id, revision, cacheKey} referencing this
+full read, alongside the usual identity, sourceVersion and inclusion rationale.
+Do not invent sourceVersion, canonical URL or verification from a KB hit. Resolve
+missing identity details when necessary before candidate registration.
+
+For reading, reuse sufficient evidence directly. Check the assigned comparison
+fields, study conditions, claims, source locations and version; a retrieved note is
+not automatically complete. Search/read the same paper to fill specific gaps only.
+Write the normal per-paper metadata.json/note.md, including local paperId and all
+required sections; label the KB ID/revision and retained original source locations.
+Do not paste old local paper IDs as current citations or claim fresh full-text
+verification without reading the source. Keep unknowns explicit. Manager still
+accepts the result. Never overwrite another task's owned or already accepted notes.
+
+Full KB responses remain on disk. Read returned bounded view paths; request further
+text with the exact restricted helper:
+node "<plugin>/scripts/kb-control.mjs" cache-read "<workspace>" "<actual-agent-id>" "<cache-key>" 0 23700
+Increase the offset from nextOffset as needed. Do not use arbitrary shell commands
+or read raw cache/trajectory files. Restore cached results on retry; changed evidence
+gaps justify a new query. Never submit content or poll jobs from the Agent.

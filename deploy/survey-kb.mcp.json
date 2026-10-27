@@ -1,0 +1,10 @@
+{
+  "mcpServers": {
+    "survey-kb": {
+      "type": "http",
+      "url": "http://127.0.0.1:3000/mcp",
+      "timeout": 20000,
+      "headers": { "Authorization": "Bearer ${SURVEY_KB_TOKEN}" }
+    }
+  }
+}

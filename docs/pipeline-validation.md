@@ -170,3 +170,18 @@ Real Agent format verification, scope-based reference selection, semantic scorin
 strategy transfer and a complete live repair run have not been executed. Fixtures
 validate control behavior and schema only; actual TeX/PDF evidence is documented
 separately in conference-format-validation.md.
+
+## 2026-10-27 — Sprint2-B Survey KB integration (0.9.0)
+
+Implemented against 6c7b214 with current staged writing, conference-format checking,
+Manager paper acceptance, Checker chapter checks and Reviewer isolation preserved.
+New per-run optional KB setting, role/task guards, full response cache with bounded
+MCP output, provenance-aware imports, frozen accepted submissions, final experiences,
+native JSONL collection and durable serial synchronization are implemented. KB
+service/database/interfaces are unchanged.
+
+Final offline suite: **130 passed, 0 failed** (111 baseline + 19 KB tests). Script/eval
+syntax checks, generated probe-hook syntax, plugin validation and diff check passed.
+No real database, Embedding, model, cloud deployment or native model probe was run.
+See [implementation evidence](sprint2-b-validation.md) and the
+[Chinese deployment manual](survey-kb-deployment.zh-CN.md) for cloud-only acceptance.

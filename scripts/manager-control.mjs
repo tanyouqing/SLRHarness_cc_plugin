@@ -1,9 +1,12 @@
+import {freezeAccepted} from './kb-outbox.mjs';
 import fs from 'node:fs';
 import path from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {loadState,withLock,transition,atomicJSON,statePath,hash,nextTasks} from './pipeline.mjs';
 import {bounded,safePath,page} from './bounded-output.mjs';
 import {researchScale} from './research-profile.mjs';
+import {validateImports,saveImports} from './kb-control.mjs';
+import {warning as kbWarning,kbPath} from './kb-core.mjs';
 
 const need=(ok,msg)=>{if(!ok)throw new Error(msg);};
 const read=f=>JSON.parse(fs.readFileSync(f,'utf8'));
@@ -25,13 +28,14 @@ export function managerControl(root,agentId,relative) {
     need(fs.existsSync(path.join(root,'.slr/context-policy.json')),'enable context workflow from main first');
     const key=`${agentId}:${req.requestId}`,digest=hash(JSON.stringify(req));
     const prior=s.managerRequests?.[key];
-    if(prior){need(prior.digest===digest,'request ID reused with changed payload');return prior.result;}
+    if(prior){need(prior.digest===digest,'request ID reused with changed payload');try{saveImports(root,prior.kbImports??[],s);}catch(e){kbWarning(root,'imports',e);}return prior.result;}
     need(s.stage==='researching' && s.topics.find(t=>t.id===b.topicId)?.status!=='completed','Manager topic is not active');
     let t=s.topics.find(t=>t.id===b.topicId),lease=s.leases[a.leaseId];
     if(s.revisionContext?.active)need(s.revisionContext.topicIds.includes(b.topicId),'topic outside revision');
     if(req.action==='query') {
       if(a.collection==='scale') return {ok:true,topicId:b.topicId,researchScale:researchScale(s),next:'Shared workspace target; coordinate topic allocations with main. Counts do not certify coverage.'};
-      const lists={tasks:t.tasks,leases:Object.values(s.leases).filter(l=>l.topicId===b.topicId),papers:Object.values(s.papers).filter(p=>p.topicIds.includes(b.topicId))};
+      let imports={};try{const importsFile=kbPath(root,'imports.json');imports=fs.existsSync(importsFile)?read(importsFile):{};}catch(e){kbWarning(root,'import-query',e);}
+      const lists={tasks:t.tasks,leases:Object.values(s.leases).filter(l=>l.topicId===b.topicId),papers:Object.values(s.papers).filter(p=>p.topicIds.includes(b.topicId)).map(p=>({...p,kbImports:imports[p.id]??[]}))};
       need(lists[a.collection],'query supports own tasks, leases or papers');
       return page(a.id?lists[a.collection].filter(x=>x.id===a.id):lists[a.collection],a,statePath(root));
     }
@@ -69,14 +73,21 @@ export function managerControl(root,agentId,relative) {
       const item=acceptance.find(x=>x.paperId===a.paperId);need(item?.checked===true,'missing Manager evidence acceptance');
       a.checked=true;a.rationale=item.rationale;
     }
+    let kbImports=[],kbImportWarning=null;
+    if(req.action==='finish-discovery')try{kbImports=validateImports(root,a.candidates,b.topicId,lease.taskId);}catch(e){kbWarning(root,'import-validation',e);kbImportWarning='KB provenance unavailable or invalid; use ordinary source verification for these candidates';}
     const next=transition(s,req.action,a,root);
     for(const topic of next.topics) for(const task of topic.tasks) fs.mkdirSync(safePath(root,`topics/${topic.id}/tasks/${task.id}`),{recursive:true});
     for(const id of Object.keys(next.papers))fs.mkdirSync(safePath(root,`papers/${id}`),{recursive:true});
     const result=bounded({ok:true,requestId:req.requestId,action:req.action,topicId:b.topicId,taskId:a.taskId??lease?.taskId,leaseId:a.leaseId,paperId:a.paperId,
       researchScale:researchScale(next),
+      ...(kbImportWarning?{kbImportWarning}:{}),
+      ...(kbImports.length?{kbImports:kbImports.map(r=>({id:r.id,revision:r.revision,cacheKey:r.cacheKey,localId:Object.values(next.papers).find(p=>p.keys.some(k=>r.keys.includes(k)))?.id}))}:{}),
       activeWorkers:Object.values(next.leases).filter(l=>l.active).length,next:'Inspect assigned task files; return only a bounded topic summary to main'},statePath(root));
-    (next.managerRequests??={})[key]={digest,result};
-    atomicJSON(statePath(root),next);return result;
+    (next.managerRequests??={})[key]={digest,result,kbImports};
+    atomicJSON(statePath(root),next);
+    if(req.action==='accept-paper')freezeAccepted(root,next.papers[a.paperId]);
+    try{saveImports(root,kbImports,next);}catch(e){kbWarning(root,'imports',e);}
+    return result;
   });} catch(e) {
     if(e.message.startsWith('control operation already active'))return {ok:true,waiting:true,next:'State lock busy; wait for the next scheduling event, do not busy-poll'};
     throw e;

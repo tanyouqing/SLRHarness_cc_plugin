@@ -108,3 +108,12 @@ issues. All experiences remain candidates, not universally validated rules.
 Reviewer writes only its assigned draft. Main validates and persists the exact array
 in experiences.json. No experience Markdown is emitted. Both source types share this
 shape; implementing trajectory extraction or a memory store is outside this change.
+
+### Final experience consolidation input
+
+The score unit may read this submission's prior-experiences.json, containing only
+previous Reviewer experiences and their comparison evidence. Consolidate supported
+lessons into the final report.experiences; do not access upstream research artifacts
+or knowledge-base strategies. Historical JSON is immutable. Only the final successful
+submission is selected for KB synchronization; outgoing null/blank optional fields
+are omitted without editing the original assessment.

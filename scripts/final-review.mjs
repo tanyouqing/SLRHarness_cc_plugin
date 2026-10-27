@@ -189,6 +189,8 @@ export function finalReviewControl(root,action,args={}) {
       const priorIssuesFile=path.join(dir,'prior-issues.json');
       const prior=revision?c.submissions.find(s=>s.id===revision.sourceSubmission)?.assessment:old?.assessment;
       if(!fs.existsSync(priorIssuesFile))atomicJSON(priorIssuesFile,(prior?.issues??[]).map(({id,kind,severity,location,evidence,action,acceptance})=>({id,kind,severity,location,evidence,action,acceptance})));
+      const priorExperiencesFile=path.join(dir,'prior-experiences.json');
+      if(!fs.existsSync(priorExperiencesFile))atomicJSON(priorExperiencesFile,{reviews:c.submissions.filter(s=>s.assessment).map(s=>({submissionId:s.id,experiences:s.assessment.experiences,comparison:s.assessment.comparison}))});
       const stateSnapshot=path.join(dir,'research-state.json');if(!fs.existsSync(stateSnapshot))atomicJSON(stateSnapshot,state);
       if(old?.assessment && !revision) c.batchStart=c.revisions.filter(r=>r.assessed).length;
       c.submissions.push({id,fingerprint:input.fingerprint,evidenceHash:input.evidenceHash,evidenceRef:args.evidenceRef??`sha256:${input.evidenceHash}`,

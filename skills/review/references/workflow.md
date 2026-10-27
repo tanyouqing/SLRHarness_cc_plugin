@@ -11,7 +11,7 @@ Status never writes or launches agents. Select the explicit slug, conversation w
 
 Do not ask initial configuration questions. Preserve explicit user settings; apply the defaults in review/SKILL.md to missing settings, briefly display the effective configuration and immediately start reconnaissance. Default English unless explicitly requested otherwise, five rounds, nine global Workers. Use a professional synthesis objective, academic papers and verifiable preprints as research evidence, and authoritative technical documentation only for background or supplementary explanation. Let the Scoper choose and justify dates and record the search cutoff. Infer low ~30, medium ~60 (default), or high ~90 from the original request using research-scale.md. These are shared soft targets, with no default hard limit on paper count; explicit counts override defaults. Arrange coverage within the existing execution budgets. Record all effective settings in the scoping handoff and SCOPE_DRAFT.md. Follow scoping.md for reconnaissance. Before explicit human scope approval, only scoping work is allowed.
 
-Create config with reviewId, topic, language, maxRounds, maxWorkers and researchProfile (see research-scale.md); `init` requires a new directory. Initialize Git in that workspace, never in a parent repository. Save a root `scoping.md` summary linking detailed reconnaissance under `scope/`, including existing-survey comparison, terminology, source links and verification status. Draft SCOPE_DRAFT.md with 3–5 major topics, boundaries, shared comparison dimensions and methods. `draft` receives `{topics:[{id,title,boundary}]}`. Show the entire proposed scope to the user. Ambiguous praise, status or requests for changes do not approve it. Revise and show again as necessary.
+Create config with reviewId, topic, language, maxRounds, maxWorkers, researchProfile (see research-scale.md) and surveyKb.enabled (default true unless explicitly disabled). Before the first Scoper, run `init` with a new directory and attach the session following survey-kb.md. For init only, save its input JSON outside the new workspace; subsequent inputs use .slr/requests. Initialize Git in that workspace, never in a parent repository. Initialize the Scoper with READY, bind its actual ID through kb-control when KB is enabled, then resume reconnaissance. Save a root `scoping.md` summary linking detailed reconnaissance under `scope/`, including existing-survey comparison, terminology, source links and verification status. Draft SCOPE_DRAFT.md with 3–5 major topics, boundaries, shared comparison dimensions and methods. `draft` receives `{topics:[{id,title,boundary}]}`. Show the entire proposed scope to the user. Ambiguous praise, status or requests for changes do not approve it. Revise and show again as necessary.
 
 After explicit approval of this exact draft, `approve` receives `{explicitApproval:true,userMessage,scopeHash}` with SHA256 of the draft bytes. It creates immutable SCOPE_ORIGINAL.md and living SCOPE.md. Commit the scope checkpoint, then run context-control checkpoint-scope; save its optional /compact hint without waiting for compaction. Never manufacture the user's approval or reinterpret a prior draft approval.
 
@@ -94,3 +94,14 @@ See ../paper/references/conference-format.md (from review skill root). Existing
 workspaces without this sidecar keep legacy behavior. Resume never re-infers the
 selection. Before final Reviewer, configured papers require current official format
 audit (passed or explicitly official_unverified) after every manuscript revision.
+
+## Survey KB hooks and success handoff
+
+Apply survey-kb.md for new runs. Initialize before Scoper, attach the session, and
+pass only the saved switch and bounded cache references to roles. Manager handles
+ordinary KB identity/coverage questions with Workers. Accepted papers are collected
+by the sync worker without main copying their text. After finalReviewStatus.complete,
+finish the normal delivery response; the Stop hook records a success handoff only
+when no tracked child or active work unit remains. The background synchronizer
+uploads final experiences and trajectories. Use kb-sync status to report pending
+or failed synchronization; never delay delivery waiting for distillation.

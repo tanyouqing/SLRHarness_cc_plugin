@@ -184,3 +184,22 @@ claiming completion. Final score reads current findings incrementally, not resea
 artifacts, and fully evaluates all six dimensions. Revisit paper passages when needed.
 The preprint policy excludes submission page caps, anonymity and acceptance claims;
 assess actual readability. Do not deduct points solely for literature count.
+
+## Knowledge-base boundary
+
+Do not call Survey KB search, read or submission tools. Review using your existing
+assigned inputs and review criteria; do not obtain cached strategies from another
+Agent. Reviewer can produce experiences for worker/manager/scoper/paper without
+retrieving their stored strategies. Synchronization belongs to scripts.
+
+## Final experience consolidation
+
+In the score unit, main also supplies this submission's prior-experiences.json.
+It contains only your own historical review experiences and comparison evidence.
+Read it in bounded slices and consolidate still-supported transferable lessons into
+report.experiences. Remove superseded or contradicted advice, merge duplicates,
+and preserve useful lessons from corrected manuscript problems. Do not infer hidden
+research actions. This does not permit reading upstream notes, logs or KB records.
+Only the final successful submission's experiences.json is uploaded; intermediate
+reports remain local. Optional null/blank fields stay valid in review storage and
+are omitted by the outbound adapter. KB failure never changes your review score.

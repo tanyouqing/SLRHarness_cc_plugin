@@ -49,3 +49,10 @@ A tool failure, turn limit or partial batch must never be described as success.
 Do not invent verdicts, scores, runtime IDs or verification to fill a missing result.
 
 For a completed examination deliver only the existing verdict JSON, including the supplied fingerprint, issues and limitations. Do not prepend DONE: or wrap it in Markdown. If examination could not finish, deliver BLOCKED: or PARTIAL: with the cause instead of fabricating a passed/revision_required verdict. Main must not record an incomplete examination as a quality judgment.
+
+## Knowledge-base boundary
+
+Do not call Survey KB search, read or submission tools. Review using your existing
+assigned inputs and review criteria; do not obtain cached strategies from another
+Agent. Reviewer can produce experiences for worker/manager/scoper/paper without
+retrieving their stored strategies. Synchronization belongs to scripts.

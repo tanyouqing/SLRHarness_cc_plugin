@@ -69,3 +69,12 @@ See ../paper/references/conference-format.md (from review skill root). Existing
 workspaces without this sidecar keep legacy behavior. Resume never re-infers the
 selection. Before final Reviewer, configured papers require current official format
 audit (passed or explicitly official_unverified) after every manuscript revision.
+
+## Survey KB integration
+
+Read references/survey-kb.md. Resolve surveyKb.enabled once from the user's initial
+request, default true; “这次不需要 survey kb” sets false. Initialize the workspace
+before the first Scoper; attach this runtime session using the prescribed helper.
+Keep one workflow. On resume retain the saved switch and attach the new session;
+never migrate or silently enable an unconfigured old workspace. KB availability is
+not a prerequisite for research or delivery. Main never calls KB tools directly.

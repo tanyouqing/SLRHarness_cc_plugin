@@ -1,0 +1,17 @@
+[Unit]
+Description=Survey pipeline knowledge-base synchronization
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+EnvironmentFile=/etc/survey-kb-sync.env
+ExecStart=/usr/bin/node /opt/slr-harness/scripts/kb-sync.mjs watch /srv/survey
+WorkingDirectory=/srv/survey
+Restart=on-failure
+RestartSec=5
+UMask=0077
+NoNewPrivileges=true
+
+[Install]
+WantedBy=multi-user.target

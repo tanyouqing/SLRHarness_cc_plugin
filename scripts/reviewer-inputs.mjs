@@ -9,7 +9,7 @@ export function reviewerReadAllowed(root,submissionId,tool,args,rubricVersion) {
   const rubric=rubricFor(rubricVersion);
   const base=path.join(root,'paper/reviews',submissionId);
   const files=[...['main.tex','references.bib','main.pdf'].map(f=>path.join(base,'snapshot/paper',f)),
-    path.join(base,'prior-issues.json'),path.join(plugin,rubric.path),path.join(base,'snapshot/SCOPE.md'),
+    path.join(base,'prior-issues.json'),path.join(base,'prior-experiences.json'),path.join(plugin,rubric.path),path.join(base,'snapshot/SCOPE.md'),
     path.join(plugin,'skills/paper/references/reviewer-input.md'),path.join(plugin,'agents/slr-reviewer.md')].map(normalize);
   const trees=['drafts','references','manuscript-pages'].map(d=>normalize(path.join(base,d)));
   const glob=tool==='Glob'?args.pattern:tool==='Grep'?args.glob:null;

@@ -4,6 +4,8 @@ import {paperConfig,templateFor,officialURL} from './paper-config.mjs';
 import {managerRequest} from './manager-control.mjs';
 import {enabled} from './context-control.mjs';
 import {stageAccess} from './work-stages.mjs';
+import {KB_PREFIX,authorize as authorizeKb,resolveCaller as kbCaller,kbPath,cacheEntry,sameScope,scopeFor,rootsFor} from './kb-core.mjs';
+import {cacheRead as kbCacheRead} from './kb-control.mjs';
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -137,6 +139,38 @@ function evaluatePaperSearchShell(command) {
 
 export function evaluateHook(input) {
   const role=shortName(input?.agent_type);
+  // This branch precedes the scholarly-method allowlist and the main-session bypass.
+  if(input.tool_name?.startsWith(KB_PREFIX)) {
+    try{const a=authorizeKb(input);if(a.role==='paper'&&!stageAccess(a.root,'paper',input.agent_id))throw new Error('writing evidence changed; refresh phase');return {...allow(),updatedInput:a.args};}catch(e){return deny(e.message);}
+  }
+  if(input.tool_name==='Bash'||input.tool_name==='PowerShell') {
+    const command=input.tool_input?.command,tokens=typeof command==='string'&&!/[;&|`$<>\r\n]/.test(command)?tokenize(command):null;
+    if(tokens?.[0]==='node'&&path.resolve(tokens[1]??'')===path.join(path.dirname(pipeline),'kb-control.mjs')&&tokens[2]==='cache-read') {
+      try {
+        const c=kbCaller(input);
+        if(tokens.length!==8||!c||tokens[3]!==c.root||tokens[4]!==input.agent_id)throw new Error('KB cache helper requires exact runtime identity and workspace');
+        if(c.role==='paper'&&!stageAccess(c.root,'paper',input.agent_id))throw new Error('writing evidence changed; refresh phase');
+        kbCacheRead(c.root,{...c,agentId:input.agent_id},tokens[5],Number(tokens[6]),Number(tokens[7]));return allow();
+      }catch(e){return deny(e.message);}
+    }
+  }
+  if(['Read','Glob','Grep'].includes(input.tool_name)) {
+    const targets=[input.tool_input?.file_path,input.tool_input?.path].filter(Boolean);
+    if(input.tool_name!=='Read') {
+      const target=path.resolve(input.tool_input?.path??input.cwd??'.');
+      for(const root of rootsFor(input))if(fs.existsSync(path.join(root,'.slr/kb'))&&within(target,path.join(root,'.slr/kb'))) {
+        const pattern=input.tool_input?.glob??input.tool_input?.pattern??'';
+        if(!(target===root&&/^(papers|topics|scope|paper)[\\/]/.test(pattern)))return deny('scope recursive reads to research folders; KB cache is role-scoped');
+      }
+    }
+    for(const target of targets)if(/[\\/]\.slr[\\/]kb(?:[\\/]|$)/i.test(path.resolve(target))) {
+      try {
+        const c=kbCaller(input);if(!c||input.tool_name!=='Read')throw new Error('KB artifacts require a bounded role-scoped read');
+        const scope=scopeFor({...c,agentId:input.agent_id}),match=/[\\/]views[\\/]([a-f0-9]{64})\.json$/.exec(target);
+        if(!match||path.resolve(target)!==kbPath(c.root,`views/${match[1]}.json`)||!sameScope(cacheEntry(c.root,match[1]).scope,scope))throw new Error('KB raw cache and other tasks are not readable; use cache-read');
+      }catch(e){return deny(e.message);}
+    }
+  }
   if(!roles.has(role)) return allow();
   const tool=input.tool_name, args=input.tool_input ?? {};
   const bound=binding(input);
@@ -288,6 +322,6 @@ export function evaluateHook(input) {
 
 if(process.argv[1] && path.resolve(process.argv[1]).toLowerCase()===fileURLToPath(import.meta.url).toLowerCase()) {
   let text=''; for await(const chunk of process.stdin) text+=chunk;
-  try { const result=evaluateHook(JSON.parse(text)); if(!result.allowed) { console.error(result.reason); process.exitCode=2; } }
+  try { const result=evaluateHook(JSON.parse(text)); if(!result.allowed) { console.error(result.reason); process.exitCode=2; } else if(result.updatedInput)console.log(JSON.stringify({hookSpecificOutput:{hookEventName:'PreToolUse',updatedInput:result.updatedInput}})); }
   catch(error) { console.error(error.message); process.exitCode=2; }
 }

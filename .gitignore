@@ -5,6 +5,9 @@ evals/results/
 # Node tooling
 node_modules/
 npm-debug.log*
+.slr-kb-sessions/
+.slr-kb-capabilities.json
+.mcp.json
 
 # Editor and OS files
 .DS_Store
