@@ -114,3 +114,16 @@ papers, submit content or poll jobs. Use normal online reconnaissance for papers
 When off or KB is unavailable, proceed without KB. Cached views are task-scoped;
 additional slices use only the exact restricted kb-control cache-read helper with
 your workspace, actual Agent ID, cache key, offset and a limit of at most 23700.
+
+Before each KB query or record read, look for an exact task-scoped cache match:
+```sh
+node "<plugin>/scripts/kb-control.mjs" cache-query "<workspace>" "<actual-agent-id>" search_strategies '{"query":"<query>","filters":{"role":"scoper"},"limit":3}'
+```
+Replace method/JSON with the intended authorized MCP request. `hit:true` contains
+a bounded result; use it without another MCP call. `hit:false` means call MCP with
+the same arguments. A cache error is an unavailable cache, not an empty KB result.
+Repeated MCP calls are allowed but may still contact the server. Use cache-read
+for further slices; never inspect raw cache files. Stage names above are suggested
+metadata filters, not an enum: omit `filters.stage` when unsure or for a broader
+search; an explicit descriptive stage is allowed. Role and active-task restrictions
+still apply; the actual execution phase isolates caches independently of the filter.

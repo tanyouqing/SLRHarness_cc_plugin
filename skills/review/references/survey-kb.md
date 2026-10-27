@@ -39,12 +39,17 @@ Use `mcp__survey-kb__search_papers`, `mcp__survey-kb__search_strategies`, and
 `mcp__survey-kb__read`. Selected records must be read at the retrieved revision.
 Search defaults are five papers or three strategies. Strategies use scope_planning,
 task_planning, paper_discovery, paper_reading, topic_synthesis or paper_writing as
-appropriate. Manager can query task_planning/paper_reading/topic_synthesis; other
-roles' stages follow their current assignment.
+appropriate. These are suggested names, not an enum. Stage filtering is optional:
+omit it for broad retrieval or when uncertain; explicit descriptive values are
+accepted. The guard never adds a stage filter. Actual task/phase still isolates
+caches, independently of the optional query filter.
 
 PostToolUse saves full responses, then replaces model-visible output with bounded
-views. A cache-hit denial supplies the existing view path; read that instead of
-repeating the call. Additional slices use the role-scoped helper in Agent prompts.
+views. First use the role-scoped `kb-control cache-query` helper shown in Agent
+prompts, with the intended method and JSON arguments. `hit:true` returns the cached
+view normally; `hit:false` proceeds to MCP. Duplicate MCP calls are allowed and may
+contact the server: PreToolUse cannot synthesize a successful tool response.
+Additional slices use `cache-read`.
 Never bypass it to read raw caches, trajectories, queues or another task's view.
 An unavailable KB returns to ordinary work with a brief warning, not endless retries.
 
@@ -88,3 +93,24 @@ node "<plugin>/scripts/kb-sync.mjs" status "<workspace>"
 
 Report pending/failed sync separately from research success. Do not await distillation
 before delivery, reset successful research, or restart a failed KB job by reuploading.
+
+## File searches and scholarly tools
+
+For ordinary workspace discovery use explicit globs such as
+`workspaces/*/SCOPE.md`; within a workspace search `papers/` or `topics/` directly.
+Unfiltered recursive searches covering `.slr/kb` remain restricted. Grep's `pattern`
+is a content regex, so use `glob` for a file filter. The guard resolves relative
+paths using the tool cwd and refuses protected-cache symlink aliases.
+
+Trusted scholarly services are listed once in `deploy/scholarly-mcp.json` (default:
+`arxiv`, `tavily`, `scholar`). Their tool methods are not individually allowlisted:
+search/fetch/extract/crawl/map/download/citation tools and new method names work
+without guard changes. Clearly named mutation/execution operations remain blocked.
+Only Worker, Scoper and Reviewer use these services; Reviewer keeps its current
+submission/unit binding and isolated local inputs. New services need one service
+entry and, for Reviewer, a tool wildcard in its frontmatter. This service trust
+policy does not prove that every tool is internally read-only. Survey KB retains
+its separate strict role/tool contract.
+Manager's TaskOutput/TaskStop are limited to its own background Workers recorded
+from host Agent output, within the same session/topic/lease. Unmapped old/native
+tasks require main-session handling; task IDs in model text are not proof of ownership.

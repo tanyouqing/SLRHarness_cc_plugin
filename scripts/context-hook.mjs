@@ -3,12 +3,11 @@ import path from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {withLock} from './pipeline.mjs';
 import {enabled,saveRecovery,recoverySummary} from './context-control.mjs';
+import {workspaceRoots} from './workspace-context.mjs';
 
 export function contextHook(input) {
   if(input.agent_id)return {}; // Main-session context only.
-  const cwd=path.resolve(input.cwd??'.');
-  const base=path.join(cwd,'workspaces');
-  const roots=fs.existsSync(path.join(cwd,'.slr/state.json'))?[cwd]:fs.existsSync(base)?fs.readdirSync(base,{withFileTypes:true}).filter(e=>e.isDirectory()&&!e.isSymbolicLink()).map(e=>path.join(base,e.name)):[];
+  const roots=workspaceRoots(input);
   const active=roots.filter(r=>enabled(r));
   const index=[];
   for(const root of active) {

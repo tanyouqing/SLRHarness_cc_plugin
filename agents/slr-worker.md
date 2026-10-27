@@ -117,3 +117,16 @@ node "<plugin>/scripts/kb-control.mjs" cache-read "<workspace>" "<actual-agent-i
 Increase the offset from nextOffset as needed. Do not use arbitrary shell commands
 or read raw cache/trajectory files. Restore cached results on retry; changed evidence
 gaps justify a new query. Never submit content or poll jobs from the Agent.
+
+Before each KB query or record read, look for an exact task-scoped cache match:
+```sh
+node "<plugin>/scripts/kb-control.mjs" cache-query "<workspace>" "<actual-agent-id>" search_strategies '{"query":"<query>","filters":{"role":"worker"},"limit":3}'
+```
+Replace method/JSON with the intended authorized MCP request. `hit:true` contains
+a bounded result; use it without another MCP call. `hit:false` means call MCP with
+the same arguments. A cache error is an unavailable cache, not an empty KB result.
+Repeated MCP calls are allowed but may still contact the server. Use cache-read
+for further slices; never inspect raw cache files. Stage names above are suggested
+metadata filters, not an enum: omit `filters.stage` when unsure or for a broader
+search; an explicit descriptive stage is allowed. Role and active-task restrictions
+still apply; the actual execution phase isolates caches independently of the filter.

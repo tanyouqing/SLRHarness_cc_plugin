@@ -1,6 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import {createHash,randomUUID} from 'node:crypto';
+import {workspaceRoots} from './workspace-context.mjs';
 
 export const KB_SERVER='survey-kb';
 export const KB_PREFIX='mcp__survey-kb__';
@@ -63,14 +64,7 @@ export function runtime(root) {
   const f=kbPath(root,'runtime.json');return fs.existsSync(f)?json(f):{sessions:{},agents:{}};
 }
 export function rootsFor(input) {
-  const bases=[input.project_dir,process.env.CLAUDE_PROJECT_DIR,input.cwd].filter(Boolean).map(p=>path.resolve(p));
-  const roots=new Set();
-  for(const base of bases) {
-    if(fs.existsSync(path.join(base,'.slr/state.json')))roots.add(base);
-    const dir=path.join(base,'workspaces');
-    if(fs.existsSync(dir))for(const e of fs.readdirSync(dir,{withFileTypes:true}))if(e.isDirectory()&&!e.isSymbolicLink())roots.add(path.join(dir,e.name));
-  }
-  return [...roots];
+  return workspaceRoots(input);
 }
 export function resolveCaller(input) {
   const found=[];
@@ -101,6 +95,7 @@ export function scopeFor(caller) {
   } else if(role==='manager') {
     const topic=state.topics.find(t=>t.id===b.topicId);
     if(state.stage!=='researching'||!topic||topic.status==='completed')throw new Error('Manager KB access requires active topic');
+    if(state.revisionContext?.active&&!state.revisionContext.topicIds.includes(b.topicId))throw new Error('Manager topic is outside the current revision');
     task=b.topicId;stage=null;
   } else if(role==='scoper') {
     if(!['drafting_scope','awaiting_scope_approval'].includes(state.stage))throw new Error('Scoper KB access requires scoping stage');
@@ -120,8 +115,8 @@ export function cacheEntry(root,key) {
   if(!/^[a-f0-9]{64}$/.test(key))throw new Error('invalid cache key');
   return json(kbPath(root,`cache/${key}.json`));
 }
-export function sameScope(a,b) {return a.runId===b.runId&&a.role===b.role&&a.task===b.task;}
-export function authorize(input,{checkCache=true}={}) {
+export function sameScope(a,b) {return a.runId===b.runId&&a.role===b.role&&a.task===b.task&&a.stage===b.stage;}
+export function authorize(input) {
   const method=input.tool_name?.slice(KB_PREFIX.length);
   const caller=resolveCaller(input);if(!caller)throw new Error('Survey KB requires one verified runtime binding');
   caller.agentId=input.agent_id;const scope=scopeFor(caller),args=structuredClone(input.tool_input??{}),budget=config(caller.root).budgets;
@@ -143,10 +138,9 @@ export function authorize(input,{checkCache=true}={}) {
     args.filters??={};
     if(args.filters.role!==undefined&&args.filters.role!==scope.role)throw new Error('KB strategy role must match caller');
     args.filters.role=scope.role;
-    if(args.filters.stage!==undefined&&!KB_STAGES.includes(args.filters.stage))throw new Error('unknown pipeline KB stage');
-    if(scope.role==='manager'&&args.filters.stage!==undefined&&!['task_planning','paper_reading','topic_synthesis'].includes(args.filters.stage))throw new Error('KB stage is outside Manager responsibilities');
-    if(scope.stage&&args.filters.stage!==undefined&&args.filters.stage!==scope.stage)throw new Error('KB stage does not match current assignment');
-    args.filters.stage??=scope.stage??'task_planning';scope.stage=args.filters.stage;
+    // Stage is optional descriptive metadata, not a permission boundary. Keep
+    // scope.stage tied to the actual assignment and preserve an omitted filter.
+    if(args.filters.stage?.length>200)throw new Error('KB stage filter exceeds 200 characters');
     if(args.limit!==undefined&&(!Number.isInteger(args.limit)||args.limit<1||args.limit>budget.strategies))throw new Error('KB strategy search limit exceeds budget');
     args.limit??=budget.strategies;
   } else {
@@ -161,8 +155,7 @@ export function authorize(input,{checkCache=true}={}) {
     if(!hit)throw new Error('KB read must reference a result retrieved by this task and role');
   }
   const key=cacheKey(scope,method,args),f=kbPath(caller.root,`cache/${key}.json`);
-  if(checkCache&&fs.existsSync(f))throw new Error(`KB cached result: read ${kbPath(caller.root,`views/${key}.json`)}; use kb-control cache-read for further slices`);
-  return {...caller,scope,method,args,key};
+  return {...caller,scope,method,args,key,cached:fs.existsSync(f)};
 }
 export function decodeResult(value) {
   if(value?.isError)throw new Error('KB tool reported an error');
@@ -198,7 +191,7 @@ export function fitView(value,max) {
   if(size(value)>max)throw new Error('KB response metadata exceeds display budget');return value;
 }
 export function storeResponse(input) {
-  const a=authorize(input,{checkCache:false}),result=decodeResult(input.tool_response);
+  const a=authorize(input),result=decodeResult(input.tool_response);
   if(!result||typeof result!=='object')throw new Error('invalid KB response');
   if(a.method==='read'&&(result.id!==a.args.id||result.revision!==a.args.revision))throw new Error('KB returned a different entity/revision');
   if(a.method==='read'&&a.args.type==='experience'&&result.content?.role!==a.scope.role)throw new Error('KB returned experience for another role');
@@ -209,6 +202,14 @@ export function storeResponse(input) {
   const value=fitView({...view,cacheKey:a.key,cachePath:kbPath(a.root,`views/${a.key}.json`)},a.method==='read'?budgets.readChars:a.method==='search_papers'?budgets.paperChars:budgets.strategyChars);
   atomic(value.cachePath,value);
   atomic(kbPath(a.root,`cache/${a.key}.json`),cache);return value;
+}
+export function lookupCache(input) {
+  const a=authorize(input);if(!a.cached)return {hit:false};
+  const e=cacheEntry(a.root,a.key);
+  if(!sameScope(e.scope,a.scope)||e.method!==a.method)throw new Error('cached response scope mismatch');
+  const budget=config(a.root).budgets,view=displayResult(e.result,a.method,budget);
+  return fitView({...view,hit:true,cacheKey:a.key,cachePath:kbPath(a.root,`views/${a.key}.json`)},
+    a.method==='read'?budget.readChars:a.method==='search_papers'?budget.paperChars:budget.strategyChars);
 }
 export function normalizeExperience(e) {
   const out={};

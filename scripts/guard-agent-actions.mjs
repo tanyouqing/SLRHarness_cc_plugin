@@ -4,13 +4,18 @@ import {paperConfig,templateFor,officialURL} from './paper-config.mjs';
 import {managerRequest} from './manager-control.mjs';
 import {enabled} from './context-control.mjs';
 import {stageAccess} from './work-stages.mjs';
-import {KB_PREFIX,authorize as authorizeKb,resolveCaller as kbCaller,kbPath,cacheEntry,sameScope,scopeFor,rootsFor} from './kb-core.mjs';
-import {cacheRead as kbCacheRead} from './kb-control.mjs';
+import {KB_PREFIX,authorize as authorizeKb,resolveCaller as kbCaller,kbPath,cacheEntry,sameScope,scopeFor} from './kb-core.mjs';
+import {cacheRead as kbCacheRead,cacheQuery as kbCacheQuery} from './kb-control.mjs';
+import {resolveBinding} from './workspace-binding.mjs';
+import {inputPath} from './workspace-context.mjs';
+import {protectedSearch} from './protected-search.mjs';
+import {authorizeNativeTask} from './native-tasks.mjs';
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { loadState, mutate } from "./pipeline.mjs";
+import { mutate } from "./pipeline.mjs";
 const pipeline = path.join(path.dirname(fileURLToPath(import.meta.url)), "pipeline.mjs");
+const scholarly=JSON.parse(fs.readFileSync(path.join(path.dirname(pipeline),'../deploy/scholarly-mcp.json'),'utf8'));
 const roles = new Set(["slr-scoper", "slr-manager", "slr-worker", "slr-checker", "slr-reviewer", "slr-paper-writer"]);
 const writes = new Set(["Write", "Edit", "MultiEdit", "NotebookEdit"]);
 const deny = reason => ({allowed:false, reason});
@@ -29,34 +34,6 @@ function noLinks(root, file) {
     current=path.dirname(current);
   }
   return true;
-}
-function projectRoot(input) {
-  if(input.project_dir || process.env.CLAUDE_PROJECT_DIR) return path.resolve(input.project_dir ?? process.env.CLAUDE_PROJECT_DIR);
-  let p=path.resolve(input.cwd ?? process.cwd());
-  while(path.dirname(p)!==p) {
-    if(path.basename(path.dirname(p))==='workspaces') return path.dirname(path.dirname(p));
-    p=path.dirname(p);
-  }
-  return path.resolve(input.cwd ?? process.cwd());
-}
-function binding(input) {
-  if(!input.agent_id) return null;
-  const base=path.join(projectRoot(input),'workspaces');
-  if(!fs.existsSync(base)) return null;
-  const matches=[];
-  for(const item of fs.readdirSync(base,{withFileTypes:true})) {
-    if(!item.isDirectory() || item.isSymbolicLink()) continue;
-    const root=path.join(base,item.name);
-    try {
-      const state=loadState(root);
-        const sidecar=path.join(root,'.slr/paper-bindings.json');
-        const b=state.bindings?.[input.agent_id] ?? (fs.existsSync(sidecar)?JSON.parse(fs.readFileSync(sidecar,'utf8'))[input.agent_id]:null);
-      const reviewFile=path.join(root,'.slr/final-review.json');
-      const finalReview=fs.existsSync(reviewFile)?JSON.parse(fs.readFileSync(reviewFile,'utf8')):null;
-      if(b) matches.push({root,state,b,finalReview});
-    } catch { /* no valid binding in this workspace */ }
-  }
-  return matches.length===1?matches[0]:null;
 }
 function tokenize(command) {
   const tokens = [];
@@ -138,48 +115,58 @@ function evaluatePaperSearchShell(command) {
 
 
 export function evaluateHook(input) {
+  // Relative read/search paths are interpreted by the tool against its cwd.
+  if(['Read','Glob','Grep'].includes(input.tool_name)) {
+    input={...input,tool_input:{...input.tool_input}};
+    for(const key of ['file_path','path'])if(typeof input.tool_input[key]==='string')input.tool_input[key]=inputPath(input,input.tool_input[key]);
+  }
   const role=shortName(input?.agent_type);
-  // This branch precedes the scholarly-method allowlist and the main-session bypass.
+  // Survey KB retains its dedicated contract, separate from ordinary retrieval.
   if(input.tool_name?.startsWith(KB_PREFIX)) {
     try{const a=authorizeKb(input);if(a.role==='paper'&&!stageAccess(a.root,'paper',input.agent_id))throw new Error('writing evidence changed; refresh phase');return {...allow(),updatedInput:a.args};}catch(e){return deny(e.message);}
   }
   if(input.tool_name==='Bash'||input.tool_name==='PowerShell') {
     const command=input.tool_input?.command,tokens=typeof command==='string'&&!/[;&|`$<>\r\n]/.test(command)?tokenize(command):null;
-    if(tokens?.[0]==='node'&&path.resolve(tokens[1]??'')===path.join(path.dirname(pipeline),'kb-control.mjs')&&tokens[2]==='cache-read') {
+    if(tokens?.[0]==='node'&&inputPath(input,tokens[1]??'')===path.join(path.dirname(pipeline),'kb-control.mjs')&&['cache-read','cache-query'].includes(tokens[2])) {
       try {
         const c=kbCaller(input);
-        if(tokens.length!==8||!c||tokens[3]!==c.root||tokens[4]!==input.agent_id)throw new Error('KB cache helper requires exact runtime identity and workspace');
+        if(tokens.length!==(tokens[2]==='cache-read'?8:7)||!c||tokens[3]!==c.root||tokens[4]!==input.agent_id)throw new Error('KB cache helper requires exact runtime identity and workspace');
         if(c.role==='paper'&&!stageAccess(c.root,'paper',input.agent_id))throw new Error('writing evidence changed; refresh phase');
-        kbCacheRead(c.root,{...c,agentId:input.agent_id},tokens[5],Number(tokens[6]),Number(tokens[7]));return allow();
+        if(tokens[2]==='cache-read')kbCacheRead(c.root,{...c,agentId:input.agent_id},tokens[5],Number(tokens[6]),Number(tokens[7]));
+        else kbCacheQuery(c.root,{...c,agentId:input.agent_id},tokens[5],JSON.parse(tokens[6]));
+        return allow();
       }catch(e){return deny(e.message);}
     }
   }
   if(['Read','Glob','Grep'].includes(input.tool_name)) {
     const targets=[input.tool_input?.file_path,input.tool_input?.path].filter(Boolean);
     if(input.tool_name!=='Read') {
-      const target=path.resolve(input.tool_input?.path??input.cwd??'.');
-      for(const root of rootsFor(input))if(fs.existsSync(path.join(root,'.slr/kb'))&&within(target,path.join(root,'.slr/kb'))) {
-        const pattern=input.tool_input?.glob??input.tool_input?.pattern??'';
-        if(!(target===root&&/^(papers|topics|scope|paper)[\\/]/.test(pattern)))return deny('scope recursive reads to research folders; KB cache is role-scoped');
-      }
+      const reason=protectedSearch(input);if(reason)return deny(reason);
     }
-    for(const target of targets)if(/[\\/]\.slr[\\/]kb(?:[\\/]|$)/i.test(path.resolve(target))) {
+    for(const target of targets) {
+      let resolved=path.resolve(target);try{resolved=fs.realpathSync(resolved);}catch{}
+      if(!/[\\/]\.slr[\\/]kb(?:[\\/]|$)/i.test(resolved))continue;
       try {
         const c=kbCaller(input);if(!c||input.tool_name!=='Read')throw new Error('KB artifacts require a bounded role-scoped read');
+        if(c.role==='paper'&&!stageAccess(c.root,'paper',input.agent_id))throw new Error('writing evidence changed; refresh phase');
         const scope=scopeFor({...c,agentId:input.agent_id}),match=/[\\/]views[\\/]([a-f0-9]{64})\.json$/.exec(target);
-        if(!match||path.resolve(target)!==kbPath(c.root,`views/${match[1]}.json`)||!sameScope(cacheEntry(c.root,match[1]).scope,scope))throw new Error('KB raw cache and other tasks are not readable; use cache-read');
+        if(!match||resolved!==kbPath(c.root,`views/${match[1]}.json`)||path.resolve(target)!==resolved||!sameScope(cacheEntry(c.root,match[1]).scope,scope))throw new Error('KB raw cache and other tasks are not readable; use cache-read');
       }catch(e){return deny(e.message);}
     }
   }
   if(!roles.has(role)) return allow();
   const tool=input.tool_name, args=input.tool_input ?? {};
-  const bound=binding(input);
+  const bound=resolveBinding(input);
   if(typeof tool!=='string') return deny('missing tool name');
   // Native result transport must work even before READY binding, or when reporting
   // a paused/failed task. It grants no file, shell, retrieval or delegation access.
   // The runtime routes this tool to the receiving parent; it is not SendMessage.
   if(tool==='SubagentHandback') return typeof args.message==='string' && args.message.trim() && args.message.length<=8000
     ?allow():deny('handback requires a nonempty report message of at most 8000 characters; save detailed artifacts');
+  if(['TaskOutput','TaskStop'].includes(tool)) {
+    if(bound?.finalReview?.status==='paused'&&tool==='TaskOutput')return deny('final review is paused');
+    try{return {...allow(),updatedInput:authorizeNativeTask(input,bound)};}catch(e){return deny(e.message);}
+  }
   if(role==='slr-reviewer' && (!bound || bound.b.role!=='reviewer' || bound.finalReview?.status!=='awaiting_review'
     || bound.finalReview.submissions.at(-1)?.id!==bound.b.submissionId)) return deny('reviewer requires a current pending submission binding');
   if(role==='slr-reviewer' && enabled(bound.root)) {
@@ -206,9 +193,13 @@ export function evaluateHook(input) {
     }
   }
   if(tool.startsWith('mcp__')) {
-    const method=tool.split('__').at(-1);
-    return ['slr-worker','slr-scoper','slr-reviewer'].includes(role) && /^(search|search_papers|search_arxiv|arxiv_search|fetch|fetch_paper|read_paper|get_paper|paper_details)$/.test(method)
-      ?allow():deny('only explicit read-only scholarly retrieval MCP methods are permitted');
+    const parts=tool.split('__');
+    // Trust the configured retrieval service rather than enumerate its methods.
+    // This is a compatibility policy, not a proof of read-only tool semantics.
+    const words=(parts[2]??'').replace(/([a-z0-9])([A-Z])/g,'$1_$2').toLowerCase().split(/[^a-z0-9]+/);
+    const blocked=words.some(word=>scholarly.blockedOperations.includes(word));
+    return ['slr-worker','slr-scoper','slr-reviewer'].includes(role)&&parts.length===3&&parts[2]&&scholarly.services.includes(parts[1])&&!blocked
+      ?allow():deny(blocked?'explicit mutation/execution tool is outside scholarly retrieval':'retrieval service or role is not enabled; add the service once in deploy/scholarly-mcp.json');
   }
   if(!new Set(['Read','Glob','Grep','ToolSearch','Write','Edit','MultiEdit','NotebookEdit','Bash','PowerShell','Agent','SendMessage','Skill','WebSearch','WebFetch']).has(tool)) return deny('tool outside role contract');
   if(tool==='Agent') {

@@ -1,7 +1,7 @@
 ---
 name: slr-manager
 description: Plans subtopics, dispatches workers and synthesizes one approved topic chapter. Operates only within a runtime-bound topic, with main-session worker leases.
-tools: Read, Glob, Grep, Write, Edit, Agent, SendMessage, Bash, mcp__survey-kb__search_strategies, mcp__survey-kb__read
+tools: Read, Glob, Grep, Write, Edit, Agent, SendMessage, TaskOutput, TaskStop, Bash, mcp__survey-kb__search_strategies, mcp__survey-kb__read
 model: sonnet
 effort: high
 maxTurns: 60
@@ -49,7 +49,12 @@ Launch only your reserved Workers with INITIALIZE and SLR_LEASE=<lease-id>.
 Bind the actual returned Worker ID using bind-worker through the helper. Resume
 that Worker with the assignment and exact artifact paths. Use Agent resume when
 available, otherwise SendMessage only to your active bound Worker. Workers return
-to you. Stay alive while your children run, validate their files, recover a missing
+to you. If the host exposes TaskOutput/TaskStop for background Workers, use only
+the task ID returned by your own Agent launch. The lifecycle hook records ownership;
+never infer a task ID from text or stop another Manager's Worker. Prefer nonblocking
+TaskOutput; a bounded wait is at most 30 seconds. TaskStop does not itself release
+the pipeline lease: verify termination before finish/fail through manager-control.
+Stay alive while your children run, validate their files, recover a missing
 handoff at most once per batch, and record its result before completing your turn.
 In main-dispatch fallback, return only dispatch descriptors; you still own semantic
 acceptance of the returned Worker artifacts. Do not launch a recursive Claude CLI.
@@ -169,8 +174,22 @@ local IDs. Preserve these refs in reading assignments. KB content needs current-
 acceptance; do not require rereading already sufficient evidence merely because it
 came from KB. Use the same acceptance.json/accept-paper procedure for reused or
 supplemented notes. Acceptance freezes the accepted file fingerprint locally. A one-shot script uploads
-it only after the entire investigation succeeds and Claude exits.
+it only after the entire investigation succeeds, via the main-session Stop hook;
+the conversation may remain open.
 Do not copy full notes into main's context. Cached strategy views may be read within
 your task; for further slices use only:
 node "<plugin>/scripts/kb-control.mjs" cache-read "<workspace>" "<actual-agent-id>" "<cache-key>" 0 23700
 The guard verifies identity and scope. No other KB shell operation is authorized.
+
+Before each KB query or record read, look for an exact task-scoped cache match:
+```sh
+node "<plugin>/scripts/kb-control.mjs" cache-query "<workspace>" "<actual-agent-id>" search_strategies '{"query":"<query>","filters":{"role":"manager"},"limit":3}'
+```
+Replace method/JSON with the intended authorized MCP request. `hit:true` contains
+a bounded result; use it without another MCP call. `hit:false` means call MCP with
+the same arguments. A cache error is an unavailable cache, not an empty KB result.
+Repeated MCP calls are allowed but may still contact the server. Use cache-read
+for further slices; never inspect raw cache files. Stage names above are suggested
+metadata filters, not an enum: omit `filters.stage` when unsure or for a broader
+search; an explicit descriptive stage is allowed. Role and active-task restrictions
+still apply; the actual execution phase isolates caches independently of the filter.

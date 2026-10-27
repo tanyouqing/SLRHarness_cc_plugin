@@ -1,0 +1,4 @@
+{
+  "services": ["arxiv", "tavily", "scholar"],
+  "blockedOperations": ["delete", "remove", "purge", "drop", "write", "edit", "patch", "create", "update", "upload", "submit", "publish", "send", "execute", "exec", "install"]
+}

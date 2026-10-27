@@ -14,6 +14,13 @@ Load locally with `claude --plugin-dir <absolute-plugin-directory>`, or install 
 
 New workspaces use schema 2. Historical schema-1 workspaces retain status and completed-corpus paper delivery; research resume and incremental update are disabled. There is no automatic migration. Existing historical artifacts remain untouched.
 
+The [guard compatibility patch](docs/guard-compatibility-review.md)
+supports workspace-relative invocation, narrowly scoped file searches, optional
+strategy stage filters, normal cache lookup and owned background Worker tools.
+Trusted scholarly MCP services are listed in `deploy/scholarly-mcp.json`; their
+retrieval methods need no individual registration. Explicit mutation/execution
+operations remain restricted.
+
 ## Evidence and execution
 
 Main owns scope approval, global state, canonical identity/ownership, Git and compilation. Managers own topic plans, chapter.md and synthesis.md. Workers own assigned task logs and canonical paper metadata.json/note.md. Independent Checkers read chapter evidence and return issues. The final Reviewer may retrieve reference surveys and write only its assigned staged report draft; manuscript, evidence and state stay read-only and delegation is forbidden. Paper Agent writes main.tex, references.bib and its bounded writing-handoff.md in writing/repair stages; format checks retrieve selected official requirements and directly repair the same sources, without a format report. Runtime Agent IDs and task leases constrain writes through PreToolUse hooks; no global permission bypass is needed.

@@ -1,7 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import {fileURLToPath} from 'node:url';
-import {atomic,json,kbPath,safe,config,enabled,runtime,locked,cacheEntry,sameScope,scopeFor,chars,fitView} from './kb-core.mjs';
+import {atomic,json,kbPath,safe,config,enabled,runtime,locked,cacheEntry,sameScope,scopeFor,chars,fitView,lookupCache,KB_PREFIX} from './kb-core.mjs';
 import {canonicalKeys,loadState} from './pipeline.mjs';
 import {stages} from './work-stages.mjs';
 
@@ -30,6 +30,11 @@ export function cacheRead(root,caller,key,offset=0,limit=24000) {
   if(!Number.isInteger(offset)||offset<0||!Number.isInteger(limit)||limit<1||limit>config(root).budgets.readChars-300)throw new Error('invalid cache slice; limit at most 23700');
   const text=JSON.stringify(e.result,null,2),all=chars(text),body=all.slice(offset,offset+limit).join('');
   return fitView({cacheKey:key,offset,text:body,nextOffset:offset+chars(body).length,totalChars:all.length},config(root).budgets.readChars);
+}
+export function cacheQuery(root,caller,method,args) {
+  const types={worker:'slr-worker',manager:'slr-manager',scoper:'slr-scoper',paper:'slr-paper-writer'};
+  return lookupCache({cwd:root,project_dir:root,agent_id:caller.agentId,agent_type:types[caller.role],
+    session_id:caller.rt?.agents[caller.agentId]?.sessionId,tool_name:KB_PREFIX+method,tool_input:args});
 }
 export function validateImports(root,candidates,topicId,taskId) {
   const refs=[];
@@ -81,8 +86,9 @@ if(process.argv[1]&&path.resolve(process.argv[1])===fileURLToPath(import.meta.ur
     else if(action==='bind-scoper')result=bindScoper(root,args[0]);
     else if(action==='confirm-stopped')result=confirmStopped(root,args[0],args[1]);
     else if(action==='cache-read')result=cacheRead(root,callerForId(root,args[0]),args[1],Number(args[2]??0),Number(args[3]??23700));
+    else if(action==='cache-query')result=cacheQuery(root,callerForId(root,args[0]),args[1],JSON.parse(args[2]));
     else if(action==='status')result={config:config(root),imports:fs.existsSync(kbPath(root,'imports.json'))?Object.keys(json(kbPath(root,'imports.json'))).length:0};
-    else throw new Error('use attach, bind-scoper, cache-read, confirm-stopped or status');
+    else throw new Error('use attach, bind-scoper, cache-query, cache-read, confirm-stopped or status');
     console.log(JSON.stringify(result));
   }catch(e){console.error(e.message);process.exitCode=1;}
 }

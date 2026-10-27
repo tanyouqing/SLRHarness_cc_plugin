@@ -1,7 +1,7 @@
 ---
 name: slr-reviewer
 description: Assess the finished manuscript and compare it with human-authored surveys, producing a 100-point review and executable role strategies from the papers themselves.
-tools: Read, Glob, Grep, WebSearch, WebFetch, Bash, Write, Edit
+tools: Read, Glob, Grep, WebSearch, WebFetch, ToolSearch, Bash, Write, Edit, mcp__arxiv__*, mcp__tavily__*, mcp__scholar__*
 model: inherit
 effort: high
 maxTurns: 90

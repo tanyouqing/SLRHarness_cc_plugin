@@ -49,7 +49,8 @@ test('KB roles, exact server, active bindings, type and own strategy role are en
   assert.equal(evaluateHook({...f.input('search_papers'),agent_id:undefined,agent_type:undefined}).allowed,false);
   for(const m of ['submit_paper','submit_experience','submit_trajectory','get_job'])assert.equal(evaluateHook(f.input(m)).allowed,false);
   assert.equal(evaluateHook(f.input('read',{type:'trajectory',id:rid})).allowed,false);
-  assert.equal(evaluateHook({...f.input('search_papers'),tool_name:'mcp__academic__search_papers'}).allowed,true);
+  assert.equal(evaluateHook({...f.input('search_papers'),tool_name:'mcp__academic__search_papers'}).allowed,false);
+  assert.equal(evaluateHook({...f.input('search_papers'),tool_name:'mcp__arxiv__search_papers'}).allowed,true);
   const s=json(path.join(f.root,'.slr/state.json'));s.leases.lease.active=false;atomic(path.join(f.root,'.slr/state.json'),s);
   assert.equal(evaluateHook(f.input('search_papers')).allowed,false);
 });
@@ -74,7 +75,7 @@ test('Unicode response budgets retain limitations, raw content and explicit cont
   const response=hook({...f.input('search_strategies',{query:'x'}),hook_event_name:'PostToolUse',tool_response:{structuredContent:{results:rows.slice(0,3)}}});
   const value=response.hookSpecificOutput.updatedMCPToolOutput.structuredContent;
   assert.equal(json(kbPath(f.root,`cache/${value.cacheKey}.json`)).result.results[0].snippet,rows[0].snippet);
-  assert.equal(evaluateHook(f.input('search_strategies',{query:'x'})).allowed,false);
+  assert.equal(evaluateHook(f.input('search_strategies',{query:'x'})).allowed,true);
 });
 test('failed or wrong-role MCP responses never become empty cached searches',t=>{
   const f=setup(t),i={...f.input('search_strategies',{query:'x'}),hook_event_name:'PostToolUse'};
@@ -213,7 +214,11 @@ test('accepted content freezes separately from later edits; Paper retrieval need
   atomic(path.join(root,'.slr/work-stages.json'),{writers:[{id:'w',evidenceHash:writerEvidence(root),active:{agentId:'p',phaseId:'outline'}}],reviews:{}});
   const input={project_dir:project,agent_id:'p',agent_type:'slr-paper-writer',tool_name:'mcp__survey-kb__search_strategies',tool_input:{query:'outline'}};
   assert.equal(evaluateHook(input).allowed,true);
+  const cached=storeResponse({...input,tool_response:{results:[]}});
+  const cachedRead={...input,tool_name:'Read',tool_input:{file_path:cached.cachePath}};
+  assert.equal(evaluateHook(cachedRead).allowed,true);
   fs.appendFileSync(path.join(root,`papers/${p.id}/note.md`),'changed');freezeAccepted(root,p);
   assert.equal(items(root).length,1);assert.equal(items(root)[0].payload.note,original);
   assert.equal(evaluateHook(input).allowed,false);
+  assert.equal(evaluateHook(cachedRead).allowed,false);
 });

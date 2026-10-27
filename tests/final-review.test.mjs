@@ -134,7 +134,8 @@ test('tool pause preserves repair budget and blocks writes until recovery',t=>{
 test('Reviewer can retrieve only when bound, never write/delegate or run arbitrary shell',t=>{
   const {root,project}=setup(t);control(root,'submit');control(root,'bind',{agentId:'r'});
   const hook=(tool,args={},id='r')=>evaluateHook({project_dir:project,agent_type:'slr-harness:slr-reviewer',agent_id:id,tool_name:tool,tool_input:args}).allowed;
-  for(const tool of ['WebSearch','WebFetch','mcp__papers__search_papers'])assert.equal(hook(tool),true,tool);
+  for(const tool of ['WebSearch','WebFetch','mcp__arxiv__search_papers','mcp__tavily__tavily_search'])assert.equal(hook(tool),true,tool);
+  assert.equal(hook('mcp__papers__search_papers'),false,'unregistered service cannot inherit scholarly permissions');
   assert.equal(hook('Bash',{command:'paper-search sources'}),true);
   for(const tool of ['Write','Edit','Agent','Skill','mcp__papers__delete'])assert.equal(hook(tool,{file_path:path.join(root,'paper/main.tex')}),false,tool);
   assert.equal(hook('Bash',{command:'node scripts/final-review.mjs record x'}),false);
