@@ -153,3 +153,10 @@ role, executionSummary and strategy; optional stage, task and applicability may 
 role is exactly paper/manager/scoper/worker. The shared format accepts review or
 trajectory origins; Reviewer emits only review. Empty arrays are valid. No Markdown
 advice file or trajectory extractor is produced by the current review workflow.
+
+
+Upload recovery now handles trajectory sources independently. Unclassified,
+unbound observations without transcripts are recorded as skipped; missing required
+research transcripts remain visible without blocking paper/review uploads. Existing
+incomplete Stop batches recover through `kb-sync resume` with original boundaries,
+submission hashes and job IDs preserved. See the [upgrade and recovery manual](docs/survey-kb-deployment.zh-CN.md#2026-10-28-上传恢复修正已有-incomplete-批次).

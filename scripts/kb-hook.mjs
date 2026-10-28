@@ -7,6 +7,7 @@ import {KB_PREFIX,atomic,json,sha,safe,kbPath,enabled,config,locked,warning,runt
 import {scheduleStop} from './kb-stop.mjs';
 import {sessionProject} from './workspace-context.mjs';
 import {observeNativeTasks} from './native-tasks.mjs';
+import {nativeRoles,researchBindings,membership} from './kb-membership.mjs';
 
 const mainFile=input=>safe(sessionProject(input),`.slr-kb-sessions/${sha(String(input.session_id))}.json`);
 export function noteSession(input) {
@@ -65,10 +66,13 @@ export function lifecycle(input) {
     const stopped=scheduleStop(root,input);if(stopped.batchId)return;
   }
   let rt=runtime(root),agent=input.agent_id;
-  const type=String(input.agent_type??'').split(':').at(-1),roles={'slr-worker':'worker','slr-manager':'manager','slr-scoper':'scoper','slr-paper-writer':'paper','slr-checker':'checker','slr-reviewer':'reviewer'};
+  const type=String(input.agent_type??'').split(':').at(-1),bindings=researchBindings(root);
   if(agent)locked(root,'runtime',()=>{
     rt=runtime(root);const a=rt.agents[agent]??{};
-    rt.agents[agent]={...a,role:roles[type]??'other',sessionId:input.session_id,active:input.hook_event_name!=='SubagentStop',
+    const role=membership(agent,{...a,role:nativeRoles[type]??a.role},bindings).role;
+    rt.agents[agent]={...a,role,sessionId:input.session_id??a.sessionId,
+      active:input.hook_event_name==='SubagentStop'?false:input.hook_event_name==='SubagentStart'?true:a.active??true,
+      ...(type?{nativeType:type}:{}),lastEvent:input.hook_event_name,
       ...(input.agent_transcript_path?{transcript:path.resolve(input.agent_transcript_path)}:{}),lastSeen:Date.now()};
     atomic(kbPath(root,'runtime.json'),rt);
   });
@@ -84,7 +88,7 @@ export function lifecycle(input) {
         a.parentAgentId=a.role==='worker'&&parents.length===1?parents[0][0]:null;
         a.parentSessionId=input.session_id;atomic(kbPath(root,'runtime.json'),fresh);
       });
-      if(!rt.finishRequested?.batchId)capture(root,{file:subfile,agentId:agent,sessionId:input.session_id,role:roles[type]??'other',task:runtime(root).agents[agent].task});
+      if(!rt.finishRequested?.batchId)capture(root,{file:subfile,agentId:agent,sessionId:input.session_id,role:runtime(root).agents[agent].role,task:runtime(root).agents[agent].task});
     }
     if(!agent&&rt.sessions[input.session_id]) {
       const session=runtime(root).sessions[input.session_id];

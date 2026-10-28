@@ -11,12 +11,14 @@ import {stages,writerReady} from './work-stages.mjs';
 import {saveImports} from './kb-control.mjs';
 import {capture,locateNative} from './kb-trajectory.mjs';
 import {batchFile,freezeStopBatch} from './kb-boundary.mjs';
+import {researchBindings,membership} from './kb-membership.mjs';
 
 export function success(root) {
   const s=loadState(root),work=stages(root),rt=runtime(root);
   if(!['completed','completed_with_limitations'].includes(s.stage)||s.roundOpen||s.revisionContext?.active||Object.values(s.leases).some(l=>l.active))return false;
   if(work.writers.some(w=>w.active)||Object.values(work.reviews).some(r=>r.active)||work.format?.active)return false;
-  if(Object.values(rt.agents).some(a=>a.active)||!writerReady(root))return false;
+  const bindings=researchBindings(root);
+  if(Object.entries(rt.agents).some(([id,a])=>a.active&&membership(id,a,bindings).required)||!writerReady(root))return false;
   return finalReviewStatus(root).complete===true;
 }
 export function uploadReady(root) {
@@ -34,8 +36,8 @@ export function reconcile(root,{isSuccess=success}={}) {
     if(!rt.finishRequested||!isSuccess(root))return {notReady:true,warnings:[]};
     const control=json(safe(root,'.slr/final-review.json')),last=control.submissions.at(-1);
     if(rt.finishRequested.fingerprint!==last.fingerprint)return {staleFinish:true,warnings:[]};
-    if(rt.finishRequested.batchId&&!json(batchFile(root,rt.finishRequested.batchId)).frozen)return {notReady:true,warnings:['Stop boundary not frozen']};
-    const s=loadState(root),warnings=[];
+    const batch=rt.finishRequested.batchId?json(batchFile(root,rt.finishRequested.batchId)):null;
+    const s=loadState(root),warnings=(batch?.errors??[]).map(e=>`trajectory ${e.agentId??'main'}: ${e.reason}`);
     for(const receipt of Object.values(s.managerRequests??{}))try{saveImports(root,receipt.kbImports??[],s);}catch(e){warning(root,'imports',e);}
     for(const p of Object.values(s.papers))if(p.status==='final')try {
       enqueue(root,'submit_paper',paperPayload(root,p),{kind:'paper',localId:p.id,fingerprint:p.fingerprint});
@@ -57,14 +59,17 @@ export function reconcile(root,{isSuccess=success}={}) {
     }catch(e){warning(root,'final-experiences',e);warnings.push('final-experiences');}
     const manifestFile=kbPath(root,'trajectories.json'),manifest=fs.existsSync(manifestFile)?json(manifestFile):{files:{}};
     for(const [key,t] of Object.entries(manifest.files))try {
+      // A partial batch publishes only independently frozen, verified archives.
+      if(batch&&(t.batchId!==rt.finishRequested.batchId||(Array.isArray(batch.frozenSourceKeys)?!batch.frozenSourceKeys.includes(key):!batch.frozen)))continue;
       if(t.error||t.pendingBytes)throw new Error(t.error??'trajectory has an incomplete final line; original retained');
       const content=fs.readFileSync(kbPath(root,t.archive),'utf8');
       if(!content.trim())continue;
       if(sha(content)!==t.hash)throw new Error('trajectory archive hash changed');
       enqueue(root,'submit_trajectory',{content},{kind:'trajectory',archive:t.archive,trajectoryKey:key,hash:t.hash});
     }catch(e){warning(root,`trajectory:${key}`,e);warnings.push(key);}
-    if(!warnings.length)atomic(kbPath(root,'sealed.json'),{fingerprint:last.fingerprint,batchId:rt.finishRequested.batchId??null,at:Date.now()});
-    return {sealed:!warnings.length,warnings};
+    const sealed=!warnings.length&&(!batch||batch.frozen);
+    if(sealed)atomic(kbPath(root,'sealed.json'),{fingerprint:last.fingerprint,batchId:rt.finishRequested.batchId??null,at:Date.now()});
+    return {sealed,warnings};
   });
 }
 export function items(root) {
@@ -155,7 +160,9 @@ export function summary(root) {
   const file=kbPath(root,'last-sync.json'),last=fs.existsSync(file)?json(file):null;
   const id=runtime(root).finishRequested?.batchId,batch=id?json(batchFile(root,id)):null;
   return {enabled:enabled(root),readyForUpload:uploadReady(root),counts,records:'.slr/kb/outbox/',warningsPath:'.slr/kb/warnings/',
-    automatic:batch?{batchId:id,status:batch.status,frozen:batch.frozen,log:`.slr/kb/batches/${id}.log`}:null,
+    automatic:batch?{batchId:id,status:batch.status,frozen:batch.frozen,
+      trajectories:{frozen:batch.frozenSourceKeys?.length??(batch.frozen?batch.sources.length:0),errors:batch.errors?.length??0,skipped:batch.skipped?.length??0},
+      log:`.slr/kb/batches/${id}.log`}:null,
     lastRun:last?{status:last.status,reason:last.reason,finishedAt:last.finishedAt}:null};
 }
 export function projectRoots(project) {
@@ -169,12 +176,10 @@ async function drainOnce(root,{transport,retryFailed=false,maxWaitMs=1800000,clo
   if(!isReady(root))return {status:'not_ready',reason:'current successful final review and normal Stop handoff required',...summary(root)};
   const startedAt=clock(),deadline=startedAt+maxWaitMs;
   const batchId=runtime(root).finishRequested?.batchId;
+  let boundaryWarnings=[];
   if(batchId) {
-    const frozen=await freezeStopBatch(root,batchId,{clock,sleep,waitMs:Math.min(30000,maxWaitMs)});
-    if(!frozen.frozen) {
-      const result={status:'incomplete',reason:'Stop boundary could not be frozen',warnings:frozen.warnings,startedAt,finishedAt:clock(),...summary(root)};
-      atomic(kbPath(root,'last-sync.json'),result);return result;
-    }
+    try {const frozen=await freezeStopBatch(root,batchId,{clock,sleep,waitMs:Math.min(30000,maxWaitMs/4)});boundaryWarnings=frozen.warnings??[];}
+    catch(e){boundaryWarnings=[`Trajectory preparation failed: ${e.message}`];}
     if(!isReady(root))return {status:'not_ready',...summary(root)};
   }
   const prepared=prepare(root);
@@ -205,7 +210,7 @@ async function drainOnce(root,{transport,retryFailed=false,maxWaitMs=1800000,clo
       await sleep(Math.min(15000,Math.max(1,wake-now),Math.max(1,deadline-now)));
     }
   }
-  const state=summary(root),all=items(root),warnings=prepared.warnings??[];
+  const state=summary(root),all=items(root),warnings=[...new Set([...boundaryWarnings,...(prepared.warnings??[])])];
   const status=reason==='not_ready'?'not_ready':reason?'pending':all.some(x=>x.status==='failed')?'failed':
     all.some(x=>x.status!=='succeeded')?'pending':warnings.length?'incomplete':'complete';
   const result={status,reason,warnings,startedAt,finishedAt:clock(),...state};

@@ -4,11 +4,11 @@
 
 ## 触发与执行
 
-1. 主会话 Stop：必须绑定当前运行，KB 开启，当前最终审稿及稿件/证据有效，无活动研究、写作、审稿或子 Agent；Claude 输入中的 background_tasks 和 session_crons 必须明确存在且为空。缺失时保守跳过。
+1. 主会话 Stop：必须绑定当前运行，KB 开启，当前最终审稿及稿件/证据有效，无活动研究、写作、审稿或已确认属于研究流程的子 Agent；Claude 输入中的 background_tasks 和 session_crons 必须明确存在且为空。缺失时保守跳过。
 2. 使用运行 ID、最终审稿 ID、成果指纹生成批次 ID，先持久化 batches/<id>.json 与成功收尾记录。
-3. 原生轨迹在 Stop 时记录来源、起始行/字节、前缀哈希和截止边界。当前主轨迹需要匹配 last_assistant_message；尚未完整落盘时最多等待 30 秒。下一条用户消息先出现、前缀被改写或无法证明边界时，记录 incomplete，不上传、不补造事件。
+3. 原生轨迹在 Stop 时记录来源、起始行/字节、前缀哈希和截止边界。当前主轨迹需要匹配 last_assistant_message；尚未完整落盘时最多等待 30 秒。下一条用户消息先出现、前缀被改写或无法证明边界时，仅该轨迹保留 incomplete，不上传该轨迹、不补造事件；论文、最终审稿经验及其他已冻结轨迹继续同步。
 4. Hook 通过当前 Node 可执行文件启动独立子进程，固定参数、detached、无 shell，stdin 关闭，stdout/stderr 写入权限 600 的批次日志。Hook 只负责本地登记与启动，不等待网络、不阻塞交付、不要求退出 Claude。
-5. 子进程冻结准确范围的轨迹副本，再复用单次同步逻辑，串行处理论文、最终审稿经验与轨迹。默认最多跟踪 30 分钟，无工作或到达上限即退出，无常驻服务、定时重启或模型唤醒。
+5. 子进程逐条冻结可证明范围的轨迹副本，再复用单次同步逻辑，串行处理论文、最终审稿经验与有效轨迹。单条轨迹缺失不阻塞整批材料。默认最多跟踪 30 分钟，无工作或到达上限即退出，无常驻服务、定时重启或模型唤醒。
 
 ## 防重复与恢复
 
@@ -34,3 +34,17 @@
 本机只使用临时工作区、模拟 Hook、时钟、进程启动和 MCP 响应。服务器只更新现有代码与配置并执行静态校验，不调用真实 Agent、Embedding 或 MCP 工具，不运行上传脚本，不改知识库数据。
 
 真实验收由用户完成：直接加载插件启动 Claude，在会话不退出时完成一个新调研；检查自动批次及后续聊天隔离，重复 Stop 不重复启动，手动恢复不会重发已成功项。官方依据：[Stop](https://code.claude.com/docs/en/hooks#stop)、[启动后台进程的 Hook](https://code.claude.com/docs/en/hooks#hooks-that-start-a-background-process)。
+
+## 2026-10-28：来源归属、部分冻结与旧批次恢复
+
+经验 role 四选一只约束建议适用者。轨迹来源保留 worker、manager、scoper、paper、checker、reviewer、main，也可包含有实际轨迹的未分类观察，不套用经验枚举。
+
+- pipeline 的 state/paper binding 优先证明角色归属；已经识别的研究角色也属于必须跟踪的来源。缺少 agent_type 的后续 Hook 保留已识别角色，普通工具事件不会重新激活已经停止的 Agent。
+- 未分类且没有研究绑定的观察不阻止整体成功。宿主的 background_tasks/session_crons 仍必须明确为空；真实活动任务不会仅因为 role=other 被放行。不使用按时间自动判死的清理器，不伪造 SubagentStop。
+- 未分类记录有真实轨迹时可收集；没有轨迹时记入 skipped。已绑定或已识别的研究角色缺轨迹时保留 errors，不能一律忽略 other 或一律忽略缺文件。
+- 每个来源独立验证原始前缀、完整 JSONL 行和 Stop 截止范围。已冻结副本在后续恢复中按归档哈希验证，不因原始文件继续增长或被清理而重新截取。半行延迟仍受原始截止规则约束，不能混入下一轮聊天。
+- 批次保留 captureErrors（最初采集错误）、errors（当前必需来源错误）、skipped（跳过原因）和 frozenSourceKeys（可上传归档）。恢复旧版 incomplete 批次时保留原错误，不要求手动删除 18 条错误或重置批次状态。
+- 必需轨迹有缺失时，同步结果仍是 incomplete，但论文、最终审稿经验和有效轨迹可以各自 succeeded；status 的 automatic.trajectories 区分 frozen/errors/skipped 数量。frozen=true 表示全部必需来源已处理，skipped 不被伪装成轨迹。
+- 初始 Stop 时完全缺少文件且没有可证明的截止边界，保持缺失，不在恢复时截取当前整份文件冒充原轨迹。已有边界的延迟落盘、暂时读写失败等可由 once/resume 重试。成功项及原 job ID 继续沿用。
+
+运行期间锁竞争仍单独记录；收尾从原始文件及已保存边界恢复，不把某次 capture 失败直接等同于数据丢失。无法验证的来源继续报告错误。

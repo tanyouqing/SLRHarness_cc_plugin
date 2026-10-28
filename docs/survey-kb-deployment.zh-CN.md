@@ -169,7 +169,7 @@ claude --plugin-dir "$PLUGIN_DIR"
 /slr-harness:review 检索增强生成中的证据选择方法，做一次小型调研，这次不需要 survey kb。
 ```
 
-正常回复结束触发 Stop。仅当当前最终审稿通过、稿件与证据有效、所有任务与子 Agent 结束，并且原生 background_tasks/session_crons 明确为空时，才登记并启动同步：
+正常回复结束触发 Stop。仅当当前最终审稿通过、稿件与证据有效、所有任务与已确认属于研究流程的子 Agent 结束，并且原生 background_tasks/session_crons 明确为空时，才登记并启动同步：
 
 - 本次批次由运行 ID、审稿 ID、成果指纹确定，同一批次只自动启动一次。
 - Hook 只做本地登记和启动，不在 Hook 内等待网络。
@@ -261,3 +261,31 @@ node "$PLUGIN_DIR/scripts/kb-control.mjs" confirm-stopped "$WORKSPACE" '<实际a
 升级前结束活动调研、等同步结束，再重复第 2～3 节。加载新插件后新建调研验收；不迁移旧任务。知识库不需要重新部署。
 
 离线测试证据见 [Sprint2-B 验证记录](sprint2-b-validation.md)。真实 Stop/原生轨迹格式、独立进程生命周期、MCP 和模型联调均待用户验收；本轮服务器静态校验不能替代这些验证。
+
+## 2026-10-28 上传恢复修正：已有 incomplete 批次
+
+本次只更新 pipeline 代码，不重新部署知识库、不迁移数据库、不自动补传。按第 1～3 节更新 Git、检查 Node 环境并执行静态校验即可；本轮无依赖变更，不需要重新安装模型或重启 KB 容器。新会话加载更新后的插件；恢复已有上传使用更新后的脚本。
+
+`readyForUpload:true` 表示整体成功及 Stop 收尾条件满足，不表示所有轨迹都完整。现在每条轨迹独立冻结，缺失项不会阻止论文和最终审稿经验入库。查看 `counts`、`automatic.trajectories` 和 `lastRun`：必需轨迹缺失时总体仍为 incomplete，但其他条目可以已经 succeeded。未分类且没有研究绑定、没有轨迹的观察会记录为 skipped，保留原因。
+
+针对 `agent-context-compression-2026` 的旧批次，以下第一条只读；第二条会实际上传、启动知识库后台处理并可能调用模型，应由用户准备好后执行：
+
+```bash
+cd /root/JiahaoCAO/SLRHarness_cc_plugin
+source "$HOME/.config/survey-kb/env.sh"
+WORKSPACE="$PWD/workspaces/agent-context-compression-2026"
+node scripts/kb-sync.mjs status "$WORKSPACE"
+```
+
+确认要补传后运行：
+
+```bash
+node scripts/kb-sync.mjs resume "$WORKSPACE"
+node scripts/kb-sync.mjs status "$WORKSPACE"
+```
+
+不需要手工删除 batch.errors、修改 frozen/status 或再次 confirm-stopped 那 18 条未分类记录。脚本在本次恢复中保留原始 captureErrors，将没有研究归属的缺失记录写入 skipped，验证其他来源原有 Stop 边界；不会重新采集后续聊天。已成功项跳过，已有 job 只查原任务。
+
+预期：原批次仍使用同一个 ID；18 条观察记录为 skipped，58 个来源是否成功以当前文件及边界校验为准；论文、最终经验和轨迹分别显示提交结果。若仍有必需来源错误，保留 incomplete 并查看批次 JSON/log 中 errors；不要把错误数组整体清空。未冻结轨迹不生成伪造内容。
+
+发生认证/网络错误时修复配置后再 resume；服务端 job 失败按原知识库运维流程恢复原 job。本轮修正保留请求重试上限、单进程租约、内容哈希幂等与成功成果指纹检查。
