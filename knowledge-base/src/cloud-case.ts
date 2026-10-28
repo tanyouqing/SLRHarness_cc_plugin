@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import {readFile} from 'node:fs/promises';
 import {connectClient,call,waitJob} from './client.js';
+import {fixtureTrajectory} from './fixture-trajectory.js';
 const [mode,id,desired]=process.argv.slice(2),client=await connectClient();
 try {
   if(mode==='submit-paper') {
@@ -9,7 +10,7 @@ try {
     console.log(JSON.stringify(await call(client,'submit_paper',fixture)));
   } else if(mode==='submit-trajectory') {
     const content=(await readFile('examples/trajectory.jsonl','utf8')).trimEnd()+`\n${JSON.stringify({type:'fault_fixture',at:Date.now()})}`;
-    console.log(JSON.stringify(await call(client,'submit_trajectory',{content})));
+    console.log(JSON.stringify(await call(client,'submit_trajectory',fixtureTrajectory(content,`fault-${Date.now()}`))));
   } else if(mode==='await-state') {
     if(desired==='succeeded')console.log(JSON.stringify(await waitJob(client,id)));
     else {

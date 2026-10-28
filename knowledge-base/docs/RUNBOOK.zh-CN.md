@@ -1,3 +1,5 @@
+> 已部署用户本轮升级请用 [角色约束与数据清理手册](../../docs/distillation-role-upgrade.zh-CN.md)。仅 content 的轨迹可保存但不自动蒸馏；需要明确且一致的四类执行角色元信息。
+
 当前已有部署升级请先阅读 [Git 升级手册](../../docs/trajectory-git-upgrade.zh-CN.md)。本手册以下从零部署与历史故障记录继续保留。
 
 # Ubuntu 22.04.4 LTS：从零部署、使用与验收
@@ -227,11 +229,10 @@ docker compose --profile tools run --rm client get_job '{"job_id":"YOUR_JOB_UUID
 成功结果包含最终 ids。把轨迹 JSONL 包装为工具参数：
 
 ```bash
-jq -Rs '{content:.}' examples/trajectory.jsonl > examples/trajectory-request.json
-docker compose --profile tools run --rm client submit_trajectory @examples/trajectory-request.json
+docker compose --profile tools run --rm --entrypoint node client dist/cloud-case.js submit-trajectory
 ```
 
-预期返回 stored、轨迹 ID 和自动创建的蒸馏任务 ID；用 wait 等待策略处理。再次提交相同轨迹应返回相同 ID 和任务，状态为 duplicate。
+该合成示例明确提供 Worker 来源元信息并包装原始行号，预期返回 stored、轨迹 ID 和自动创建的蒸馏任务 ID；用 wait 等待策略处理。再次提交相同轨迹应返回相同 ID 和任务，状态为 duplicate。
 
 检索和读取：
 

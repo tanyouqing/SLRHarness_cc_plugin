@@ -3,6 +3,18 @@ import { pool, transaction, type DB } from './db.js';
 import { config } from './config.js';
 import { canonical, hash, validateTrajectory, keywords, normalizeDoi, normalizeArxiv, fuse, type Kind, type Payload, type Source, type Paper, type Experience, type Decision } from './domain.js';
 import { queryVector, vectorSql, type Prepared } from './embedding.js';
+import { sourceRole, assertExperienceRole } from './roles.js';
+
+export async function validateExperienceRole(db: DB, content: Payload, sources: Source[]) {
+  if (!('sourceType' in content) || content.sourceType === 'review') return;
+  if (!sources.length) throw new Error('trajectory experience requires sources');
+  for (const id of [...new Set(sources.map(s => s.id))].sort()) {
+    const row = (await db.query('SELECT id,distillation_blocked_reason FROM trajectories WHERE id=$1 FOR SHARE',[id])).rows[0];
+    if (!row) throw new Error('trajectory source unavailable');
+    const origins = (await db.query('SELECT metadata FROM trajectory_origins WHERE trajectory_id=$1',[id])).rows.map(r => r.metadata);
+    assertExperienceRole(content,sourceRole(origins));
+  }
+}
 
 export async function validateSources(db: DB, sources: Source[]) {
   for (const source of sources) {
@@ -24,6 +36,7 @@ export async function submit(kind: Kind, content: Payload, sources: Source[] = [
   return transaction(async db => {
     await db.query('SELECT pg_advisory_xact_lock(hashtext($1))', [`${kind}:${fingerprint}`]);
     await validateSources(db, sources);
+    await validateExperienceRole(db, content, sources);
     const existing = (await db.query('SELECT * FROM ingestions WHERE kind=$1 AND content_hash=$2', [kind,fingerprint])).rows[0];
     if (existing) {
       if (existing.entity_id) {
@@ -57,7 +70,12 @@ async function persistTrajectory(db:DB,content:string,metadata?:TrajectoryMetada
   let row=(await db.query('SELECT id FROM trajectories WHERE content_hash=$1',[fingerprint])).rows[0];
   const duplicate=Boolean(row);
   if(!row)row=(await db.query('INSERT INTO trajectories(content,content_hash,line_count) VALUES($1,$2,$3) RETURNING id',[content,fingerprint,lines.length])).rows[0];
+  const locked=(await db.query('SELECT id,distillation_blocked_reason FROM trajectories WHERE id=$1 FOR UPDATE',[row.id])).rows[0];
   if(metadata)await db.query('INSERT INTO trajectory_origins(trajectory_id,metadata_hash,metadata) VALUES($1,$2,$3) ON CONFLICT DO NOTHING',[row.id,hash(metadata),JSON.stringify(metadata)]);
+  let reason=locked.distillation_blocked_reason;
+  if(!reason)try {sourceRole((await db.query('SELECT metadata FROM trajectory_origins WHERE trajectory_id=$1',[row.id])).rows.map(r=>r.metadata));}
+  catch(error){reason=(error as Error).message;}
+  if(reason)return {status:duplicate?'duplicate':'stored',id:row.id,job_id:null,distillation:'skipped',reason};
   let job=(await db.query("SELECT id FROM jobs WHERE kind='distill' AND payload->>'trajectory_id'=$1",[row.id])).rows[0];
   if(!job)job=(await db.query("INSERT INTO jobs(kind,payload) VALUES('distill',$1) RETURNING id",[JSON.stringify({trajectory_id:row.id})])).rows[0];
   return {status:duplicate?'duplicate':'stored',id:row.id,job_id:job.id};
@@ -105,7 +123,8 @@ export async function getJob(id: string) {
   const row = (await pool.query('SELECT id,kind,status,attempts,result,error,created_at,updated_at,checkpoint FROM jobs WHERE id=$1',[id])).rows[0];
   if (!row) throw new Error('job not found');
   const checkpoint=row.checkpoint;delete row.checkpoint;
-  return {...row,...(row.kind==='distill'?{progress:{completed_segments:checkpoint?.next??0,total_segments:checkpoint?.total??null,waiting_for_children:Array.isArray(checkpoint?.children),candidate_count:checkpoint?.candidates?.length??0}}:{})};
+  const phase=checkpoint?.phase??(Array.isArray(checkpoint?.children)?'waiting':'segments');
+  return {...row,...(row.kind==='distill'?{progress:{phase,completed_segments:checkpoint?.next??0,total_segments:checkpoint?.total??null,waiting_for_children:phase==='waiting',candidate_count:checkpoint?.candidates?.length??0,consolidated_count:checkpoint?.finalCandidates?.length??null,strategy_count:row.result?.ids?.length??null}}:{})};
 }
 export async function search(kind: Kind, query: string, filters: Record<string,unknown> = {}, limit=10) {
   const vector = await queryVector(query);
@@ -137,11 +156,24 @@ export async function search(kind: Kind, query: string, filters: Record<string,u
     ...(kind === 'paper' ? {metadata:row.content.metadata} : {task:row.content.task,role:row.content.role,stage:row.content.stage,applicability:row.content.applicability,sources:await sourcesFor(row.entity_id)}),
   })));
 }
-export async function candidates(kind: Kind, content: Payload) {
+export async function candidates(kind: Kind, content: Payload, sources: Source[] = []) {
   const query = kind === 'paper' ? (content as Paper).metadata.title : [(content as Experience).task,(content as Experience).strategy].filter(v=>v!==undefined).join('\n');
-  const filters = kind === 'experience' ? {role:(content as Experience).role,stage:(content as Experience).stage,sourceType:(content as Experience).sourceType} : {};
-  const matches = await search(kind,query.slice(0,8000),filters,8);
-  const ids = new Set(matches.map(r => r.id));
+  const filters = kind === 'experience' ? {role:(content as Experience).role,sourceType:(content as Experience).sourceType} : {};
+  const matches = await search(kind,query.slice(0,8000),filters,kind==='experience'?12:8);
+  const ids = new Set<string>();
+  if(kind==='experience' && sources.length) {
+    const sameSource=await pool.query(`SELECT e.id,MIN(CASE
+      WHEN s.start_line IS NULL OR incoming.start_line IS NULL THEN 2147483647
+      WHEN s.start_line<=incoming.end_line AND incoming.start_line<=s.end_line THEN 0
+      ELSE LEAST(abs(s.start_line-incoming.end_line),abs(incoming.start_line-s.end_line)) END) AS distance
+      FROM experience_sources s JOIN entities e ON e.id=s.experience_id
+      JOIN revisions r ON r.entity_id=e.id AND r.revision=e.current_revision
+      JOIN jsonb_to_recordset($1::jsonb) AS incoming(id uuid,start_line integer,end_line integer) ON incoming.id=s.trajectory_id
+      WHERE r.content->>'role'=$2 AND r.content->>'sourceType'=$3
+      GROUP BY e.id ORDER BY distance,e.id LIMIT 12`,[JSON.stringify(sources.map(s=>({id:s.id,start_line:s.event_range?.start??null,end_line:s.event_range?.end??null}))),filters.role,filters.sourceType]);
+    sameSource.rows.forEach(r=>ids.add(r.id));
+  }
+  matches.forEach(r=>ids.add(r.id));
   if (kind === 'paper') {
     const p = content as Paper;
     const strong = (await pool.query(`SELECT id FROM papers WHERE ($1::text IS NOT NULL AND metadata->>'doi'=$1)
@@ -193,11 +225,17 @@ export async function fail(job: Job, error: unknown) {
 export async function publish(job: Job, decision: Decision, content: Payload, prepared?: Prepared) {
   await transaction(async db => {
     const current = await lockJob(db,job), {kind,fingerprint,sources} = current.payload;
+    if(kind==='experience')await validateExperienceRole(db,content,sources??[]);
     let id = decision.targetId, revision = 1;
     if (id) {
       const target = (await db.query('SELECT * FROM entities WHERE id=$1 AND kind=$2 FOR UPDATE',[id,kind])).rows[0];
       if (!target || target.current_revision !== decision.expectedRevision) throw new Error('target revision changed; retry decision');
       revision = target.current_revision;
+      if(kind==='experience') {
+        const previous=(await db.query('SELECT content FROM revisions WHERE entity_id=$1 AND revision=$2',[id,revision])).rows[0].content;
+        if(previous.role!==(content as Experience).role || previous.sourceType!==(content as Experience).sourceType)throw new Error('experience target role/sourceType mismatch');
+        await validateExperienceRole(db,previous,await sourcesFor(id!,db));
+      }
     }
     if (decision.action === 'new' || decision.action === 'keep_separate') {
       id = (await db.query('INSERT INTO entities(kind) VALUES($1) RETURNING id',[kind])).rows[0].id;

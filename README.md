@@ -1,3 +1,5 @@
+> 2026-10-29：本轮轨迹角色、归并与清理更新见 [实施及升级说明](docs/distillation-role-upgrade.zh-CN.md)。下文较早记录保留历史语义。
+
 # SLR Harness
 
 A Claude Code plugin for human-approved, hierarchical literature reviews. Scopers establish scope and 3–5 major topics. Each topic Manager decomposes its work into subtopics and schedules Workers. Workers produce one metadata card and one note per paper; Managers synthesize reviewed chapter drafts. A Paper Agent assembles the survey in the bundled NeurIPS preprint template, followed by writer proofreading, compilation and a final Reviewer. The Reviewer compares real authored surveys, produces role-specific candidate advice, and scores the manuscript out of 100.

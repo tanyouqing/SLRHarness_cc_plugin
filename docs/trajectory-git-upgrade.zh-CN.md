@@ -1,3 +1,5 @@
+> 2026-10-29：本轮轨迹角色、归并与清理更新见 [实施及升级说明](distillation-role-upgrade.zh-CN.md)。下文较早记录保留历史语义。
+
 # 轨迹上传与知识库 Git 升级手册
 
 适用于 Ubuntu 22.04.4 LTS，Pipeline 与知识库已经部署的服务器。本轮不用发布包；源码统一位于 auto-survey 分支。

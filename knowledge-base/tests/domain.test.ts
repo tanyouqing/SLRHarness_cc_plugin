@@ -10,12 +10,12 @@ test('experience roles are the four applicable roles across submissions, search 
   for(const role of experienceRoles) {
     assert.equal(experienceInput.parse({experience:{...experience,role}}).experience.role,role);
     assert.equal(strategyFilters.parse({role}).role,role);
-    assert.equal(checkDistilled({summary:'x',candidates:[{experience:{...experience,role,sourceType:'trajectory'},sources:[{type:'trajectory',id}]}]},id,2).candidates[0].experience.role,role);
+    assert.equal(checkDistilled({summary:'x',candidates:[{experience:{...experience,role,sourceType:'trajectory'},sources:[{type:'trajectory',id}]}]},id,2,role).candidates[0].experience.role,role);
   }
   for(const role of ['reviewer','checker','assistant','tool','paper-writer','Worker','',null]) {
     assert.throws(()=>experienceInput.parse({experience:{...experience,role}}));
     assert.throws(()=>strategyFilters.parse({role}));
-    assert.throws(()=>checkDistilled({summary:'x',candidates:[{experience:{...experience,role,sourceType:'trajectory'},sources:[{type:'trajectory',id}]}]},id,2));
+    assert.throws(()=>checkDistilled({summary:'x',candidates:[{experience:{...experience,role,sourceType:'trajectory'},sources:[{type:'trajectory',id}]}]},id,2,'worker'));
     assert.throws(()=>validateDecision({action:'supplement',targetId:id,expectedRevision:1,reason:'x',evidence:['x'],proposedContent:{...experience,role}},'experience',[id]));
   }
 });
@@ -53,7 +53,7 @@ test('optional experience context may be omitted independently without inventing
 test('minimal distilled and supplemented experiences remain valid without optional context',()=>{
   const minimal={sourceType:'trajectory' as const,role:'worker',executionSummary:'observed',strategy:'verify metrics'};
   const candidate={experience:minimal,sources:[{type:'trajectory',id}]};
-  assert.deepEqual(checkDistilled({summary:'observed',candidates:[candidate]},id,2).candidates[0].experience,minimal);
+  assert.deepEqual(checkDistilled({summary:'observed',candidates:[candidate]},id,2,'worker').candidates[0].experience,minimal);
   assert.throws(()=>experienceInput.parse({experience:minimal}));
   assert.doesNotThrow(()=>checkSupplement('experience',minimal,{...minimal,strategy:'verify dataset and metrics'}));
   assert.throws(()=>checkSupplement('experience',{...minimal,stage:'reading'},minimal));
@@ -98,11 +98,11 @@ test('read cannot mix trajectory revision with paper event range',()=>{
   assert.throws(()=>readSchema.parse({type:'paper',id,event_range:{start:1,end:2}}));
 });
 test('distiller output validates source identity, bounds and source type',()=>{
-  assert.deepEqual(checkDistilled({summary:'nothing useful',candidates:[]},id,5).candidates,[]);
+  assert.deepEqual(checkDistilled({summary:'nothing useful',candidates:[]},id,5,'worker').candidates,[]);
   const c={experience:{...experience,sourceType:'trajectory'},sources:[{type:'trajectory',id,event_range:{start:1,end:8}}]};
-  assert.throws(()=>checkDistilled({summary:'x',candidates:[c]},id,5));
+  assert.throws(()=>checkDistilled({summary:'x',candidates:[c]},id,5,'worker'));
   c.sources[0].event_range.end=5;
-  assert.equal(checkDistilled({summary:'x',candidates:[c]},id,5).candidates.length,1);
+  assert.equal(checkDistilled({summary:'x',candidates:[c]},id,5,'worker').candidates.length,1);
 });
 test('large trajectory segmenting retains the entire event body and original line numbers',()=>{
   const content=JSON.stringify({data:'abcdef'.repeat(100)})+'\n{"end":true}';

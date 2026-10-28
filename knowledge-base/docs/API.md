@@ -69,21 +69,21 @@ event_range 可省略，否则为闭区间、从 1 开始的 JSONL 行号。后�
 
 输入为 `{"content":"一行 JSON 对象\n另一行 JSON 对象\n"}`。每行必须是 JSON 对象，不接受空白中间行、数组或 JSON 原始值。服务端保留收到的完整文本；Pipeline 新上传使用确定性投影，本地另保留原始轨迹。
 
-轨迹落库与任务创建在同一事务完成，返回：
+可信来源角色唯一且为 worker/manager/scoper/paper 时，轨迹落库与任务创建在同一事务完成，返回：
 
 ```json
 {"status":"stored","id":"轨迹 UUID","job_id":"自动创建的蒸馏任务 UUID"}
 ```
 
-重复上传复用原轨迹和任务。`stored` 不代表策略已经生成；即使蒸馏失败，原轨迹仍可读取。调用方仅应在整个调研成功后提交，服务端收到有效轨迹即排队。
+重复上传复用原轨迹和任务。`stored` 不代表策略已经生成；即使蒸馏失败，原轨迹仍可读取。调用方仅应在整个调研成功后提交。缺少来源身份、角色冲突或不支持自动蒸馏时，仍保存轨迹，返回 `job_id:null, distillation:"skipped", reason`。旧的仅 content 调用保持可保存，不再自动推测角色或蒸馏。被运维清理的轨迹也不会因重复提交重建任务。
 
 ### 轨迹来源与分段协议
 
-`metadata` 可选；提供时必须包含 runId、agentId、sessionId、agentRole、originalHash（原始文件 SHA-256）、projectionVersion、lineMapping="embedded-originalLine"，task/stage 可省略。agentRole 允许 worker/manager/scoper/paper/checker/reviewer/main/other，与经验适用角色枚举分开。
+`metadata` 可选；提供时必须包含 runId、agentId、sessionId、agentRole、originalHash（原始文件 SHA-256）、projectionVersion、lineMapping="embedded-originalLine"，task/stage 可省略。agentRole 允许 worker/manager/scoper/paper/checker/reviewer/main/other；只有前四类可自动蒸馏，产出经验的 role 必须与来源完全相同。多个来源必须角色一致。审稿经验 sourceType=review 保持四类适用角色自由选择。
 
 `transfer` 可选，格式 `{id,index,count,contentHash}`：id/contentHash 为 64 位小写十六进制 SHA-256，index 从 0 开始且小于 count，count 范围 1..10000。分段 content 不超过 4 MiB UTF-8 字节；完整请求仍受 16 MiB 限制。contentHash 对完整连接文本的 UTF-8 字节计算，不先规范化。每段的 metadata 必须相同。
 
-传输 ID 固定，重复同序号内容幂等，不同内容或元信息冲突报错。最后收齐时完整验证 JSONL、保存轨迹并创建唯一蒸馏任务；此前仅保存传输分段。完成后重传任意原分段可重新获得最终回执。read trajectory 返回 origins 数组；get_job 对蒸馏返回 progress，包括 completed_segments、total_segments（旧检查点可能为 null）、waiting_for_children、candidate_count。不返回原始模型错误或检查点正文。
+传输 ID 固定，重复同序号内容幂等，不同内容或元信息冲突报错。最后收齐时完整验证 JSONL、保存轨迹并按上述角色条件创建唯一蒸馏任务；此前仅保存传输分段。完成后重传任意原分段可重新获得最终回执。read trajectory 返回 origins 数组；get_job 对蒸馏返回 progress，包括 completed_segments、total_segments（旧检查点可能为 null）、waiting_for_children、candidate_count，以及 phase（segments/consolidating/submitting/waiting）、consolidated_count、strategy_count。candidate_count 为分段候选数，consolidated_count 为整条归并后的候选数，strategy_count 为任务完成时关联的去重策略数。不返回原始模型错误或检查点正文。
 
 分段保存、清理及升级命令见 [Git 升级手册](../../docs/trajectory-git-upgrade.zh-CN.md)。
 
@@ -132,3 +132,7 @@ worker 默认一次处理一个任务，最多尝试 3 次；每 15 秒续租，
 失败任务不会无限循环，也不会伪装成成功。修复依赖后由运维在 worker 容器运行 `node dist/admin.js retry UUID`；该命令只重排失败任务，保留已完成阶段，并重排失败的子任务。没有对外的重试/删除管理 MCP 接口。
 
 工具参数错误以 MCP `isError=true` 返回；认证失败 HTTP 401，超限 HTTP 413。`/healthz` 检查进程，`/readyz` 检查数据库迁移与 Embedding 可达性；二者均不验证模型凭据，凭据由实际任务验证。
+
+## 内部蒸馏与去重
+
+分段候选在整条轨迹结束后统一归并，通常每段 0–1 条、整条 0–5 条为软目标，允许零条和有依据的例外。归并保留来源与条件，再经管理 Agent 入库。内部去重不按 stage 硬过滤：同源邻近策略最多 12 条，加同 role/sourceType 的混合检索最多 12 条。对外搜索的显式过滤语义不变。清理及恢复见 [角色升级手册](../../docs/distillation-role-upgrade.zh-CN.md)。

@@ -1,3 +1,5 @@
+> 2026-10-29 更新：[角色约束、克制蒸馏和旧数据清理](../docs/distillation-role-upgrade.zh-CN.md)。
+
 # 当前代码与升级方式
 
 本项目已纳入 auto-survey 仓库的 knowledge-base/。已有服务器请使用 [Git 升级手册](../docs/trajectory-git-upgrade.zh-CN.md)，不再运行 package-release.py 或解压增量包。下文保留从零部署说明。
@@ -13,7 +15,7 @@
 - 论文：元信息 JSON＋Markdown 笔记，不保存 PDF。
 - 审稿经验：JSON 直接提交，去重、索引完成后可检索，无需其他材料。
 - 经验必填 sourceType、role、executionSummary、strategy；role 为 worker/manager/scoper/paper 四选一，stage、task、applicability 可省略。两个知识库 Agent 使用共享项目与角色背景及各自任务提示词。更新步骤见 [经验格式与提示词升级说明](docs/UPGRADE-optional-experience.zh-CN.md)。
-- 运行经验：轨迹先保存并自动排队，蒸馏 Agent 逐条提炼策略，管理 Agent 去重及处理冲突。
+- 运行经验：可信四类角色轨迹保存后排队，策略 role 继承来源；分段提炼后整条归并，再由管理 Agent 去重入库。身份不明的轨迹只保存。
 - BGE-M3 CPU dense embedding＋PostgreSQL 关键词检索；论文与策略各有搜索接口。
 - 数据库分配 ID，保存历史修订、策略来源和处理任务，支持重复提交及后台重试。
 

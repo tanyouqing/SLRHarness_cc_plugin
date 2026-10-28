@@ -160,7 +160,8 @@ export async function processOne(root,{transport,now=Date.now(),isReady=uploadRe
         return persistClaim(root,item,{status:'pending',partIndex:next,nextAt:now,attempts:0,error:null});
       }
       if(!['stored','pending','duplicate'].includes(value.status))throw new Error('invalid KB submission response');
-      if(value.job_id)change={status:'tracking',jobId:value.job_id,remoteId:value.id??null,result:value,nextAt:now+30000,error:null,attempts:0};
+      if(value.distillation==='skipped'&&value.id)change={status:'retained',remoteId:value.id,result:value,error:null,reason:value.reason};
+      else if(value.job_id)change={status:'tracking',jobId:value.job_id,remoteId:value.id??null,result:value,nextAt:now+30000,error:null,attempts:0};
       else if(value.id)change={status:'succeeded',remoteId:value.id,result:value,error:null};
       else throw new Error('KB submission has no entity or job ID');
     }
@@ -185,8 +186,10 @@ export function summary(root) {
   const counts={};for(const x of items(root))counts[x.status]=(counts[x.status]??0)+1;
   const file=kbPath(root,'last-sync.json'),last=fs.existsSync(file)?json(file):null;
   const id=runtime(root).finishRequested?.batchId,batch=id?json(batchFile(root,id)):null;
-  const trajectories={localRetained:fs.existsSync(kbPath(root,'retained-trajectories.json'))?json(kbPath(root,'retained-trajectories.json')).length:0,uploading:0,stored:0,queued:0,running:0,succeeded:0,failed:0};
+  const trajectories={localRetained:fs.existsSync(kbPath(root,'retained-trajectories.json'))?json(kbPath(root,'retained-trajectories.json')).length:0,uploading:0,stored:0,queued:0,running:0,succeeded:0,failed:0,removed:0,retained:0};
   for(const x of items(root).filter(x=>x.tool==='submit_trajectory')) {
+    if(x.status==='removed'){trajectories.removed++;continue;}
+    if(x.status==='retained'){trajectories.stored++;trajectories.retained++;continue;}
     if(x.jobId){trajectories.stored++;if(x.status==='succeeded')trajectories.succeeded++;else if(x.status==='failed')trajectories.failed++;else if(x.remoteStatus==='running')trajectories.running++;else trajectories.queued++;}
     else if(x.status==='failed')trajectories.failed++;else trajectories.uploading++;
   }
@@ -243,7 +246,7 @@ async function drainOnce(root,{transport,retryFailed=false,maxWaitMs=syncBudgetM
   }
   const state=summary(root),all=items(root),warnings=[...new Set([...boundaryWarnings,...(prepared.warnings??[])])];
   const status=reason==='not_ready'?'not_ready':reason?'pending':all.some(x=>x.status==='failed')?'failed':
-    all.some(x=>x.status!=='succeeded')?'pending':warnings.length?'incomplete':'complete';
+    all.some(x=>!['succeeded','removed','retained'].includes(x.status))?'pending':warnings.length?'incomplete':all.some(x=>x.status==='removed'||x.status==='retained')?'complete_with_exclusions':'complete';
   const result={status,reason,warnings,startedAt,finishedAt:clock(),...state};
   atomic(kbPath(root,'last-sync.json'),result);return result;
 }
@@ -293,7 +296,7 @@ if(process.argv[1]&&path.resolve(process.argv[1])===fileURLToPath(import.meta.ur
       const result=await runOnce(directory,{retryFailed:action==='resume',maxWaitMs,signal:controller.signal,
         onProgress:event=>console.error(JSON.stringify(event))});
       console.log(JSON.stringify(result,null,2));
-      if(!['complete','disabled'].includes(result.status)&&!(result.status==='pending'&&result.reason==='time_limit'))process.exitCode=2;
+      if(!['complete','complete_with_exclusions','disabled'].includes(result.status)&&!(result.status==='pending'&&result.reason==='time_limit'))process.exitCode=2;
     }
   }catch(e){console.error(e.message);process.exitCode=1;}
 }

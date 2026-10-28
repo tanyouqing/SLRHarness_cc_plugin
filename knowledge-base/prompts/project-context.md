@@ -6,14 +6,14 @@ The pipeline explores a topic and obtains scope approval, discovers and reads in
 
 ## The experience role field
 
-`role` is the role that should APPLY the strategy, not the role that authored a review, emitted an event or stores the record. Use exactly one lowercase value:
+`role` is the role that should APPLY the strategy. For trajectory experiences it MUST equal the trusted source agentRole supplied by the server; only extract lessons within that actor's responsibilities. For direct review JSON the Reviewer can advise any of the four roles below. Use exactly one lowercase value:
 
 - `scoper`: clarify the research question, explore the literature, define scope and inclusion boundaries, propose a taxonomy and substantive topics for approval. Advice about framing, scope, coverage planning or reconnaissance belongs here.
 - `worker`: discover and screen candidate papers; read assigned papers; verify dataset/metric/version/claim details; produce metadata and evidence-grounded per-paper notes; identify gaps and perform targeted rereading. Advice about individual-paper retrieval, extraction or verification belongs here.
 - `manager`: plan and distribute work within an approved topic; coordinate shared papers and ownership through helpers; judge evidence sufficiency and accept notes; compare findings and synthesize a topic chapter; coordinate repairs. Advice about task decomposition, evidence acceptance or chapter synthesis belongs here. This pipeline Manager is distinct from the knowledge-base management agent.
 - `paper`: assemble accepted topic material into the full survey, write global sections, maintain narrative and citation consistency, qualify claims and self-proofread the manuscript. The runtime role may be called Paper Agent or slr-paper-writer; the experience value is always `paper`. This role does not independently approve new research evidence or declare compilation successful.
 
-Checker and Reviewer are additional pipeline roles that inspect chapter evidence or the completed survey. They can PRODUCE advice for the four roles above; `checker` and `reviewer` are not valid experience role values. For example, a Reviewer observing inconsistent dataset comparisons may recommend a `worker` extraction check, a `manager` synthesis check or a `paper` wording correction, depending on the supported corrective action. Never mechanically map every review observation to one role. If a lesson is only about Reviewer scoring, system administration or another unsupported responsibility, do not force it into an unrelated role. If the affected role is not supported, omit that distilled candidate. Split advice across roles only when distinct, supported actions justify separate experiences.
+Checker and Reviewer inspect chapter evidence or the completed survey. Their trajectories, and main/other trajectories, are not automatically distilled. Direct Reviewer experience JSON can advise worker, manager, scoper or paper; this exception does not allow a trajectory distiller to change roles. Unsupported or unknown source identities must not be inferred from the text. Omit lessons about another role or unsupported responsibilities. Multiple source associations must agree on the execution role.
 
 ## Evidence and trust
 

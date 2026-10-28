@@ -7,6 +7,7 @@ import { z } from 'zod';
 import { config, agentConfig } from './config.js';
 import { validateDecision, paperSchema, experienceSchema, sourceSchema, type Kind, type Payload, type Decision } from './domain.js';
 import * as store from './store.js';
+import { sourceRole, assertExperienceRole, type ExecutionRole } from './roles.js';
 
 let runtimePromise: Promise<ModelRuntime> | undefined;
 function runtime() {
@@ -58,7 +59,7 @@ export async function manage(kind: Kind, content: Payload, initial: any[], incom
   const allowed = new Map(initial.map(c=>[c.id,c]));
   let decision: Decision | undefined;
   const tools = [
-    tool('search_candidates','Retrieve candidate previews for the current submission.',{},async()=>{const list=await store.candidates(kind,content);list.forEach(c=>allowed.set(c.id,c));return list.map(preview);}),
+    tool('search_candidates','Retrieve candidate previews for the current submission.',{},async()=>{const list=await store.candidates(kind,content,incomingSources);list.forEach(c=>allowed.set(c.id,c));return list.map(preview);}),
     tool('read_record','Read a window of a JSON-serialized record. id="incoming" reads the submission. start is a zero-based character offset, length <= 12000. Follow next_start until null before assuming complete coverage.',{id:Type.String(),start:Type.Optional(Type.Integer({minimum:0})),length:Type.Optional(Type.Integer({minimum:1,maximum:12000}))},async({id,start=0,length=8000})=>{
       if(id!=='incoming' && !allowed.has(id))throw new Error('candidate not in scope');
       const record=id==='incoming'?content:(await store.read(kind,id)).content;
@@ -88,20 +89,69 @@ export const distilledSchema = z.object({
 }).strict();
 export const distilledToolSchema = toolSchema(distilledSchema);
 export type Distilled = z.infer<typeof distilledSchema>;
-export function checkDistilled(value:unknown, trajectoryId:string, lineCount:number):Distilled {
+export function checkDistilled(value:unknown, trajectoryId:string, lineCount:number, role:ExecutionRole):Distilled {
   const parsed=distilledSchema.parse(value);
   for(const c of parsed.candidates) {
+    assertExperienceRole(c.experience,role);
     if(c.experience.sourceType!=='trajectory')throw new Error('distillation must produce trajectory experiences');
     for(const s of c.sources)if(s.id!==trajectoryId || (s.event_range && s.event_range.end>lineCount))throw new Error('invalid distilled source');
   }
   return parsed;
 }
 export async function distillSegment(trajectoryId:string,lineCount:number,segment:unknown,summary:string,origins:unknown[]=[]):Promise<Distilled> {
+  const requiredRole=sourceRole(origins);
   let output:Distilled|undefined;
-  await run('distiller',{trajectoryId,lineCount,origins:origins.length?origins:[{agentRole:'unknown'}],previousSummary:summary,segment},[
+  await run('distiller',{mode:'extract',requiredRole,trajectoryId,lineCount,origins,previousSummary:summary,segment},[
     tool('submit_candidates','Return a bounded running summary and reusable strategies supported by this trajectory; an empty candidate list is valid.',distilledToolSchema.properties,
-      async args=>{output=checkDistilled(args,trajectoryId,lineCount);return {accepted:true};},true),
+      async args=>{output=checkDistilled(args,trajectoryId,lineCount,requiredRole);return {accepted:true};},true),
   ]);
   if(!output)throw new Error('distiller did not submit candidates');
+  return output;
+}
+
+export type Candidate = Distilled['candidates'][number];
+export type Draft = Candidate & {candidateId:string};
+const consolidationSchema=z.object({
+  action:z.enum(['keep','drop','merge']),candidateId:z.string(),targetId:z.string().optional(),
+  reason:z.string().min(1),experience:experienceSchema.optional(),
+}).strict();
+export type ConsolidationDecision=z.infer<typeof consolidationSchema>;
+export function checkConsolidation(value:unknown,current:Draft,other:Draft|undefined,role:ExecutionRole):ConsolidationDecision {
+  const d=consolidationSchema.parse(value);
+  assertExperienceRole(current.experience,role);
+  if(other)assertExperienceRole(other.experience,role);
+  if(d.candidateId!==current.candidateId)throw new Error('unknown consolidation candidate');
+  if(d.action==='drop' && other)throw new Error('covered advice must merge sources; drop only during initial value assessment');
+  if(d.action==='merge') {
+    if(!other || d.targetId!==other.candidateId || !d.experience)throw new Error('invalid consolidation merge');
+    assertExperienceRole(d.experience,role);
+  } else if(d.targetId || d.experience)throw new Error('keep/drop cannot rewrite evidence');
+  return d;
+}
+export async function consolidate(current:Draft,other:Draft|undefined,role:ExecutionRole,invoke=run):Promise<ConsolidationDecision> {
+  let output:ConsolidationDecision|undefined;
+  const records=new Map([current,...(other?[other]:[])].map(c=>[c.candidateId,c]));
+  const read=new Set<string>();
+  const next=new Map([...records.keys()].map(id=>[id,0]));
+  const schema=toolSchema(consolidationSchema);
+  await invoke('distiller',{mode:'consolidate',requiredRole:role,
+    instruction:'Assess current for reusable value, or compare it with target. Keep distinct actions; merge equivalent/complementary advice with compatible conditions; drop unsupported, incidental or already-covered advice. Read both records completely before deciding. Aim for 0–5 strategies per whole trajectory, not a quota or hard cap.',
+    current:{id:current.candidateId,characters:JSON.stringify(current).length},
+    target:other?{id:other.candidateId,characters:JSON.stringify(other).length}:null},[
+    tool('read_candidate','Read candidate JSON in consecutive bounded windows; continue until next_start is null.',{
+      id:Type.String(),start:Type.Integer({minimum:0}),
+    },async({id,start})=>{
+      if(!records.has(id)||next.get(id)!==start)throw new Error('candidate outside scope or nonconsecutive window');
+      const text=JSON.stringify(records.get(id)),end=Math.min(start+12000,text.length);
+      if(start>=text.length)throw new Error('candidate offset out of range');
+      next.set(id,end);if(end===text.length)read.add(id);
+      return {id,text:text.slice(start,end),next_start:end<text.length?end:null};
+    }),
+    tool('submit_consolidation','Decide after reading all supplied candidates. Sources are combined by the server, never generated.',schema.properties,async args=>{
+      if(read.size!==records.size)throw new Error('read complete candidates before consolidation');
+      output=checkConsolidation(args,current,other,role);return {accepted:true};
+    },true),
+  ]);
+  if(!output)throw new Error('distiller did not submit consolidation');
   return output;
 }

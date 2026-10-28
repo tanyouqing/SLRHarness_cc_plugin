@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import {readFile,mkdir,writeFile} from 'node:fs/promises';
 import {connectClient,call,waitJob} from './client.js';
+import {fixtureTrajectory} from './fixture-trajectory.js';
 const client=await connectClient(),report:any={started_at:new Date().toISOString(),checks:[],decisions:[]};
 const run=Date.now().toString();
 async function settled(receipt:any) {return receipt.status==='duplicate' && receipt.id ? {ids:[receipt.id]} : await waitJob(client,receipt.job_id);}
@@ -31,14 +32,16 @@ try {
   assert.ok(minimalSearch.results.some((r:any)=>r.id===minimalRecord.id));
   report.checks.push('optional experience fields omitted; indexed and recalled with stage filter');
   const trajectory=(await readFile('examples/trajectory.jsonl','utf8')).trimEnd()+`\n${JSON.stringify({type:'fixture_run',run})}\n`;
-  const t=await call(client,'submit_trajectory',{content:trajectory});
+  const trajectoryRequest=fixtureTrajectory(trajectory,run);
+  const t=await call(client,'submit_trajectory',trajectoryRequest);
   assert.equal(t.status,'stored');assert.ok(t.id && t.job_id);
-  const td=await call(client,'submit_trajectory',{content:trajectory});assert.equal(td.id,t.id);assert.equal(td.job_id,t.job_id);
+  const td=await call(client,'submit_trajectory',trajectoryRequest);assert.equal(td.id,t.id);assert.equal(td.job_id,t.job_id);
   report.checks.push('trajectory stored before automatic distillation; duplicate reuses job');
   const distillation=await waitJob(client,t.job_id);
   for(const id of distillation.ids) {
     const record=await call(client,'read',{type:'experience',id});
     assert.ok(record.sources.some((s:any)=>s.id===t.id));
+    assert.equal(record.content.role,'worker');
   }
   report.distillation=distillation;
   if(!distillation.ids.length)report.checks.push('distillation completed with no candidates; inspect semantic quality manually');

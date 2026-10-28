@@ -11,7 +11,7 @@ export const metadataSchema = z.object({
 }).strict();
 export const paperSchema = z.object({ metadata: metadataSchema, note: text }).strict();
 export const experienceRoles = ['worker', 'manager', 'scoper', 'paper'] as const;
-export const experienceRoleSchema = z.enum(experienceRoles).describe('Role that should apply the advice, not necessarily its author.');
+export const experienceRoleSchema = z.enum(experienceRoles).describe('Applicable role; trajectory experiences must inherit trusted source agentRole. Direct review experiences may advise any of the four roles.');
 export const experienceSchema = z.object({
   sourceType: z.enum(['review', 'trajectory']), role: experienceRoleSchema,
   stage: text.optional().describe('Applicable workflow stage, only when supported by evidence.'),

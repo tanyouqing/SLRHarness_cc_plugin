@@ -23,7 +23,7 @@ export function createMcp(service:Service=store) {
     return service.submit('paper',input);
   });
   register('submit_experience','Submit experience to deduplication. Required: sourceType, role (worker/manager/scoper/paper, the applicable role), executionSummary, strategy. Optional: stage, task, applicability; omit unknown fields. Trajectory-derived experience must reference stored sources.',experienceInput,input=>service.submit('experience',input.experience,input.sources));
-  register('submit_trajectory','Persist one JSONL trajectory and automatically enqueue distillation; stored does not mean distilled.',trajectoryInput,input=>service.submitTrajectory(input.content,input.metadata,input.transfer));
+  register('submit_trajectory','Persist JSONL; auto-distill only with unambiguous worker/manager/scoper/paper source metadata. Missing/unsupported identity is stored with job_id=null and a skip reason. Stored does not mean distilled.',trajectoryInput,input=>service.submitTrajectory(input.content,input.metadata,input.transfer));
   register('search_papers','Hybrid paper search. Filters: year_from/year_to, exact author/venue, normalized doi/arxivId.',paperSearch,async input=>({results:await service.search('paper',input.query,input.filters,input.limit)}));
   register('search_strategies','Hybrid strategy search with role/stage/sourceType filters. A stage filter also includes experiences with no stage; judge applicability from content.',strategySearch,async input=>({results:await service.search('experience',input.query,input.filters,input.limit)}));
   register('read','Read a paper/experience revision or trajectory. Event ranges use one-based JSONL lines.',readSchema,input=>service.read(input.type,input.id,input.revision,input.event_range));
