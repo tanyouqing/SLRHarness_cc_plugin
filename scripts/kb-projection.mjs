@@ -25,7 +25,6 @@ export function project(content,lineStart=1) {
       const isTool=tool||['tool_use','tool_result','tool'].includes(value.type);
       const out={};
       for(const [k,v] of Object.entries(value)) {
-        if(['usage','costUSD','durationMs','durationApiMs'].includes(k))continue;
         // Tool argument objects are bounded as a whole, not just individual leaves.
         if(isTool&&['input','output','content'].includes(k)&&v&&typeof v==='object'&&Array.from(JSON.stringify(v)).length>12000)
           out[k]=reduce(JSON.stringify(v),line,true);
@@ -39,6 +38,10 @@ export function project(content,lineStart=1) {
   lines.forEach((line,i)=>{
     const event=JSON.parse(line);if(!event||typeof event!=='object'||Array.isArray(event))throw new Error('invalid trajectory event');
     if(noise.has(event.type))return;
+    if(known.has(event.type)) {
+      for(const key of ['usage','costUSD','durationMs','durationApiMs'])delete event[key];
+      if(['assistant','user'].includes(event.message?.role))delete event.message.usage;
+    }
     events.push({originalLine:i+lineStart,...(!known.has(event.type)?{unrecognizedEvent:true}:{}),event:reduce(event,i+lineStart)});
   });
   return events.map(e=>JSON.stringify(e)).join('\n')+(events.length?'\n':'');

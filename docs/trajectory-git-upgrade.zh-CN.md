@@ -25,14 +25,15 @@ git fetch origin auto-survey
 # 有本地源码改动时停止，不要 reset --hard。
 git pull --ff-only origin auto-survey
 # 仅首次创建知识库源码 checkout，保留旧部署目录：
-test ! -e /root/survey-kb-source && git clone --branch auto-survey --single-branch git@github.com:tanyouqing/SLRHarness_cc_plugin.git /root/survey-kb-source
+test ! -e /root/survey-kb-source && git clone --no-hardlinks --branch auto-survey --single-branch /root/JiahaoCAO/SLRHarness_cc_plugin /root/survey-kb-source
+git -C /root/survey-kb-source remote set-url origin git@github.com:tanyouqing/SLRHarness_cc_plugin.git
 cd /root/survey-kb-source
 export KB_STATE_DIR=/root/survey-kb/knowledge-base
 export BGE_MODEL_DIR=/root/survey-kb/bge-m3
 bash knowledge-base/scripts/compose-git.sh config --quiet
 ```
 
-预期无配置错误。该包装脚本固定 Compose 项目 survey-kb，使用旧 .env 和 config，保持原命名卷，挂载已有离线模型。源码/构建上下文在新 checkout。不要运行 init-env.py，不要复制令牌到仓库，不要执行 down -v。如果真实路径不同，先修正上面的两个绝对路径。
+首次克隆复用服务器现有 Git 对象，避免重复下载历史；它是独立 checkout，origin 随后设回 GitHub，后续正常 git pull。预期无配置错误。该包装脚本固定 Compose 项目 survey-kb，使用旧 .env 和 config，保持原命名卷，挂载已有离线模型。源码/构建上下文在新 checkout。不要运行 init-env.py，不要复制令牌到仓库，不要执行 down -v。如果真实路径不同，先修正上面的两个绝对路径。
 
 ## 每次升级（首次也执行）
 
@@ -65,7 +66,7 @@ bash knowledge-base/scripts/compose-git.sh stop -t 330 api worker
 docker exec survey-kb-db-1 pg_dump -U kb -d kb -Fc > "$BACKUP_DIR/kb.dump"
 test -s "$BACKUP_DIR/kb.dump"
 # 迁移是新增表/列，事务执行，保留所有现有数据。
-bash knowledge-base/scripts/compose-git.sh --profile tools run --rm --no-deps migrate
+bash knowledge-base/scripts/compose-git.sh --profile tools run --rm -T --no-deps migrate </dev/null
 bash knowledge-base/scripts/compose-git.sh up -d --no-deps api worker
 ```
 

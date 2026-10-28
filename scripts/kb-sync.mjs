@@ -131,7 +131,7 @@ export async function connect() {
     const result=await client.callTool({name,arguments:args},undefined,{timeout:20000,resetTimeoutOnProgress:false});
     if(result.isError) {
       const text=result.content?.filter(c=>c.type==='text').map(c=>c.text).join('\n')??'';
-      throw Object.assign(new Error('KB tool rejected request; inspect service and input'),{permanent:/Invalid input|Unrecognized key|Too big|Too small|invalid JSON|line \d|event range|source .*required/i.test(text)});
+      throw Object.assign(new Error('KB tool rejected request; inspect service and input'),{permanent:/Invalid input|Unrecognized key|Too big|Too small|invalid JSON|line \d|event range|source .*required|trajectory .*conflict|trajectory .*mismatch|trajectory .*invalid|trajectory .*exceeds/i.test(text)});
     }
     return result.structuredContent??JSON.parse(result.content.filter(c=>c.type==='text').map(c=>c.text).join('\n'));
   },close:()=>client.close()};

@@ -11,13 +11,13 @@ test('projection preserves decisions, errors and unknown events; bounds tool bod
   const body='😀'.repeat(14000),events=[{type:'progress',data:'noise'},
     {type:'assistant',message:{content:[{type:'text',text:'decision'},{type:'tool_use',name:'search',input:{query:'evidence'}}]}},
     {type:'user',message:{content:[{type:'tool_result',is_error:true,content:body}]}},
-    {type:'user',message:{content:[{type:'tool_result',content:body}]}},{type:'new-runtime-event',data:{important:true}}];
+    {type:'user',message:{content:[{type:'tool_result',content:body}]}},{type:'new-runtime-event',data:{important:true,usage:42,durationMs:123}}];
   const output=project(events.map(x=>JSON.stringify(x)).join('\n'),10).trim().split('\n').map(JSON.parse);
   assert.deepEqual(output.map(x=>x.originalLine),[11,12,13,14]);
   assert.equal(output[0].event.message.content[0].text,'decision');
   const tool=output[1].event.message.content[0];assert.equal(tool.is_error,true);assert.equal(Array.from(tool.content.head).length,6000);assert.equal(tool.content.originalCharacters,14000);
   assert.equal(output[2].event.message.content[0].content.exactRepeat.originalLine,12);
-  assert.equal(output[3].unrecognizedEvent,true);assert.equal(output[3].event.data.important,true);
+  assert.equal(output[3].unrecognizedEvent,true);assert.equal(output[3].event.data.important,true);assert.equal(output[3].event.data.usage,42);assert.equal(output[3].event.data.durationMs,123);
 });
 test('projection is frozen and rejects changed originals; all four execution roles only',t=>{
   const root=fixture(t),text='{"type":"system","text":"outcome"}\n',record={role:'worker',agentId:'a',sessionId:'s'};

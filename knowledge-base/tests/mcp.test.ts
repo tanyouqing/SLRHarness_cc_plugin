@@ -8,7 +8,7 @@ test('seven MCP tools expose schemas and route paper/strategy search independent
   const calls:any[]=[];
   const service:Service={
     submit:async(...args:any[])=>{calls.push(args);return {status:'pending',id:null,job_id:id};},
-    submitTrajectory:async content=>{calls.push(content);return {status:'stored',id,job_id:id};},
+    submitTrajectory:async (content,metadata,transfer)=>{calls.push({content,metadata,transfer});return {status:'stored',id,job_id:id};},
     search:async(...args:any[])=>{calls.push(args);return [];},
     read:async()=>({id}),getJob:async()=>({status:'queued',id}),
   };
@@ -24,6 +24,11 @@ test('seven MCP tools expose schemas and route paper/strategy search independent
     assert.equal(calls[0][3],10);
     const result=await client.callTool({name:'submit_trajectory',arguments:{content:'{"type":"end"}'}});
     assert.equal((result.structuredContent as any).job_id,id);
+    const metadata={runId:'run',agentId:'reviewer-id',agentRole:'reviewer',sessionId:'session',originalHash:'a'.repeat(64),projectionVersion:'1',lineMapping:'embedded-originalLine'};
+    const transfer={id:'b'.repeat(64),index:0,count:2,contentHash:'c'.repeat(64)};
+    const partial=await client.callTool({name:'submit_trajectory',arguments:{content:'{',metadata,transfer}});
+    assert.ok(!partial.isError);assert.deepEqual(calls.at(-1),{content:'{',metadata,transfer});
+
     const invalid=await client.callTool({name:'search_papers',arguments:{query:'x',filters:{role:'worker'}}});
     assert.equal(invalid.isError,true);
     const schema:any=tools.find(t=>t.name==='submit_experience')!.inputSchema;

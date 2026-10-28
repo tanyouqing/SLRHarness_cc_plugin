@@ -99,3 +99,15 @@ Stop 批次逐源冻结；已冻结副本保持不可变，缺失轨迹不再阻
 - 插件校验通过，保留已有目录图标/marketplace 建议。私有配置、密钥、模型和依赖目录不入 Git。
 - 来源元信息、确定性投影、4 MiB 分段、六小时跟踪、逐段公平调度已实现；旧队列及检查点兼容。
 - 不启动常驻 Pipeline 同步服务，不自动恢复旧 failed 任务，不主动提交新测试材料。
+
+升级方式补充：首次知识库 checkout 使用服务器现有 Git 仓库克隆对象，随后将 origin 设回 GitHub；不传输增量包，不共享工作区或私有配置。MCP 内存传输测试同时验证 metadata 与 transfer 参数经过官方 SDK 正确到达服务层。
+
+### 云服务器升级结果（2026-10-28）
+
+- Pipeline 原目录保持 `/root/JiahaoCAO/SLRHarness_cc_plugin`；知识库 Git checkout 为 `/root/survey-kb-source`，私有配置及模型仍在 `/root/survey-kb`。
+- 新应用镜像构建成功，执行 `002_trajectory_transport.sql`，只更新 API/worker。数据库和 Embedding 容器 ID、挂载路径未变，四个服务健康且重启计数为 0。
+- 更新前备份位于 `/root/survey-kb/backups/git-20261028-160340`，包含数据库与私有配置；旧镜像保留 `survey-kb:before-git-upgrade` 标签。
+- 迁移前后现有轨迹与蒸馏任务 ID 集合完全一致；工作区 `.slr/kb` 全文件哈希一致。未执行 once/resume、补传、任务重试或真实测试。既有 worker 队列更新后继续执行。
+- 服务器 Compose 配置、迁移记录、JavaScript 语法、插件校验通过。插件目录图标/隐私 URL 为已有非阻断提示。
+- 首次远程 clone 下载慢，改为从服务器已更新仓库独立克隆并设回 GitHub origin；运行手册已同步。
+- 迁移命令增加 `-T` 并关闭 stdin，避免通过 SSH 管道运行手册时，容器消费后续 shell 命令。
