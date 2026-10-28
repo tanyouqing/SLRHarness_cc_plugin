@@ -1,0 +1,14 @@
+node_modules
+dist
+.env
+.npm-cache
+config/models.json
+config/auth.json
+config/agents.json
+reports
+backups
+models
+**/__pycache__
+
+.download-venv
+.git

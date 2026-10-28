@@ -1,0 +1,9 @@
+{
+  "experience": {
+    "sourceType": "review", "role": "worker", "stage": "paper_reading",
+    "task": "比较多篇论文中的实验结果",
+    "executionSummary": "测试审稿指出比较表缺少数据集版本和评价指标。",
+    "strategy": "在横向比较前，先核对数据集版本、评价指标和实验条件；条件不一致时注明差异。",
+    "applicability": "适用于跨论文比较，尤其是名称相同但版本不同的数据集。"
+  }
+}

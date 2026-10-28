@@ -1,0 +1,4 @@
+services:
+  worker:
+    environment:
+      AGENT_CONFIG: /app/config/intentionally-missing-model-config.json

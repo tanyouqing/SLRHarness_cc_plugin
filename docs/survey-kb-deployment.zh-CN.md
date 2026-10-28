@@ -1,3 +1,7 @@
+# 当前升级入口
+
+本轮涉及 Pipeline 与知识库，统一按 [轨迹与 Git 升级手册](trajectory-git-upgrade.zh-CN.md) 执行。下面为此前仅更新插件的历史步骤；其中“无需更新 KB/迁移”的结论不适用于本轮。
+
 # Sprint2-B：已有 Pipeline 与知识库的升级手册（0.9.2）
 
 后续修正见 [Guard 兼容性检查](guard-compatibility-review.md)，本次通过 Git 交付；服务器仍有调研运行，暂不部署。该修正只更新插件；无需重新部署知识库或迁移数据库。后续升级应先暂停活动调研，按本手册 Git 更新并重新加载 Claude 插件。学术 MCP 按可信服务登记在 `deploy/scholarly-mcp.json`，检索方法无需逐个登记，后台任务使用宿主记录的归属；缺少记录的旧后台任务由主会话处理。

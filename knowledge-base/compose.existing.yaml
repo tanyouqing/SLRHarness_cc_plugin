@@ -1,0 +1,22 @@
+# Existing Ubuntu installation: source checkout and private state stay separate.
+x-existing: &existing
+  env_file: !override
+    - ${KB_STATE_DIR:?set absolute KB_STATE_DIR}/.env
+  volumes:
+    - ${KB_STATE_DIR}/config:/app/config
+services:
+  api:
+    <<: *existing
+  worker:
+    <<: *existing
+    stop_grace_period: 330s
+  migrate:
+    <<: *existing
+  client:
+    env_file: !override
+      - ${KB_STATE_DIR}/.env
+    volumes:
+      - ${KB_STATE_DIR}/reports:/app/reports
+  embedding:
+    volumes:
+      - ${BGE_MODEL_DIR:?set existing absolute model directory}:/models/bge-m3:ro

@@ -1,0 +1,121 @@
+name: survey-kb
+x-app: &app
+  image: ${KB_APP_IMAGE:-survey-kb:0.1.0}
+  build: .
+  env_file: .env
+  environment: &app-env
+    DATABASE_URL: postgresql://kb:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}@db:5432/kb
+    EMBEDDING_URL: http://embedding:8000
+    PI_CONFIG_DIR: /app/config
+    AGENT_CONFIG: /app/config/agents.json
+    PI_MODELS_STORE: /data/models-store.json
+  volumes:
+    # Pi reads auth.json under a filesystem lock beside the file.
+    - ./config:/app/config
+    - pi-data:/data
+  restart: unless-stopped
+services:
+  db:
+    image: pgvector/pgvector:0.8.0-pg16
+    environment:
+      POSTGRES_DB: kb
+      POSTGRES_USER: kb
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}
+    volumes:
+      - pg-data:/var/lib/postgresql/data
+    shm_size: 256mb
+    mem_limit: 6g
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U kb -d kb"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    restart: unless-stopped
+  embedding:
+    image: survey-kb-embedding:0.1.0
+    build:
+      context: .
+      dockerfile: embedding/Dockerfile
+    environment: &embedding-env
+      MODEL_PATH: /models/bge-m3
+      MODEL_REVISION: ${MODEL_REVISION:-5617a9f}
+      EMBEDDING_THREADS: ${EMBEDDING_THREADS:-4}
+      CHUNK_TOKENS: 768
+      CHUNK_OVERLAP: 64
+      HF_HUB_OFFLINE: 1
+    volumes:
+      - model-data:/models
+    cpus: 4
+    mem_limit: 16g
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/healthz',timeout=3)"]
+      interval: 15s
+      timeout: 5s
+      start_period: 180s
+      retries: 12
+    restart: unless-stopped
+  download-model:
+    image: survey-kb-embedding:0.1.0
+    build:
+      context: .
+      dockerfile: embedding/Dockerfile
+    environment:
+      <<: *embedding-env
+      HF_HUB_OFFLINE: 0
+    volumes:
+      - model-data:/models
+    command: ["python", "download.py"]
+    profiles: ["tools"]
+  migrate:
+    <<: *app
+    command: ["node", "dist/migrate.js"]
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: "no"
+    profiles: ["tools"]
+  api:
+    <<: *app
+    ports:
+      - "127.0.0.1:${KB_PORT:-3000}:3000"
+    mem_limit: 2g
+    depends_on:
+      db:
+        condition: service_healthy
+      embedding:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://localhost:3000/readyz').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 15s
+      timeout: 8s
+      retries: 6
+  worker:
+    <<: *app
+    command: ["node", "dist/worker.js"]
+    mem_limit: 4g
+    stop_grace_period: 30s
+    depends_on:
+      db:
+        condition: service_healthy
+      embedding:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "node", "-e", "const fs=require('fs');process.exit(Date.now()-fs.statSync('/data/worker-heartbeat').mtimeMs<45000?0:1)"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+  client:
+    <<: *app
+    environment:
+      <<: *app-env
+      MCP_URL: http://api:3000/mcp
+    volumes:
+      - ./examples:/app/examples:ro
+      - ./reports:/app/reports
+    entrypoint: ["node", "dist/cli.js"]
+    restart: "no"
+    profiles: ["tools"]
+volumes:
+  pg-data:
+  model-data:
+  pi-data:

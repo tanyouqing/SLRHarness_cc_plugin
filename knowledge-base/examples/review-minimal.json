@@ -1,0 +1,8 @@
+{
+  "experience": {
+    "sourceType": "review",
+    "role": "worker",
+    "executionSummary": "合成验收样例：比较论文结果时混用了不同数据集上的指标。",
+    "strategy": "比较定量结果前，核对数据集、评价指标和实验设置是否一致。"
+  }
+}

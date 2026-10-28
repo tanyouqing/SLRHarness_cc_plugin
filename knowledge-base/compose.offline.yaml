@@ -1,0 +1,4 @@
+services:
+  embedding:
+    volumes:
+      - ${BGE_MODEL_DIR:?set absolute BGE_MODEL_DIR}:/models/bge-m3:ro

@@ -62,7 +62,7 @@ test('delayed final JSONL line is awaited and next conversation is excluded',asy
   const record=Object.values(json(kbPath(f.root,'trajectories.json')).files)[0];
   assert.equal(record.lines,2);assert.ok(!fs.readFileSync(kbPath(f.root,record.archive),'utf8').includes('later'));
 });
-test('missing final line preserves paper/review uploads; recovery uploads only the delayed trajectory',async t=>{
+test('missing final line preserves paper/review uploads; recovery retains the delayed main trajectory locally',async t=>{
   const f=fixture(t,{ready:true});fs.writeFileSync(f.native,line({type:'user',message:{content:'research'}}));
   const s=scheduleStop(f.root,f.input,f.options);let now=0;const calls=[];
   const options={clock:()=>now,sleep:async ms=>{now+=ms;},maxWaitMs:500,transport:{call:async(name)=>{calls.push(name);return {status:'stored',id:'stored'};}}};
@@ -71,7 +71,7 @@ test('missing final line preserves paper/review uploads; recovery uploads only t
   const before=calls.length;
   assert.equal(scheduleStop(f.root,f.input,f.options).scheduled,false);
   fs.appendFileSync(f.native,line(assistant(f.input.last_assistant_message)));
-  const recovered=await runOnce(f.root,options);assert.equal(recovered.status,'complete');assert.deepEqual(calls.slice(before),['submit_trajectory']);
+  const recovered=await runOnce(f.root,options);assert.equal(recovered.status,'complete');assert.deepEqual(calls.slice(before),[]);
   assert.equal(json(batchFile(f.root,s.batchId)).frozen,true);
 });
 test('next user before final message and rewritten native prefix fail closed',async t=>{
@@ -181,6 +181,7 @@ test('new batch skips absent unclassified observations but retains Checker, Revi
 test('legacy batch with 18 unknown errors recovers normally without deleting evidence or duplicating submissions',async t=>{
   const f=fixture(t,{ready:true}),scheduled=scheduleStop(f.root,f.input,f.options),file=batchFile(f.root,scheduled.batchId);
   const rt=runtime(f.root),batch=json(file),original=fs.readFileSync(f.native,'utf8');
+  enqueue(f.root,'submit_trajectory',{content:original},{kind:'trajectory',hash:sha(original)});
   batch.errors=[];batch.status='incomplete';
   for(let n=0;n<18;n++){const id='unknown-'+n;rt.agents[id]={role:'other',active:true,sessionId:'session'};batch.errors.push({agentId:id,sessionId:'session',reason:'native transcript unavailable'});}
   atomic(file,batch);atomic(kbPath(f.root,'runtime.json'),rt);
@@ -196,13 +197,15 @@ test('legacy batch with 18 unknown errors recovers normally without deleting evi
 
 test('required missing transcript stays explicit while papers, review and valid trajectories upload',async t=>{
   const f=fixture(t,{ready:true}),rt=runtime(f.root);
+  const child=path.join(f.dir,'valid-worker.jsonl');fs.writeFileSync(child,line(assistant('verified worker outcome')));
+  rt.agents.valid={role:'worker',active:false,sessionId:'session',transcript:child};
   rt.agents.missing={role:'worker',active:false,sessionId:'session'};atomic(kbPath(f.root,'runtime.json'),rt);
   const scheduled=scheduleStop(f.root,f.input,f.options),calls=[];
   const transport={call:async name=>{calls.push(name);return {status:'stored',id:name};}};
   assert.equal((await runOnce(f.root,{transport})).status,'incomplete');
   assert.ok(['submit_paper','submit_experience','submit_trajectory'].every(name=>calls.includes(name)));
   const batch=json(batchFile(f.root,scheduled.batchId));assert.equal(batch.errors[0].agentId,'missing');assert.equal(batch.frozen,false);
-  assert.equal(summary(f.root).automatic.trajectories.frozen,1);
+  assert.equal(summary(f.root).automatic.trajectories.frozen,2);
   const count=calls.length;await runOnce(f.root,{transport,retryFailed:true});assert.equal(calls.length,count);
   assert.equal(json(batchFile(f.root,scheduled.batchId)).errors.length,1,'do not invent a later Stop boundary for missing originals');
 });
@@ -218,7 +221,8 @@ test('partial freeze resumes per source, preserves immutable archives and never 
   fs.unlinkSync(f.native); // Frozen originals need not remain readable on recovery.
   fs.appendFileSync(child,'}\n'+line({type:'user',message:{content:'later child chat'}}));
   assert.equal((await runOnce(f.root,{...options,retryFailed:true})).status,'complete');
-  assert.deepEqual(calls.slice(count),[['submit_trajectory',{content:'{"type":"system"}\n'}]]);
+  assert.equal(calls.slice(count).length,1);assert.equal(calls.at(-1)[0],'submit_trajectory');
+  assert.equal(calls.at(-1)[1].metadata.agentRole,'worker');assert.deepEqual(JSON.parse(calls.at(-1)[1].content),{originalLine:1,event:{type:'system'}});
   assert.deepEqual(fs.readFileSync(kbPath(f.root,old.archive)),originalArchive);
   assert.equal(json(batchFile(f.root,scheduled.batchId)).frozenSourceKeys.length,2);
 });
@@ -242,7 +246,7 @@ test('archive write failure leaves papers/review recoverable and does not falsel
   assert.equal(fs.existsSync(kbPath(f.root,'sealed.json')),false);assert.equal(json(batchFile(f.root,scheduled.batchId)).frozen,false);
   t.mock.restoreAll();const before=calls.length;
   assert.equal((await runOnce(f.root,{transport,retryFailed:true})).status,'complete');
-  assert.deepEqual(calls.slice(before),['submit_trajectory']);
+  assert.deepEqual(calls.slice(before),[]);
 });
 
 test('legacy other error with a genuine research binding remains a required missing source',async t=>{

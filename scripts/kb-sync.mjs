@@ -1,3 +1,4 @@
+import {distillRoles,frozenProjection,splitParts,requestBytes} from './kb-projection.mjs';
 import {enqueue,paperPayload} from './kb-outbox.mjs';
 export {enqueue,paperPayload} from './kb-outbox.mjs';
 import fs from 'node:fs';
@@ -13,6 +14,7 @@ import {capture,locateNative} from './kb-trajectory.mjs';
 import {batchFile,freezeStopBatch} from './kb-boundary.mjs';
 import {researchBindings,membership} from './kb-membership.mjs';
 
+export function syncBudgetMs(){const seconds=Number(process.env.SURVEY_KB_SYNC_MAX_SECONDS??21600);if(!Number.isInteger(seconds)||seconds<1||seconds>86400)throw new Error('SURVEY_KB_SYNC_MAX_SECONDS must be 1..86400');return seconds*1000;}
 export function success(root) {
   const s=loadState(root),work=stages(root),rt=runtime(root);
   if(!['completed','completed_with_limitations'].includes(s.stage)||s.roundOpen||s.revisionContext?.active||Object.values(s.leases).some(l=>l.active))return false;
@@ -58,6 +60,7 @@ export function reconcile(root,{isSuccess=success}={}) {
       raw.experiences.map(normalizeExperience).forEach((e,i)=>enqueue(root,'submit_experience',{experience:e},{kind:'review',submissionId:last.id,index:i,fingerprint:last.fingerprint}));
     }catch(e){warning(root,'final-experiences',e);warnings.push('final-experiences');}
     const manifestFile=kbPath(root,'trajectories.json'),manifest=fs.existsSync(manifestFile)?json(manifestFile):{files:{}};
+    const existing=items(root),retained=[];
     for(const [key,t] of Object.entries(manifest.files))try {
       // A partial batch publishes only independently frozen, verified archives.
       if(batch&&(t.batchId!==rt.finishRequested.batchId||(Array.isArray(batch.frozenSourceKeys)?!batch.frozenSourceKeys.includes(key):!batch.frozen)))continue;
@@ -65,8 +68,24 @@ export function reconcile(root,{isSuccess=success}={}) {
       const content=fs.readFileSync(kbPath(root,t.archive),'utf8');
       if(!content.trim())continue;
       if(sha(content)!==t.hash)throw new Error('trajectory archive hash changed');
-      enqueue(root,'submit_trajectory',{content},{kind:'trajectory',archive:t.archive,trajectoryKey:key,hash:t.hash});
+      // Preserve every legacy queued item, including unknown response outcomes. Never make a second representation.
+      if(existing.some(x=>x.tool==='submit_trajectory'&&(x.source?.trajectoryKey===key||x.source?.hash===t.hash||x.source?.archive===t.archive)))continue;
+      if(!distillRoles.has(t.role)){retained.push({key,role:t.role,reason:'role retained locally'});continue;}
+      const projected=frozenProjection(root,key,t,content);
+      if(!projected.content){retained.push({key,role:t.role,reason:'no meaningful events after projection'});continue;}
+      const payload={content:projected.content,metadata:projected.metadata};
+      const source={kind:'trajectory',archive:t.archive,trajectoryKey:key,hash:t.hash,projectionVersion:projected.metadata.projectionVersion};
+      if(requestBytes(payload)<=16*1024*1024)enqueue(root,'submit_trajectory',payload,source);
+      else {
+        const parts=splitParts(projected.content,projected.metadata),transferId=sha(projected.contentHash+'\0'+JSON.stringify(projected.metadata));
+        const requests=parts.map((part,index)=>({content:part,metadata:projected.metadata,transfer:{id:transferId,index,count:parts.length,contentHash:projected.contentHash}}));
+        const partsFile=`projections/${key}.parts.json`,absolute=kbPath(root,partsFile);
+        if(fs.existsSync(absolute)){if(JSON.stringify(json(absolute))!==JSON.stringify(requests))throw new Error('frozen transfer changed');}
+        else atomic(absolute,requests);
+        enqueue(root,'submit_trajectory',requests[0],{...source,partsFile,partCount:parts.length,transferId,partsHash:sha(JSON.stringify(requests))});
+      }
     }catch(e){warning(root,`trajectory:${key}`,e);warnings.push(key);}
+    atomic(kbPath(root,'retained-trajectories.json'),retained);
     const sealed=!warnings.length&&(!batch||batch.frozen);
     if(sealed)atomic(kbPath(root,'sealed.json'),{fingerprint:last.fingerprint,batchId:rt.finishRequested.batchId??null,at:Date.now()});
     return {sealed,warnings};
@@ -87,7 +106,6 @@ export function claim(root,now=Date.now()) {
       item.attempts++;
       if(item.attempts>=3){Object.assign(item,{status:'failed',lease:null,error:'Three interrupted requests; inspect service and resume explicitly'});atomic(kbPath(root,`outbox/${item.id}.json`),item);return null;}
     }
-    if(item.status==='tracking'&&item.trackUntil<=now){item.status='waiting';atomic(kbPath(root,`outbox/${item.id}.json`),item);return null;}
     item.totalAttempts=(item.totalAttempts??0)+1;
     item.lease={token:randomUUID(),until:now+120000};atomic(kbPath(root,`outbox/${item.id}.json`),item);return item;
   });
@@ -125,16 +143,24 @@ export async function processOne(root,{transport,now=Date.now(),isReady=uploadRe
   try {
     client??=await connect();
     if(!isReady(root))return persistClaim(root,item,{error:'Investigation is no longer ready; upload deferred'});
-    const value=await client.call(item.jobId?'get_job':item.tool,item.jobId?{job_id:item.jobId}:item.payload);
+    let payload=item.payload;
+    if(!item.jobId&&item.source?.partsFile){const requests=json(kbPath(root,item.source.partsFile));if(item.source.partsHash&&sha(JSON.stringify(requests))!==item.source.partsHash)throw Object.assign(new Error('frozen parts changed'),{permanent:true});payload=requests[item.partIndex??0];if(!payload||payload.transfer.id!==item.source.transferId)throw Object.assign(new Error('frozen transfer invalid'),{permanent:true});}
+    const value=await client.call(item.jobId?'get_job':item.tool,item.jobId?{job_id:item.jobId}:payload);
     let change;
     if(item.jobId) {
       if(value.status==='succeeded')change={status:'succeeded',result:value.result,error:null};
       else if(value.status==='failed')change={status:'failed',error:'KB background job failed; repair dependency and retry original job with KB admin',result:value};
-      else if(['queued','running'].includes(value.status))change={status:'tracking',nextAt:now+15000,error:null,attempts:0};
+      else if(['queued','running'].includes(value.status))change={status:'tracking',remoteStatus:value.status,progress:value.progress??null,nextAt:now+30000,error:null,attempts:0};
       else throw new Error('invalid KB job response');
     } else {
+      if(value.status==='accepted'&&item.source?.partsFile) {
+        if(value.transfer_id!==item.source.transferId||value.part_count!==item.source.partCount)throw new Error('invalid transfer receipt');
+        const next=(item.partIndex??0)+1;
+        if(next>=item.source.partCount)throw new Error('all parts acknowledged without a trajectory receipt');
+        return persistClaim(root,item,{status:'pending',partIndex:next,nextAt:now,attempts:0,error:null});
+      }
       if(!['stored','pending','duplicate'].includes(value.status))throw new Error('invalid KB submission response');
-      if(value.job_id)change={status:'tracking',jobId:value.job_id,remoteId:value.id??null,result:value,trackUntil:now+1800000,nextAt:now+15000,error:null,attempts:0};
+      if(value.job_id)change={status:'tracking',jobId:value.job_id,remoteId:value.id??null,result:value,nextAt:now+30000,error:null,attempts:0};
       else if(value.id)change={status:'succeeded',remoteId:value.id,result:value,error:null};
       else throw new Error('KB submission has no entity or job ID');
     }
@@ -150,7 +176,7 @@ export function resume(root) {
   return locked(root,'queue',()=>{let count=0;
     for(const x of items(root))if(['failed','waiting'].includes(x.status)) {
       // A server failure resumes polling its job; it never resubmits the payload.
-      Object.assign(x,{status:x.jobId?'tracking':'pending',attempts:0,nextAt:0,trackUntil:Date.now()+1800000,lease:null});
+      Object.assign(x,{status:x.jobId?'tracking':'pending',attempts:0,nextAt:0,lease:null});
       atomic(kbPath(root,`outbox/${x.id}.json`),x);count++;
     }return {resumed:count};
   });
@@ -159,7 +185,12 @@ export function summary(root) {
   const counts={};for(const x of items(root))counts[x.status]=(counts[x.status]??0)+1;
   const file=kbPath(root,'last-sync.json'),last=fs.existsSync(file)?json(file):null;
   const id=runtime(root).finishRequested?.batchId,batch=id?json(batchFile(root,id)):null;
-  return {enabled:enabled(root),readyForUpload:uploadReady(root),counts,records:'.slr/kb/outbox/',warningsPath:'.slr/kb/warnings/',
+  const trajectories={localRetained:fs.existsSync(kbPath(root,'retained-trajectories.json'))?json(kbPath(root,'retained-trajectories.json')).length:0,uploading:0,stored:0,queued:0,running:0,succeeded:0,failed:0};
+  for(const x of items(root).filter(x=>x.tool==='submit_trajectory')) {
+    if(x.jobId){trajectories.stored++;if(x.status==='succeeded')trajectories.succeeded++;else if(x.status==='failed')trajectories.failed++;else if(x.remoteStatus==='running')trajectories.running++;else trajectories.queued++;}
+    else if(x.status==='failed')trajectories.failed++;else trajectories.uploading++;
+  }
+  return {trajectories,enabled:enabled(root),readyForUpload:uploadReady(root),counts,records:'.slr/kb/outbox/',warningsPath:'.slr/kb/warnings/',
     automatic:batch?{batchId:id,status:batch.status,frozen:batch.frozen,
       trajectories:{frozen:batch.frozenSourceKeys?.length??(batch.frozen?batch.sources.length:0),errors:batch.errors?.length??0,skipped:batch.skipped?.length??0},
       log:`.slr/kb/batches/${id}.log`}:null,
@@ -169,7 +200,7 @@ export function projectRoots(project) {
   const dir=safe(project,'workspaces');return fs.existsSync(dir)?fs.readdirSync(dir,{withFileTypes:true}).filter(e=>e.isDirectory()&&!e.isSymbolicLink()).map(e=>path.join(dir,e.name)).filter(enabled):[];
 }
 // One finite batch: drain all due submissions, honor retry/poll delays, then exit.
-async function drainOnce(root,{transport,retryFailed=false,maxWaitMs=1800000,clock=Date.now,
+async function drainOnce(root,{transport,retryFailed=false,maxWaitMs=syncBudgetMs(),clock=Date.now,
   sleep=ms=>new Promise(resolve=>setTimeout(resolve,ms)),signal,onProgress=()=>{},isReady=uploadReady,prepare=reconcile}={}) {
   if(!Number.isFinite(maxWaitMs)||maxWaitMs<1)throw new Error('positive finite max wait required');
   if(!enabled(root))return {status:'disabled',...summary(root)};
@@ -188,8 +219,8 @@ async function drainOnce(root,{transport,retryFailed=false,maxWaitMs=1800000,clo
   // submissions/jobs require the explicit resume command; successful items stay intact.
   if(retryFailed)resume(root);
   else locked(root,'queue',()=>{
-    for(const x of items(root))if(x.status==='waiting'||x.status==='tracking'&&x.trackUntil<=startedAt&&(!x.lease||x.lease.until<=startedAt)) {
-      Object.assign(x,{status:x.jobId?'tracking':'pending',nextAt:0,trackUntil:startedAt+1800000,lease:null});
+    for(const x of items(root))if(x.status==='waiting'&&(!x.lease||x.lease.until<=startedAt)) {
+      Object.assign(x,{status:x.jobId?'tracking':'pending',nextAt:0,lease:null});
       atomic(kbPath(root,`outbox/${x.id}.json`),x);
     }
   });
@@ -246,7 +277,7 @@ export function parseSyncArgs(argv) {
   const [action,directory,...extra]=argv;
   if(!['status','once','resume'].includes(action))throw new Error('use status, once or resume <workspace>; watch was removed (no resident service)');
   if(!path.isAbsolute(directory??''))throw new Error('absolute workspace required');
-  let maxWaitMs=1800000;
+  let maxWaitMs=syncBudgetMs();
   if(extra.length) {
     if(action==='status'||extra.length!==2||extra[0]!=='--max-wait-seconds'||!/^\d+$/.test(extra[1])||Number(extra[1])<1||Number(extra[1])>86400)throw new Error('use --max-wait-seconds 1..86400');
     maxWaitMs=Number(extra[1])*1000;
@@ -262,7 +293,7 @@ if(process.argv[1]&&path.resolve(process.argv[1])===fileURLToPath(import.meta.ur
       const result=await runOnce(directory,{retryFailed:action==='resume',maxWaitMs,signal:controller.signal,
         onProgress:event=>console.error(JSON.stringify(event))});
       console.log(JSON.stringify(result,null,2));
-      if(!['complete','disabled'].includes(result.status))process.exitCode=2;
+      if(!['complete','disabled'].includes(result.status)&&!(result.status==='pending'&&result.reason==='time_limit'))process.exitCode=2;
     }
   }catch(e){console.error(e.message);process.exitCode=1;}
 }

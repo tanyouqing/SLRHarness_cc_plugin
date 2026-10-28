@@ -1,0 +1,12 @@
+{
+  "metadata": {
+    "title": "KB smoke fixture: retrieval evaluation",
+    "authors": ["Fixture Author"],
+    "year": 2025,
+    "canonicalUrl": "https://example.org/kb-fixture",
+    "doi": null,
+    "arxivId": null,
+    "venue": null
+  },
+  "note": "# 测试夹具，非真实论文\n\n## Method\nThis synthetic fixture evaluates keyword and vector retrieval. It compares dense embeddings with lexical search.\n\n## 局限\n数据仅用于验证知识库接口，不代表真实研究结果。"
+}
