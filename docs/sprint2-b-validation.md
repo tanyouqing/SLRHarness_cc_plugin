@@ -122,4 +122,9 @@ Stop 批次逐源冻结；已冻结副本保持不可变，缺失轨迹不再阻
 - 内部去重移除 stage 硬过滤，同源邻近 12 条与混合检索 12 条共同比较。
 - 专用清理工具生成快照清单并事务删除冲突任务/策略；保留原始轨迹、论文和审稿经验，Pipeline 对应 outbox 标记 removed。
 - 本机 Pipeline 183 项、知识库 47 项离线测试通过，Python 假 tokenizer 5 项通过；TypeScript check/build 通过，Claude 插件验证通过（已有缺少图标提示）。没有启动真实数据库、Embedding 或模型。
-- 服务器升级、清理数量和最终校验在完成后追加。操作步骤见 [升级手册](distillation-role-upgrade.zh-CN.md)。
+- 服务器已通过 Git 更新，执行迁移 003；API/worker 新镜像代码基于 d4f92ed。最后的队列展示修复另通过 35 项同步/Stop/清理相关离线回归，知识库运行时代码未再变化。
+- 备份与清理清单：`/root/survey-kb/backups/roles-20261029-0b65401/`。删除 80 条缺少可信来源身份的旧轨迹策略、144 个相关任务（56 个蒸馏任务＋88 个入库任务）；56 条原始轨迹标记不再自动蒸馏；旧调研 agent-context-compression-2026 的 56 条 outbox 标记 removed。
+- 清理前后比对确认：28 篇论文、11 条审稿经验、93 条原始轨迹及来源元信息的内容摘要完全一致。保留的 77 个任务 payload/checkpoint/status/result 摘要一致，其中 37 个为最新一轮的蒸馏任务。角色正确的旧任务没有重新提交。
+- 首次清理遇到 PostgreSQL deferred FK pending trigger events，整个事务回滚，核对 80 条策略、221 个任务及保护触发器均保留。修复维护事务约束检查顺序后重新执行成功；未禁用外键或跳过一致性检查。
+- 迁移记录、immutable_revisions 保护状态、父子任务/传输回执孤立引用均已核对。DB 与 Embedding 容器 ID 未改变，原配置和 Pi 卷继续挂载。四个服务健康，worker 已自然继续处理原有保留任务。
+- 未运行 smoke、真实上传、手动 once/resume 或新模型测试。策略语义质量和产出数量仍需用户后续验收。操作步骤见 [升级手册](distillation-role-upgrade.zh-CN.md)。

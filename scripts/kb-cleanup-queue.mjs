@@ -1,7 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import {fileURLToPath} from 'node:url';
-import {atomic,json,kbPath,locked,sha} from './kb-core.mjs';
+import {atomic,json,kbPath,locked,sha,runtime} from './kb-core.mjs';
 import {items} from './kb-sync.mjs';
 
 export function cleanQueue(root,plan,apply=false) {
@@ -25,6 +25,15 @@ export function cleanQueue(root,plan,apply=false) {
       if(x.lease?.until>Date.now())throw new Error('queue still has an active request; stop sync first');
       atomic(kbPath(root,`outbox/${x.id}.json`),{...x,status:'removed',lease:null,error:null,
         removal:{reason:'已按角色规则清理',snapshotHash:plan.snapshotHash,at:new Date().toISOString()},updatedAt:Date.now()});
+    }
+    const all=items(root),related=all.filter(x=>x.removal?.snapshotHash===plan.snapshotHash);
+    if(related.length) {
+      atomic(kbPath(root,'role-cleanup.json'),{snapshotHash:plan.snapshotHash,count:related.length,reason:'已按角色规则清理'});
+      const batchId=runtime(root).finishRequested?.batchId;
+      if(batchId&&all.every(x=>['succeeded','removed','retained'].includes(x.status))) {
+        const file=kbPath(root,`batches/${batchId}.json`);
+        if(fs.existsSync(file))atomic(file,{...json(file),status:'complete_with_exclusions',cleanupSnapshot:plan.snapshotHash});
+      }
     }
     return matches.map(x=>x.id);
   });

@@ -193,7 +193,7 @@ export function summary(root) {
     if(x.jobId){trajectories.stored++;if(x.status==='succeeded')trajectories.succeeded++;else if(x.status==='failed')trajectories.failed++;else if(x.remoteStatus==='running')trajectories.running++;else trajectories.queued++;}
     else if(x.status==='failed')trajectories.failed++;else trajectories.uploading++;
   }
-  return {trajectories,enabled:enabled(root),readyForUpload:uploadReady(root),counts,records:'.slr/kb/outbox/',warningsPath:'.slr/kb/warnings/',
+  return {trajectories,enabled:enabled(root),readyForUpload:uploadReady(root),counts,administrativeCleanup:fs.existsSync(kbPath(root,'role-cleanup.json'))?json(kbPath(root,'role-cleanup.json')):null,records:'.slr/kb/outbox/',warningsPath:'.slr/kb/warnings/',
     automatic:batch?{batchId:id,status:batch.status,frozen:batch.frozen,
       trajectories:{frozen:batch.frozenSourceKeys?.length??(batch.frozen?batch.sources.length:0),errors:batch.errors?.length??0,skipped:batch.skipped?.length??0},
       log:`.slr/kb/batches/${id}.log`}:null,

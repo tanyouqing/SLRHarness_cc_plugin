@@ -16,6 +16,7 @@ test('cleanup preview is read-only; removed records are terminal and reconciliat
   assert.equal(resume(root).resumed,0);assert.equal(claim(root),null);assert.equal(enqueue(root,'submit_trajectory',payload,{}),id);assert.equal(items(root)[0].status,'removed');
   const result=await runOnce(root,{isReady:()=>true,prepare:()=>({warnings:[]}),transport:{call:()=>assert.fail('must not send')}});
   assert.equal(result.status,'complete_with_exclusions');assert.equal(summary(root).trajectories.removed,1);assert.equal(summary(root).trajectories.succeeded,0);
+  assert.equal(summary(root).administrativeCleanup.count,1);
 });
 test('stored-without-distillation receipt is retained and never polled or counted as distilled',async t=>{
   const root=fixture(t);enqueue(root,'submit_trajectory',{content:'{}'},{});
