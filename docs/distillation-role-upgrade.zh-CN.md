@@ -90,6 +90,8 @@ node "$PIPE/scripts/kb-cleanup-queue.mjs" apply "$PIPE" "$BACKUP/role-cleanup.js
 
 清理在单个数据库事务中执行，并核对清单和当前数据。出现 `stale or altered` 时未执行删除：确认写入已停止后重新预览。修订保护触发器仅在维护事务内临时停用；失败回滚会恢复数据与触发器。若 DB 清理成功、本地命令失败，使用**原清单**重跑本地命令即可，操作幂等。
 
+维护事务会先执行 `SET CONSTRAINTS ALL IMMEDIATE`，避免 current_revision 的延迟外键留下待执行事件，使 PostgreSQL 拒绝切换修订保护触发器。旧版脚本若报 `pending trigger events`，事务会回滚；更新代码后核对原清单仍匹配再执行，不能绕过外键约束。
+
 静态检查与恢复服务：
 
 ```bash

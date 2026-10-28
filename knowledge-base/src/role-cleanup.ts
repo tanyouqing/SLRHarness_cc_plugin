@@ -78,6 +78,9 @@ export async function applyCleanup(plan:CleanupPlan, transact=transaction) {
     await db.query('LOCK TABLE trajectories,trajectory_origins,trajectory_transfers,trajectory_transfer_parts,jobs,entities,revisions,experience_sources,search_chunks,ingestions,decisions,conflicts IN ACCESS EXCLUSIVE MODE');
     const fresh=cleanupPlan(await snapshot(db));
     if(hash(fresh)!==hash(plan))throw new Error('cleanup plan stale or altered; generate a new preview');
+    // entities.current_revision has a deferred FK into revisions. Check each
+    // statement immediately so ALTER TRIGGER never sees pending FK events.
+    await db.query('SET CONSTRAINTS ALL IMMEDIATE');
     const ids=plan.experiences.map(x=>x.id),jobs=plan.jobs.map(x=>x.id);
     for(const t of plan.trajectories)await db.query('UPDATE trajectories SET distillation_blocked_reason=$2 WHERE id=$1',[t.id,t.reason]);
     for(const t of plan.transfers)await db.query(`UPDATE trajectory_transfers SET receipt=$2,updated_at=now() WHERE id=$1`,[t.id,JSON.stringify({status:'duplicate',id:t.trajectoryId,job_id:null,distillation:'skipped',reason:'administratively removed'})]);

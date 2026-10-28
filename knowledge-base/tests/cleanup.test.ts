@@ -41,6 +41,7 @@ function fake(t:any,s:Snapshot,fail=false) {
 test('cleanup transaction revalidates preview, removes dependencies and restores immutable trigger',async t=>{
   const s=fixture(),db=fake(t,s);await applyCleanup(cleanupPlan(s));
   assert.ok(db.trigger&&db.removed);assert.equal(db.sqls.at(-1),'COMMIT');
+  assert.ok(db.sqls.indexOf('SET CONSTRAINTS ALL IMMEDIATE')<db.sqls.findIndex(x=>x.startsWith('UPDATE entities')));
   assert.ok(db.sqls.indexOf('DELETE FROM revisions WHERE entity_id=ANY($1::uuid[])')<db.sqls.indexOf('DELETE FROM entities WHERE id=ANY($1::uuid[])'));
 });
 test('cleanup failure rolls back deletion and trigger changes',async t=>{
