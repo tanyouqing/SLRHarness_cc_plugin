@@ -15,10 +15,10 @@ RUN sed -i "s|http://deb.debian.org|${DEBIAN_MIRROR}|g; s|https://deb.debian.org
     && apt-get update && apt-get install -y --no-install-recommends python3 poppler-utils ca-certificates && rm -rf /var/lib/apt/lists/*
 COPY package.json package-lock.json ./
 RUN npm ci --omit=dev --ignore-scripts && mkdir -p /data/mcp-home /data/mcp-cache /app/reports && chown -R node:node /data /app/reports
-COPY --from=build /app/dist ./dist
-COPY migrations ./migrations
-COPY prompts ./prompts
-COPY examples ./examples
-COPY scripts/paper-text.py ./scripts/paper-text.py
+COPY --chown=node:node --from=build /app/dist ./dist
+COPY --chown=node:node migrations ./migrations
+COPY --chown=node:node prompts ./prompts
+COPY --chown=node:node examples ./examples
+COPY --chown=node:node scripts/paper-text.py ./scripts/paper-text.py
 USER node
 CMD ["node", "dist/server.js"]
