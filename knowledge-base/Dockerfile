@@ -1,6 +1,3 @@
-FROM python:3.11.12-slim-bookworm AS uv-tools
-RUN pip install --no-cache-dir --only-binary=:all: uv==0.13.6
-
 FROM node:22.23.4-bookworm-slim AS build
 WORKDIR /app
 COPY package.json package-lock.json ./
@@ -10,7 +7,7 @@ COPY src ./src
 RUN npm run build
 
 FROM node:22.23.4-bookworm-slim
-COPY --from=uv-tools /usr/local/bin/uv /usr/local/bin/uvx /usr/local/bin/
+COPY --from=ghcr.io/astral-sh/uv:0.13.6 /uv /uvx /usr/local/bin/
 WORKDIR /app
 ENV NODE_ENV=production
 RUN apt-get update && apt-get install -y --no-install-recommends python3 poppler-utils ca-certificates && rm -rf /var/lib/apt/lists/*
