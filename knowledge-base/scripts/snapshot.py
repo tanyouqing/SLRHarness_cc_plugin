@@ -198,7 +198,7 @@ class Snapshots:
         jobs, records = set(), set()
         for path in (root / ".slr/kb/outbox").glob("*.json"):
             item = load(path)
-            if item["status"] not in ("succeeded", "removed", "retained"):
+            if item["status"] not in ("succeeded", "removed", "retained", "held"):
                 raise Deferred("run still has unfinished uploads")
             if item["status"] == "removed":
                 continue

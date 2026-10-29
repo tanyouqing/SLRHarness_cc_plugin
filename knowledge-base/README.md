@@ -70,3 +70,5 @@ python3 -m unittest discover -s embedding -p test_chunking.py
 策略管理新增第八个工具 `report_strategy_feedback`。默认检索只返回 active；停用保留历史，修订经独立调用核验后启用。升级及恢复见[中文手册](../docs/strategy-governance-upgrade.zh-CN.md)。
 
 全库版本由宿主机 `scripts/snapshot.py` 管理，覆盖 PostgreSQL 全部数据与向量；Pipeline 成功同步后自动保存，管理员可恢复指定版本。模型文件、密钥与 Pipeline 工作区继续独立保留。见[全库快照与 Git 升级手册](../docs/knowledge-base-snapshots.zh-CN.md)。
+
+论文新入库与补充现增加 L1/L2 门控。管理 Agent 可取公开 HTML/PDF，数据库强制核验通过才能发布；工具输入仍为元信息和 Markdown。只有有证据的矛盾待定；证据不足/原文不可达放行并标为 admitted_with_gaps，不能声称已核验。可导入 Claude 的搜索 MCP 供 Pi 核验使用。报告通过 get_job 查看，管理员可重查待定原任务。迁移 006、旧数据规则及真实验收见[论文门控手册](../docs/paper-admission.zh-CN.md)。

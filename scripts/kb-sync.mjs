@@ -132,7 +132,7 @@ export async function processOne(root,{transport,now=Date.now(),isReady=uploadRe
     const value=await client.call(item.jobId?'get_job':item.tool,item.jobId?{job_id:item.jobId}:payload);
     let change;
     if(item.jobId) {
-      if(value.status==='succeeded')change={status:'succeeded',result:value.result,error:null};
+      if(value.status==='succeeded')change={status:value.result?.admission==='held'?'held':'succeeded',result:value.result,error:null};
       else if(value.status==='failed')change={status:'failed',error:'KB background job failed; repair dependency and retry original job with KB admin',result:value};
       else if(['queued','running'].includes(value.status))change={status:'tracking',remoteStatus:value.status,progress:value.progress??null,nextAt:now+30000,error:null,attempts:0};
       else throw new Error('invalid KB job response');
@@ -159,7 +159,7 @@ export async function processOne(root,{transport,now=Date.now(),isReady=uploadRe
 export function resume(root) {
   if(!enabled(root))return {disabled:true};
   return locked(root,'queue',()=>{let count=0;
-    for(const x of items(root))if(['failed','waiting'].includes(x.status)) {
+    for(const x of items(root))if(['failed','waiting','held'].includes(x.status)) {
       // A server failure resumes polling its job; it never resubmits the payload.
       Object.assign(x,{status:x.jobId?'tracking':'pending',attempts:0,nextAt:0,lease:null});
       atomic(kbPath(root,`outbox/${x.id}.json`),x);count++;
@@ -230,7 +230,7 @@ async function drainOnce(root,{transport,retryFailed=false,maxWaitMs=syncBudgetM
   }
   const state=summary(root),all=items(root),warnings=[...new Set([...boundaryWarnings,...(prepared.warnings??[])])];
   const status=reason==='not_ready'?'not_ready':reason?'pending':all.some(x=>x.status==='failed')?'failed':
-    all.some(x=>!['succeeded','removed','retained'].includes(x.status))?'pending':warnings.length?'incomplete':all.some(x=>x.status==='removed'||x.status==='retained')?'complete_with_exclusions':'complete';
+    all.some(x=>!['succeeded','removed','retained','held'].includes(x.status))?'pending':warnings.length?'incomplete':all.some(x=>['removed','retained','held'].includes(x.status))?'complete_with_exclusions':'complete';
   const result={status,reason,warnings,startedAt,finishedAt:clock(),...state};
   atomic(kbPath(root,'last-sync.json'),result);return result;
 }

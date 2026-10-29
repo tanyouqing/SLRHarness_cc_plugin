@@ -28,6 +28,19 @@ test('snapshot failure reports pending separately; resume repeats only snapshot'
   assert.equal(first.status,'pending');assert.equal(first.reason,'snapshot_pending');assert.equal(first.uploadStatus,'complete');
   const second=await runOnce(root,{...options,snapshot:async()=>({status:'saved'})});assert.equal(second.status,'complete');assert.equal(requests,1);
 });
+
+test('held paper remains private and distinct from upload success; explicit resume polls original job',async t=>{
+  const {root,options}=fixture(t);enqueue(root,'submit_paper',{note:'uncertain'},{});
+  let submitted=0,approved=false;
+  options.transport.call=async name=>{
+    if(name!=='get_job'){submitted++;return {status:'pending',job_id:'paper-job'};}
+    return {status:'succeeded',result:approved?{ids:['published']}:{ids:[],admission:'held',reason:'L2 lacks evidence'}};
+  };
+  const first=await runOnce(root,{...options,snapshot:async()=>({status:'saved'})});
+  assert.equal(first.status,'complete_with_exclusions');assert.equal(first.counts.held,1);assert.equal(first.counts.succeeded,undefined);
+  const unchanged=await runOnce(root,{...options,snapshot:async()=>({status:'saved'})});assert.equal(unchanged.counts.held,1);assert.equal(submitted,1);
+  approved=true;const next=await runOnce(root,{...options,retryFailed:true,snapshot:async()=>({status:'saved'})});assert.equal(next.counts.succeeded,1);assert.equal(submitted,1);
+});
 test('other-run queue defers snapshot within finite budget; failed uploads never request one',async t=>{
   const {root,options}=fixture(t);let calls=0;
   const result=await runOnce(root,{...options,maxWaitMs:20000,snapshot:async()=>{calls++;return {status:'waiting'};}});

@@ -50,6 +50,7 @@ export async function submit(kind: Kind, content: Payload, sources: Source[] = [
       // Lock prevents losing new evidence while the worker publishes the result.
       const job = (await db.query('SELECT payload,status,result FROM jobs WHERE id=$1 FOR UPDATE', [existing.job_id])).rows[0];
       if (job.status === 'succeeded') {
+        if(kind==='paper'&&job.result?.admission==='held')return {status:'pending',id:null,job_id:existing.job_id,admission:'held',reason:job.result.reason};
         const id = job.result.ids[0];
         if (kind === 'experience') await addSources(db,id,sources);
         return {status:'duplicate',id,job_id:existing.job_id};
@@ -117,17 +118,21 @@ export async function read(type: 'paper' | 'experience' | 'trajectory', id: stri
     const origins=(await pool.query('SELECT metadata FROM trajectory_origins WHERE trajectory_id=$1 ORDER BY metadata_hash',[id])).rows.map(r=>r.metadata);
     return {type,...row,origins};
   }
-  const row = (await pool.query(`SELECT e.id,e.kind,e.current_revision,e.strategy_status,e.status_reason,e.status_detail,e.status_version,e.status_updated_at,e.activity_started_at,e.last_retrieved_at,e.inactivity_days,e.inactivity_exempt,r.revision,r.content,e.created_at,e.updated_at FROM entities e
+  const row = (await pool.query(`SELECT e.id,e.kind,e.current_revision,e.strategy_status,e.status_reason,e.status_detail,e.status_version,e.status_updated_at,e.activity_started_at,e.last_retrieved_at,e.inactivity_days,e.inactivity_exempt,r.revision,r.content,e.created_at,e.updated_at,
+    EXISTS(SELECT 1 FROM paper_checks pc WHERE pc.content_hash=r.content_hash AND pc.status='passed') AS paper_admitted,
+    EXISTS(SELECT 1 FROM paper_checks pc WHERE pc.content_hash=r.content_hash AND pc.status='passed' AND pc.report->>'verification'='verified') AS paper_verified FROM entities e
     JOIN revisions r ON r.entity_id=e.id AND r.revision=COALESCE($3::int,e.current_revision) WHERE e.id=$1 AND e.kind=$2`,[id,type,revision ?? null])).rows[0];
   if (!row) throw new Error('record not found');
   const conflicts = (await pool.query('SELECT left_id,right_id,reason FROM conflicts WHERE left_id=$1 OR right_id=$1',[id])).rows;
-  return {...row,...(type==='experience'?{status:row.strategy_status,reason:row.status_reason}:{}),sources:type === 'experience' ? await sourcesFor(id) : [],conflicts};
+  return {...row,...(type==='experience'?{status:row.strategy_status,reason:row.status_reason}:{admission:row.paper_admitted?(row.paper_verified?'verified':'admitted_with_gaps'):'legacy_unverified'}),sources:type === 'experience' ? await sourcesFor(id) : [],conflicts};
 }
 export async function getJob(id: string) {
   const row = (await pool.query('SELECT id,kind,status,attempts,result,error,created_at,updated_at,checkpoint,payload FROM jobs WHERE id=$1',[id])).rows[0];
   if (!row) throw new Error('job not found');
   const checkpoint=row.checkpoint,payload=row.payload;delete row.checkpoint;delete row.payload;
-  return {...row,...(row.kind==='distill'?{progress:distillationProgress({...row,checkpoint,payload})}:row.kind==='feedback'?{progress:{phase:checkpoint?.phase??'assess',strategy_id:payload.entity_id}}:{})};
+  const paperCheck=payload.kind==='paper'?(await pool.query('SELECT id,status,report,dossier FROM paper_checks WHERE job_id=$1 ORDER BY created_at DESC,id DESC LIMIT 1',[id])).rows[0]:null;
+  const evidenceSources=paperCheck?.dossier?.documents?.map((d:any)=>({id:d.id,url:d.url,kind:d.kind,hash:d.hash,fetchedAt:d.fetchedAt}));
+  return {...row,...(row.kind==='distill'?{progress:distillationProgress({...row,checkpoint,payload})}:row.kind==='feedback'?{progress:{phase:checkpoint?.phase??'assess',strategy_id:payload.entity_id}}:paperCheck?{progress:{admission:paperCheck.status,check_id:paperCheck.id,verification:paperCheck.report,sources:evidenceSources}}:{})};
 }
 export async function search(kind: Kind, query: string, filters: Record<string,unknown> = {}, limit=10, options:{internal?:boolean}={}) {
   const vector = await queryVector(query);
@@ -149,7 +154,7 @@ export async function search(kind: Kind, query: string, filters: Record<string,u
     }
   }
   const base = `FROM search_chunks c JOIN entities e ON e.id=c.entity_id JOIN revisions r ON r.entity_id=e.id AND r.revision=c.revision WHERE ${conditions.join(' AND ')}`;
-  const columns = 'c.id,c.entity_id,c.revision,c.text,c.location,r.content,e.strategy_status,e.status_reason,e.status_version';
+  const columns = "c.id,c.entity_id,c.revision,c.text,c.location,r.content,e.strategy_status,e.status_reason,e.status_version,EXISTS(SELECT 1 FROM paper_checks pc WHERE pc.content_hash=r.content_hash AND pc.status='passed') AS paper_admitted,EXISTS(SELECT 1 FROM paper_checks pc WHERE pc.content_hash=r.content_hash AND pc.status='passed' AND pc.report->>'verification'='verified') AS paper_verified";
   const [lexical,dense] = await Promise.all([
     pool.query(`SELECT ${columns} ${base} AND c.keywords @@ plainto_tsquery('simple',$3) ORDER BY ts_rank_cd(c.keywords,plainto_tsquery('simple',$3)) DESC,c.id LIMIT 50`,args),
     pool.query(`SELECT ${columns} ${base} ORDER BY c.embedding <=> $2::vector,c.id LIMIT 50`,args),
@@ -162,7 +167,7 @@ export async function search(kind: Kind, query: string, filters: Record<string,u
   }
   return Promise.all(rows.map(async row => ({
     id:row.entity_id,revision:row.revision,score:row.score,snippet:row.text,location:row.location,
-    ...(kind === 'paper' ? {metadata:row.content.metadata} : {status:row.strategy_status,status_version:row.status_version,task:row.content.task,role:row.content.role,stage:row.content.stage,applicability:row.content.applicability,sources:await sourcesFor(row.entity_id)}),
+    ...(kind === 'paper' ? {metadata:row.content.metadata,admission:row.paper_admitted?(row.paper_verified?'verified':'admitted_with_gaps'):'legacy_unverified'} : {status:row.strategy_status,status_version:row.status_version,task:row.content.task,role:row.content.role,stage:row.content.stage,applicability:row.content.applicability,sources:await sourcesFor(row.entity_id)}),
   })));
 }
 export async function candidates(kind: Kind, content: Payload, sources: Source[] = []) {
@@ -287,6 +292,12 @@ export async function fail(job: Job, error: unknown) {
 export async function publish(job: Job, decision: Decision, content: Payload, prepared?: Prepared) {
   await transaction(async db => {
     const current = await lockJob(db,job), {kind,fingerprint,sources} = current.payload;
+    let admission:string|undefined;
+    if(kind==='paper') {
+      const verified=(await db.query("SELECT id,report FROM paper_checks WHERE job_id=$1 AND content_hash=$2 AND status='passed' LIMIT 1",[job.id,hash(content)])).rows[0];
+      if(!verified)throw new Error('paper publication requires matching L1/L2 approval');
+      admission=verified.report?.verification??'admitted_with_gaps';
+    }
     if(kind==='experience')await validateExperienceRole(db,content,sources??[]);
     let id = decision.targetId, revision = 1;
     if (id) {
@@ -328,6 +339,6 @@ export async function publish(job: Job, decision: Decision, content: Payload, pr
     if (decision.action === 'keep_separate') await db.query('INSERT INTO conflicts(left_id,right_id,reason) VALUES($1,$2,$3) ON CONFLICT DO NOTHING',[decision.targetId,id,decision.reason]);
     await db.query('INSERT INTO decisions(job_id,entity_id,decision) VALUES($1,$2,$3)',[job.id,id,JSON.stringify(decision)]);
     await db.query('UPDATE ingestions SET entity_id=$3 WHERE kind=$1 AND content_hash=$2',[kind,fingerprint,id]);
-    await db.query("UPDATE jobs SET status='succeeded',result=$2,error=NULL,lease_token=NULL,lease_until=NULL,updated_at=now() WHERE id=$1",[job.id,JSON.stringify({ids:[id],revision,decision})]);
+    await db.query("UPDATE jobs SET status='succeeded',result=$2,error=NULL,lease_token=NULL,lease_until=NULL,updated_at=now() WHERE id=$1",[job.id,JSON.stringify({ids:[id],revision,decision,admission})]);
   });
 }

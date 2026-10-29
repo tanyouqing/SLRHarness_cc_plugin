@@ -5,6 +5,7 @@ dist/
 config/models.json
 config/auth.json
 config/agents.json
+config/search-mcp.json
 reports/
 backups/
 snapshots/

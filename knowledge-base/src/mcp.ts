@@ -19,7 +19,7 @@ export function createMcp(service:Service=store) {
       }
     });
   };
-  register('submit_paper','Submit metadata and Markdown notes; no PDF.',paperSchema,async input=>{
+  register('submit_paper','Submit metadata and Markdown notes; no PDF upload. New/changed papers undergo identity/version and original-content checks. Only evidenced contradictions hold publication; missing originals/evidence admit with gaps, not factual certification. Pending receipt is not publication; inspect get_job result.admission. Held notes remain private.',paperSchema,async input=>{
     input.metadata.doi=normalizeDoi(input.metadata.doi);
     if(input.metadata.arxivId)input.metadata.arxivId=input.metadata.arxivId.trim().replace(/^https?:\/\/arxiv\.org\/(?:abs|pdf)\//i,'').replace(/^arxiv:\s*/i,'').replace(/\.pdf$/i,'');
     return service.submit('paper',input);

@@ -1,0 +1,10 @@
+{
+  "mcpServers": {
+    "example-search": {
+      "disabled": true,
+      "type": "http",
+      "url": "https://YOUR_SEARCH_MCP_ENDPOINT/mcp",
+      "headers": {"Authorization": "Bearer ${SEARCH_MCP_TOKEN}"}
+    }
+  }
+}

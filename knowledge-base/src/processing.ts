@@ -7,6 +7,7 @@ import { manage, distillSegment, consolidate, checkDistilled, checkConsolidation
 import { sourceRole, assertExperienceRole } from './roles.js';
 import {ensureIndexes,retrieveCandidates} from './consolidation-index.js';
 import {migrateConsolidation,advanceCandidate,snapshotTargets,applyConsolidation} from './consolidation-state.js';
+import {admitPaper,holdPaper} from './paper-gate.js';
 
 export function trajectorySegments(content:string, budget=16000) {
   const lines=validateTrajectory(content),segments:{start:number;end:number;text:string}[]=[];
@@ -27,7 +28,7 @@ export function checkSupplement(kind:Kind, old:Payload, next:Payload) {
     for(const [x,y] of [[normalizeDoi(a.doi),normalizeDoi(b.doi)],[normalizeArxiv(a.arxivId),normalizeArxiv(b.arxivId)]])if(x && x!==y)throw new Error('supplement cannot remove or change established paper identifiers');
   }
 }
-const defaultDependencies={store,prepare,manage,distillSegment,consolidate,ensureIndexes,retrieveCandidates,assessTrajectory};
+const defaultDependencies={store,prepare,manage,distillSegment,consolidate,ensureIndexes,retrieveCandidates,assessTrajectory,admitPaper,holdPaper};
 export async function processIngest(job:store.Job,deps=defaultDependencies) {
   const {store,prepare,manage}=deps;
   const {kind}=job.payload;
@@ -35,12 +36,20 @@ export async function processIngest(job:store.Job,deps=defaultDependencies) {
   const content=(kind==='paper'?paperSchema:experienceSchema).parse(job.payload.content);
   const found=await store.candidates(kind,content,job.payload.sources??[]);
   const same=found.find(c=>hash(c.content)===hash(content));
-  const decision=same ? {action:'duplicate' as const,targetId:same.id,expectedRevision:same.revision,reason:'Identical normalized content',evidence:['content hash matches']} : found.length ? await manage(kind,content,found,job.payload.sources,policy) : {action:'new' as const,reason:'No existing candidate',evidence:['No matching stored record was retrieved']};
+  const signature=hash(found.map(c=>({id:c.id,revision:c.revision,contentHash:hash(c.content)})).sort((a,b)=>a.id.localeCompare(b.id)));
+  const saved=kind==='paper'?job.checkpoint?.paperIngest:null;
+  const decision=saved?.inputHash===hash(content)&&saved?.candidateSignature===signature?saved.decision:
+    same ? {action:'duplicate' as const,targetId:same.id,expectedRevision:same.revision,reason:'Identical normalized content',evidence:['content hash matches']} : found.length ? await manage(kind,content,found,job.payload.sources,policy) : {action:'new' as const,reason:'No existing candidate',evidence:['No matching stored record was retrieved']};
   validateDecision(decision,kind,found.map(c=>c.id));
+  if(kind==='paper')await store.checkpoint(job,{...job.checkpoint,paperIngest:{inputHash:hash(content),candidateSignature:signature,decision}});
   let result:Payload=content;
   if(decision.action==='supplement') {
     result=(kind==='paper'?paperSchema:experienceSchema).parse(decision.proposedContent);
     checkSupplement(kind,found.find(c=>c.id===decision.targetId)!.content,result);
+  }
+  if(kind==='paper') {
+    const check=await deps.admitPaper(job,result as Paper);
+    if(check.status!=='passed'){await deps.holdPaper(job,check);return;}
   }
   const encoded=decision.action==='duplicate'?undefined:await prepare(kind,result);
   await store.publish(job,decision,result,encoded);

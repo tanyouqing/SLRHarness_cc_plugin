@@ -28,7 +28,7 @@ export async function loadPrompts(role:'manager'|'distiller',policy:Policy) {
   const prefix=policy===legacyPolicy?'legacy-v1/':'';
   return (await Promise.all(['project-context',role].map(name=>readFile(new URL(`../prompts/${prefix}${name}.md`,import.meta.url),'utf8')))).join('\n\n');
 }
-async function run(role: 'manager'|'distiller', prompt: unknown, tools: AgentTool<any>[],policy:Policy=legacyPolicy) {
+export async function run(role: 'manager'|'distiller', prompt: unknown, tools: AgentTool<any>[],policy:Policy=legacyPolicy) {
   const rc = agentConfig()[role], models = await runtime();
   if (models.getError()) throw new Error('Pi model configuration is invalid; inspect config/models.json');
   const model = models.getModel(rc.provider,rc.model);
@@ -90,7 +90,7 @@ function toolSchema(schema:z.ZodType):any {
   const {$schema,...json}=z.toJSONSchema(schema,{target:'draft-7'});
   return json;
 }
-function schemaTool(name:string,description:string,schema:z.ZodType,fn:(args:any)=>Promise<unknown>,terminal=false):AgentTool<any> {
+export function schemaTool(name:string,description:string,schema:z.ZodType,fn:(args:any)=>Promise<unknown>,terminal=false):AgentTool<any> {
   const parameters=toolSchema(schema);
   // Preserve the complete JSON Schema, especially its required array. Rebuilding
   // Type.Object from plain properties loses Zod's optional-field information.
