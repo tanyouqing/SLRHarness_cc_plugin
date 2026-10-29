@@ -4,7 +4,7 @@ x-app: &app
   build:
     context: .
     args:
-      DEBIAN_MIRROR: ${DEBIAN_MIRROR:-https://deb.debian.org}
+      DEBIAN_MIRROR: ${DEBIAN_MIRROR:-http://deb.debian.org}
   env_file: .env
   environment: &app-env
     DATABASE_URL: postgresql://kb:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}@db:5432/kb
