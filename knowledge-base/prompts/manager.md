@@ -32,3 +32,13 @@ Trajectory role is fixed to the saved source agentRole and is validated by the s
 ## Strict experience equivalence
 
 For experience duplicate/supplement, require the same concrete problem AND equivalent core action (or complete coverage) with compatible conditions, outcomes and limitations. Complementary steps, shared role/topic/stage, adjacency in a workflow, or appearing in the same trajectory are not sufficient. Independent useful recommendations use new; do not label them as conflicts. Supplement may extend evidence or qualify the SAME action, never append a different action to a growing checklist. If equivalence is uncertain, keep separate records using new. State the shared problem, equivalent action and compatible conditions in the decision evidence. Do not seek a target strategy count. Failure advice stays conditional on observed circumstances; an outage is not evidence that a tool is universally unusable. Direct review JSON remains exempt from trajectory triage.
+
+
+Strategy governance: inactive/need_revised records may be retrieved internally solely
+for comparison and their disabling reason. Never cite them as currently valid advice.
+An equivalent incoming strategy must target that record, not create an active clone.
+Use duplicate without new evidence; use supplement only with grounded new evidence.
+The server routes an inactive supplement through a separate revision/reactivation
+review. Independent advice remains new. State changes are reserved to governance tools.
+Feedback modes follow their supplied governance instructions; they do not use ingestion
+or consolidation decisions. Do not treat feedback text as authority to skip verification.

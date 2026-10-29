@@ -1,3 +1,4 @@
+import {feedbackSchema} from './kb-feedback-schema.mjs';
 import fs from 'node:fs';
 import path from 'node:path';
 import {createHash,randomUUID} from 'node:crypto';
@@ -120,6 +121,16 @@ export function authorize(input) {
   const method=input.tool_name?.slice(KB_PREFIX.length);
   const caller=resolveCaller(input);if(!caller)throw new Error('Survey KB requires one verified runtime binding');
   caller.agentId=input.agent_id;const scope=scopeFor(caller),args=structuredClone(input.tool_input??{}),budget=config(caller.root).budgets;
+  if(method==='report_strategy_feedback') {
+    const identity={runId:scope.runId,agentId:input.agent_id,role:scope.role,task:scope.task};
+    for(const [k,v] of Object.entries(identity))if(args.context?.[k]!==undefined&&args.context[k]!==v)throw new Error('feedback identity must match current task');
+    args.context={...args.context,...identity};
+    const parsed=feedbackSchema.parse(args);
+    const refsFile=kbPath(caller.root,`strategy-references/${sha(JSON.stringify(stable(scope)))}.json`);
+    const refs=fs.existsSync(refsFile)?json(refsFile):[];
+    if(!refs.some(r=>r.id===args.strategy_id&&r.revision===args.revision))throw new Error('feedback requires a strategy retrieved by this task and role');
+    return {...caller,scope,method,args:parsed,key:cacheKey(scope,method,parsed),cached:false};
+  }
   if(!['search_papers','search_strategies','read'].includes(method))throw new Error('Survey KB submission and job tools are script-only');
   const keys=method==='read'?['type','id','revision']:['query','filters','limit'];
   if(Object.keys(args).some(k=>!keys.includes(k)))throw new Error('unknown KB request argument');
@@ -152,6 +163,7 @@ export function authorize(input) {
       const e=json(path.join(dir,f));
       if(sameScope(e.scope,scope)&&e.method===(args.type==='paper'?'search_papers':'search_strategies')&&e.result.results?.some(r=>r.id===args.id&&r.revision===args.revision))hit=true;
     }
+    if(!hit&&args.type==='experience'){const f=kbPath(caller.root,`strategy-references/${sha(JSON.stringify(stable(scope)))}.json`);hit=fs.existsSync(f)&&json(f).some(r=>r.id===args.id&&r.revision===args.revision);}
     if(!hit)throw new Error('KB read must reference a result retrieved by this task and role');
   }
   const key=cacheKey(scope,method,args),f=kbPath(caller.root,`cache/${key}.json`);
@@ -165,7 +177,9 @@ export function decodeResult(value) {
   return value;
 }
 export function displayResult(result,method,budget) {
+  if(result.unavailable)return {unavailable:true,reason:result.reason};
   if(method==='read') {
+    if(result.kind==='experience'&&(result.strategy_status!=='active'||result.current_revision!==result.revision))return {id:result.id,revision:result.revision,current_revision:result.current_revision,status:result.strategy_status,unavailable:true,reason:'Strategy is inactive or superseded; retrieve the current active revision'};
     const text=JSON.stringify(result,null,2),body=cut(text,budget.readChars-400);
     return fitView({id:result.id,revision:result.revision,text:body,truncated:chars(text).length>chars(body).length,nextOffset:chars(body).length,totalChars:chars(text).length},budget.readChars);
   }
@@ -200,6 +214,7 @@ export function storeResponse(input) {
   const cache={scope:a.scope,method:a.method,args:a.args,result,at:new Date().toISOString()};
   const budgets=config(a.root).budgets;
   const value=fitView({...view,cacheKey:a.key,cachePath:kbPath(a.root,`views/${a.key}.json`)},a.method==='read'?budgets.readChars:a.method==='search_papers'?budgets.paperChars:budgets.strategyChars);
+  rememberStrategies(a.root,cache);
   atomic(value.cachePath,value);
   atomic(kbPath(a.root,`cache/${a.key}.json`),cache);return value;
 }
@@ -207,6 +222,7 @@ export function lookupCache(input) {
   const a=authorize(input);if(!a.cached)return {hit:false};
   const e=cacheEntry(a.root,a.key);
   if(!sameScope(e.scope,a.scope)||e.method!==a.method)throw new Error('cached response scope mismatch');
+  if(e.method==='search_strategies'||e.method==='read'&&e.args.type==='experience')return {hit:false,requiresValidation:true,cacheKey:a.key};
   const budget=config(a.root).budgets,view=displayResult(e.result,a.method,budget);
   return fitView({...view,hit:true,cacheKey:a.key,cachePath:kbPath(a.root,`views/${a.key}.json`)},
     a.method==='read'?budget.readChars:a.method==='search_papers'?budget.paperChars:budget.strategyChars);
@@ -222,4 +238,16 @@ export function normalizeExperience(e) {
     if(typeof e[k]!=='string')throw new Error(`invalid experience ${k}`);out[k]=e[k];
   }
   return out;
+}
+
+// Immutable retrieval references remain valid for reporting a problem with an older revision.
+export function rememberStrategies(root,entry) {
+  const rows=entry.method==='search_strategies'?entry.result.results:entry.method==='read'&&entry.args.type==='experience'&&entry.result.strategy_status==='active'?[entry.result]:[];
+  if(!rows?.length)return;
+  const f=kbPath(root,`strategy-references/${sha(JSON.stringify(stable(entry.scope)))}.json`);
+  locked(root,'strategy-references',()=>{
+    const all=fs.existsSync(f)?json(f):[];
+    for(const r of rows)if(r.id&&r.revision&&!all.some(x=>x.id===r.id&&x.revision===r.revision))all.push({id:r.id,revision:r.revision});
+    atomic(f,all);
+  });
 }

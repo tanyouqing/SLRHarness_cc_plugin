@@ -1,9 +1,11 @@
+import {reportFeedback} from './governance.js';
+import {feedbackSchema} from './governance-domain.js';
 import { trajectoryInput } from './trajectory.js';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
 import { paperSchema, experienceInput, paperSearch, strategySearch, readSchema, normalizeDoi } from './domain.js';
 import * as store from './store.js';
-export type Service = Pick<typeof store,'submit'|'submitTrajectory'|'search'|'read'|'getJob'>;
+export type Service = Pick<typeof store,'submit'|'submitTrajectory'|'search'|'read'|'getJob'> & {reportFeedback?:typeof reportFeedback};
 export function createMcp(service:Service=store) {
   const server=new McpServer({name:'survey-knowledge-base',version:'0.1.0'});
   const register=(name:string,description:string,schema:z.ZodTypeAny,fn:(args:any)=>Promise<unknown>)=>{
@@ -12,7 +14,7 @@ export function createMcp(service:Service=store) {
       catch(error) {
         const message=error instanceof z.ZodError ? error.issues.map(i=>`${i.path.join('.')}: ${i.message}`).join('; ') : error instanceof Error ? error.message : 'request failed';
         // Avoid leaking database diagnostics and provider internals across the public boundary.
-        const safe=/^(record not found|job not found|source |event range|invalid JSON|line \d|trajectory |embedding )/.test(message) || error instanceof z.ZodError ? message : 'request failed; inspect service status and job result';
+        const safe=/^(feedback |record not found|job not found|source |event range|invalid JSON|line \d|trajectory |embedding )/.test(message) || error instanceof z.ZodError ? message : 'request failed; inspect service status and job result';
         return {isError:true,content:[{type:'text' as const,text:JSON.stringify({error:safe})}]};
       }
     });
@@ -27,6 +29,7 @@ export function createMcp(service:Service=store) {
   register('search_papers','Hybrid paper search. Filters: year_from/year_to, exact author/venue, normalized doi/arxivId.',paperSearch,async input=>({results:await service.search('paper',input.query,input.filters,input.limit)}));
   register('search_strategies','Hybrid strategy search with role/stage/sourceType filters. A stage filter also includes experiences with no stage; judge applicability from content.',strategySearch,async input=>({results:await service.search('experience',input.query,input.filters,input.limit)}));
   register('read','Read a paper/experience revision or trajectory. Event ranges use one-based JSONL lines.',readSchema,input=>service.read(input.type,input.id,input.revision,input.event_range));
+  register('report_strategy_feedback','Report a problem with a strategy actually used in this task. Include its ID, revision, suggested status and concrete evidence. Receipt is not a state change. Good strategies need no feedback.',feedbackSchema,input=>(service.reportFeedback??reportFeedback)(input));
   register('get_job','Read queued/running/succeeded/failed task status and final IDs or failure reason.',z.object({job_id:z.string().uuid()}).strict(),input=>service.getJob(input.job_id));
   return server;
 }

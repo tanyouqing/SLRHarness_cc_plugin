@@ -114,3 +114,23 @@ its separate strict role/tool contract.
 Manager's TaskOutput/TaskStop are limited to its own background Workers recorded
 from host Agent output, within the same session/topic/lease. Unmapped old/native
 tasks require main-session handling; task IDs in model text are not proof of ownership.
+
+
+## Strategy feedback and state (Sprint2 governance)
+
+Four executing roles may call `mcp__survey-kb__report_strategy_feedback` after observing
+an actual problem with their own retrieved strategy. This is the sole additional
+write-capable Agent tool; it records feedback, not a state change. Checker, Reviewer
+and main remain excluded. Required input is strategy_id, used revision,
+suggested_status, reason and concrete task context/evidence. No feedback on normal use.
+
+Feedback is frozen before the MCP call and can be recovered independently of research
+success. An operator uses `node <plugin>/scripts/kb-feedback.mjs status|resume <workspace>`.
+Once a job_id exists, resume only queries that job; failed jobs require the KB admin
+retry command. Neither recovery nor model processing should block research.
+
+Only active strategies enter public search. Cached strategy query/read helpers perform
+live status/version checks; they may return unavailable instead of stale content.
+Direct reading of nonempty strategy view files is disallowed because it bypasses that
+check. Paper caches retain their existing behavior. Active means no known confirmed
+issue; it does not certify usefulness. Old feedback references remain preserved.

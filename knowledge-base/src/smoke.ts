@@ -6,7 +6,7 @@ const client=await connectClient(),report:any={started_at:new Date().toISOString
 const run=Date.now().toString();
 async function settled(receipt:any) {return receipt.status==='duplicate' && receipt.id ? {ids:[receipt.id]} : await waitJob(client,receipt.job_id);}
 try {
-  assert.equal((await client.listTools()).tools.length,7);report.checks.push('seven tools');
+  assert.equal((await client.listTools()).tools.length,8);report.checks.push('eight tools');
   const paper=JSON.parse(await readFile('examples/paper.json','utf8'));
   paper.metadata.title+=` ${run}`;paper.note+=`\n\nRun marker: ${run}.`;
   const first=await settled(await call(client,'submit_paper',paper));

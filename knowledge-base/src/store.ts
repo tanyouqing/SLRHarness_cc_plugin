@@ -117,22 +117,23 @@ export async function read(type: 'paper' | 'experience' | 'trajectory', id: stri
     const origins=(await pool.query('SELECT metadata FROM trajectory_origins WHERE trajectory_id=$1 ORDER BY metadata_hash',[id])).rows.map(r=>r.metadata);
     return {type,...row,origins};
   }
-  const row = (await pool.query(`SELECT e.id,e.kind,r.revision,r.content,e.created_at,e.updated_at FROM entities e
+  const row = (await pool.query(`SELECT e.id,e.kind,e.current_revision,e.strategy_status,e.status_reason,e.status_detail,e.status_version,e.status_updated_at,e.activity_started_at,e.last_retrieved_at,e.inactivity_days,e.inactivity_exempt,r.revision,r.content,e.created_at,e.updated_at FROM entities e
     JOIN revisions r ON r.entity_id=e.id AND r.revision=COALESCE($3::int,e.current_revision) WHERE e.id=$1 AND e.kind=$2`,[id,type,revision ?? null])).rows[0];
   if (!row) throw new Error('record not found');
   const conflicts = (await pool.query('SELECT left_id,right_id,reason FROM conflicts WHERE left_id=$1 OR right_id=$1',[id])).rows;
-  return {...row,sources:type === 'experience' ? await sourcesFor(id) : [],conflicts};
+  return {...row,...(type==='experience'?{status:row.strategy_status,reason:row.status_reason}:{}),sources:type === 'experience' ? await sourcesFor(id) : [],conflicts};
 }
 export async function getJob(id: string) {
   const row = (await pool.query('SELECT id,kind,status,attempts,result,error,created_at,updated_at,checkpoint,payload FROM jobs WHERE id=$1',[id])).rows[0];
   if (!row) throw new Error('job not found');
   const checkpoint=row.checkpoint,payload=row.payload;delete row.checkpoint;delete row.payload;
-  return {...row,...(row.kind==='distill'?{progress:distillationProgress({...row,checkpoint,payload})}:{})};
+  return {...row,...(row.kind==='distill'?{progress:distillationProgress({...row,checkpoint,payload})}:row.kind==='feedback'?{progress:{phase:checkpoint?.phase??'assess',strategy_id:payload.entity_id}}:{})};
 }
-export async function search(kind: Kind, query: string, filters: Record<string,unknown> = {}, limit=10) {
+export async function search(kind: Kind, query: string, filters: Record<string,unknown> = {}, limit=10, options:{internal?:boolean}={}) {
   const vector = await queryVector(query);
   const args: unknown[] = [kind,vectorSql(vector.embedding),keywords(query),vector.model_version];
   const conditions = ['e.kind=$1', 'c.revision=e.current_revision', 'c.model_version=$4', '$2::vector IS NOT NULL', '$3::text IS NOT NULL'];
+  if(kind==='experience'&&!options.internal)conditions.push("e.strategy_status='active'");
   const bind = (value: unknown) => {args.push(value);return `$${args.length}`;};
   if (kind === 'paper') {
     if (filters.year_from !== undefined) conditions.push(`(r.content->'metadata'->>'year')::int >= ${bind(filters.year_from)}`);
@@ -148,21 +149,26 @@ export async function search(kind: Kind, query: string, filters: Record<string,u
     }
   }
   const base = `FROM search_chunks c JOIN entities e ON e.id=c.entity_id JOIN revisions r ON r.entity_id=e.id AND r.revision=c.revision WHERE ${conditions.join(' AND ')}`;
-  const columns = 'c.id,c.entity_id,c.revision,c.text,c.location,r.content';
+  const columns = 'c.id,c.entity_id,c.revision,c.text,c.location,r.content,e.strategy_status,e.status_reason,e.status_version';
   const [lexical,dense] = await Promise.all([
     pool.query(`SELECT ${columns} ${base} AND c.keywords @@ plainto_tsquery('simple',$3) ORDER BY ts_rank_cd(c.keywords,plainto_tsquery('simple',$3)) DESC,c.id LIMIT 50`,args),
     pool.query(`SELECT ${columns} ${base} ORDER BY c.embedding <=> $2::vector,c.id LIMIT 50`,args),
   ]);
   // Both SQL branches reference every parameter to avoid PostgreSQL's unused-parameter type ambiguity.
-  return Promise.all(fuse(lexical.rows,dense.rows,limit).map(async row => ({
+  let rows=fuse(lexical.rows,dense.rows,limit);
+  if(kind==='experience'&&!options.internal&&rows.length) {
+    const exposed=await pool.query("UPDATE entities e SET last_retrieved_at=now() FROM jsonb_to_recordset($1::jsonb) AS hit(id uuid,revision integer) WHERE e.id=hit.id AND e.current_revision=hit.revision AND e.strategy_status='active' RETURNING e.id,e.current_revision",[JSON.stringify(rows.map(r=>({id:r.entity_id,revision:r.revision})))]);
+    rows=rows.filter(r=>exposed.rows.some(e=>e.id===r.entity_id&&e.current_revision===r.revision));
+  }
+  return Promise.all(rows.map(async row => ({
     id:row.entity_id,revision:row.revision,score:row.score,snippet:row.text,location:row.location,
-    ...(kind === 'paper' ? {metadata:row.content.metadata} : {task:row.content.task,role:row.content.role,stage:row.content.stage,applicability:row.content.applicability,sources:await sourcesFor(row.entity_id)}),
+    ...(kind === 'paper' ? {metadata:row.content.metadata} : {status:row.strategy_status,status_version:row.status_version,task:row.content.task,role:row.content.role,stage:row.content.stage,applicability:row.content.applicability,sources:await sourcesFor(row.entity_id)}),
   })));
 }
 export async function candidates(kind: Kind, content: Payload, sources: Source[] = []) {
   const query = kind === 'paper' ? (content as Paper).metadata.title : [(content as Experience).task,(content as Experience).strategy].filter(v=>v!==undefined).join('\n');
   const filters = kind === 'experience' ? {role:(content as Experience).role,sourceType:(content as Experience).sourceType} : {};
-  const matches = await search(kind,query.slice(0,8000),filters,kind==='experience'?12:8);
+  const matches = await search(kind,query.slice(0,8000),filters,kind==='experience'?12:8,{internal:true});
   const ids = new Set<string>();
   if(kind==='experience' && sources.length) {
     const sameSource=await pool.query(`SELECT e.id,MIN(CASE
@@ -185,7 +191,7 @@ export async function candidates(kind: Kind, content: Payload, sources: Source[]
   }
   return Promise.all([...ids].map(id => read(kind,id)));
 }
-export type Job = {id:string;kind:'ingest'|'distill';payload:any;checkpoint:any;lease_token:string;attempts:number};
+export type Job = {id:string;kind:'ingest'|'distill'|'feedback';payload:any;checkpoint:any;lease_token:string;attempts:number};
 export async function lockJob(db: DB, job: Job) {
   const row = (await db.query("SELECT * FROM jobs WHERE id=$1 AND status='running' AND lease_token=$2 AND lease_until>now() FOR UPDATE",[job.id,job.lease_token])).rows[0];
   if (!row) throw new Error('job lease lost');
@@ -193,7 +199,7 @@ export async function lockJob(db: DB, job: Job) {
 }
 const schedulingPhase=`COALESCE(checkpoint->>'phase',CASE WHEN jsonb_typeof(checkpoint->'children')='array' THEN 'waiting' ELSE 'segments' END)`;
 export const claimQuery=`SELECT id,kind,${schedulingPhase} AS phase FROM jobs
-      WHERE (status='queued' AND run_after<=now() OR status='running' AND lease_until<now()) AND attempts<$1
+      WHERE kind IN ('ingest','distill') AND (status='queued' AND run_after<=now() OR status='running' AND lease_until<now()) AND attempts<$1
         AND NOT (kind='distill' AND ${schedulingPhase}='waiting')
       ORDER BY CASE WHEN kind=$2 THEN 0 ELSE 1 END,
         CASE WHEN kind='distill' AND (${schedulingPhase} NOT IN ('segments','triage'))=$3::boolean THEN 0 ELSE 1 END,
@@ -201,11 +207,13 @@ export const claimQuery=`SELECT id,kind,${schedulingPhase} AS phase FROM jobs
 export async function claim(): Promise<Job | undefined> {
   return transaction(async db => {
     await db.query("UPDATE jobs SET status='failed',error='worker lease expired after final attempt',lease_token=NULL,lease_until=NULL,updated_at=now() WHERE status='running' AND lease_until<now() AND attempts >= $1",[config.maxAttempts]);
-    const scheduler=(await db.query('SELECT ingest_streak,completion_streak FROM worker_scheduler WHERE id=true FOR UPDATE')).rows[0];
-    const row = (await db.query(claimQuery,
-      [config.maxAttempts,scheduler.ingest_streak>=5?'distill':'ingest',scheduler.completion_streak<2])).rows[0];
+    const scheduler=(await db.query('SELECT ingest_streak,completion_streak,feedback_turn FROM worker_scheduler WHERE id=true FOR UPDATE')).rows[0];
+    const feedback=(await db.query("SELECT id,kind FROM jobs WHERE kind='feedback' AND (status='queued' AND run_after<=now() OR status='running' AND lease_until<now()) AND attempts<$1 ORDER BY scheduled_at NULLS FIRST,created_at,id FOR UPDATE SKIP LOCKED LIMIT 1",[config.maxAttempts])).rows[0];
+    const ordinary=async()=> (await db.query(claimQuery,[config.maxAttempts,scheduler.ingest_streak>=5?'distill':'ingest',scheduler.completion_streak<2])).rows[0];
+    const row=scheduler.feedback_turn&&feedback?feedback:await ordinary()??feedback;
     if (!row) return undefined;
-    await db.query('UPDATE worker_scheduler SET ingest_streak=$1,completion_streak=$2 WHERE id=true',[
+    await db.query('UPDATE worker_scheduler SET feedback_turn=$1 WHERE id=true',[row.kind!=='feedback']);
+    if(row.kind!=='feedback')await db.query('UPDATE worker_scheduler SET ingest_streak=$1,completion_streak=$2 WHERE id=true',[
       row.kind==='ingest'?Math.min(5,scheduler.ingest_streak+1):0,
       row.kind==='ingest'?scheduler.completion_streak:['segments','triage'].includes(row.phase)?0:Math.min(2,scheduler.completion_streak+1)]);
     return (await db.query("UPDATE jobs SET status='running',scheduled_at=now(),attempts=attempts+1,lease_token=gen_random_uuid(),lease_until=now()+$2*interval '1 second',updated_at=now() WHERE id=$1 RETURNING *",[row.id,config.leaseSeconds])).rows[0];
@@ -289,12 +297,21 @@ export async function publish(job: Job, decision: Decision, content: Payload, pr
         const previous=(await db.query('SELECT content FROM revisions WHERE entity_id=$1 AND revision=$2',[id,revision])).rows[0].content;
         if(previous.role!==(content as Experience).role || previous.sourceType!==(content as Experience).sourceType)throw new Error('experience target role/sourceType mismatch');
         await validateExperienceRole(db,previous,await sourcesFor(id!,db));
+        if(target.strategy_status!=='active'&&decision.action==='supplement') {
+          const {enqueueRecheck}=await import('./governance.js');
+          const recheck=await enqueueRecheck(db,id!,{content,sources,reason:decision.reason},hash({id,fingerprint,status_version:target.status_version}));
+          await addSources(db,id!,sources);
+          await db.query('INSERT INTO decisions(job_id,entity_id,decision) VALUES($1,$2,$3)',[job.id,id,JSON.stringify({...decision,recheck_job_id:recheck})]);
+          await db.query('UPDATE ingestions SET entity_id=$3 WHERE kind=$1 AND content_hash=$2',[kind,fingerprint,id]);
+          await db.query("UPDATE jobs SET status='succeeded',result=$2,error=NULL,lease_token=NULL,lease_until=NULL,updated_at=now() WHERE id=$1",[job.id,JSON.stringify({ids:[id],revision,decision,status:target.strategy_status,recheck_job_id:recheck})]);
+          return;
+        }
       }
     }
     if (decision.action === 'new' || decision.action === 'keep_separate') {
       id = (await db.query('INSERT INTO entities(kind) VALUES($1) RETURNING id',[kind])).rows[0].id;
       revision = 1;
-    } else if (decision.action === 'supplement') revision++;
+    } else if (decision.action === 'supplement') revision=(await db.query('SELECT COALESCE(MAX(revision),0)+1 AS n FROM revisions WHERE entity_id=$1',[id])).rows[0].n;
     if (!id) throw new Error('missing result identity');
     if (decision.action !== 'duplicate') {
       if (!prepared) throw new Error('embedding required before publication');

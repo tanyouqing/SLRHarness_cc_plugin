@@ -4,20 +4,20 @@ import {InMemoryTransport} from '@modelcontextprotocol/sdk/inMemory.js';
 import {Client} from '@modelcontextprotocol/sdk/client/index.js';
 import {createMcp,type Service} from '../src/mcp.js';
 const id='00000000-0000-4000-8000-000000000001';
-test('seven MCP tools expose schemas and route paper/strategy search independently',async()=>{
+test('eight MCP tools expose schemas and route paper/strategy search independently',async()=>{
   const calls:any[]=[];
   const service:Service={
     submit:async(...args:any[])=>{calls.push(args);return {status:'pending',id:null,job_id:id};},
     submitTrajectory:async (content,metadata,transfer)=>{calls.push({content,metadata,transfer});return {status:'stored',id,job_id:id};},
     search:async(...args:any[])=>{calls.push(args);return [];},
-    read:async()=>({id}),getJob:async()=>({status:'queued',id}),
+    read:async()=>({id}),getJob:async()=>({status:'queued',id}),reportFeedback:async input=>{calls.push(input);return {status:'accepted',feedback_id:id,job_id:id};},
   };
   const server=createMcp(service),client=new Client({name:'offline-test',version:'1'});
   const [a,b]=InMemoryTransport.createLinkedPair();
   await server.connect(a);await client.connect(b);
   try {
     const tools=(await client.listTools()).tools;
-    assert.deepEqual(tools.map(t=>t.name).sort(),['get_job','read','search_papers','search_strategies','submit_experience','submit_paper','submit_trajectory']);
+    assert.deepEqual(tools.map(t=>t.name).sort(),['get_job','read','report_strategy_feedback','search_papers','search_strategies','submit_experience','submit_paper','submit_trajectory']);
     await client.callTool({name:'search_papers',arguments:{query:'evidence'}});
     await client.callTool({name:'search_strategies',arguments:{query:'evidence',filters:{role:'worker'}}});
     assert.equal(calls[0][0],'paper');assert.equal(calls[1][0],'experience');
@@ -28,6 +28,10 @@ test('seven MCP tools expose schemas and route paper/strategy search independent
     const transfer={id:'b'.repeat(64),index:0,count:2,contentHash:'c'.repeat(64)};
     const partial=await client.callTool({name:'submit_trajectory',arguments:{content:'{',metadata,transfer}});
     assert.ok(!partial.isError);assert.deepEqual(calls.at(-1),{content:'{',metadata,transfer});
+
+    const feedback={strategy_id:id,revision:1,suggested_status:'disabled',reason:'demonstrated low utility',context:{runId:'r',agentId:'a',role:'worker',task:'t',situation:'applicable',action:'used',outcome:'no effect',evidence:['observed output']}};
+    const receipt=await client.callTool({name:'report_strategy_feedback',arguments:feedback});assert.equal((receipt.structuredContent as any).status,'accepted');
+    const invalidFeedback=await client.callTool({name:'report_strategy_feedback',arguments:{...feedback,revision:0}});assert.equal(invalidFeedback.isError,true);
 
     const invalid=await client.callTool({name:'search_papers',arguments:{query:'x',filters:{role:'worker'}}});
     assert.equal(invalid.isError,true);

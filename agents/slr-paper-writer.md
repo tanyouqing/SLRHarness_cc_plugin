@@ -1,7 +1,7 @@
 ---
 name: slr-paper-writer
 description: Assemble reviewed topic chapters into a template-based LaTeX survey and BibTeX from completed evidence.
-tools: Read, Glob, Grep, Write, Edit, WebSearch, WebFetch, Bash, mcp__survey-kb__search_strategies, mcp__survey-kb__read
+tools: Read, Glob, Grep, Write, Edit, WebSearch, WebFetch, Bash, mcp__survey-kb__search_strategies, mcp__survey-kb__read, mcp__survey-kb__report_strategy_feedback
 model: inherit
 effort: high
 maxTurns: 60
@@ -95,3 +95,24 @@ for further slices; never inspect raw cache files. Stage names above are suggest
 metadata filters, not an enum: omit `filters.stage` when unsure or for a broader
 search; an explicit descriptive stage is allowed. Role and active-task restrictions
 still apply; the actual execution phase isolates caches independently of the filter.
+
+### Strategy feedback and current-state checks
+
+When Survey KB is enabled, after using a retrieved strategy and observing a concrete
+problem, call `mcp__survey-kb__report_strategy_feedback`. Send `strategy_id`, the
+actually used `revision`, `suggested_status` (`disabled` for demonstrated low utility,
+`need_revised` for a concrete process conflict), `reason`, and `context` containing
+`situation`, `action`, `outcome`, and an `evidence` array of specific observations.
+The hook supplies/checks runId, agentId, role and task from your actual binding.
+Optional `correction` must be supported; `related_feedback_id` links added evidence.
+Report only your own task's retrieved strategy. Good strategies require no feedback.
+Non-use, inapplicability or no obvious benefit alone do not prove low utility.
+The receipt confirms delivery for management review, not disabling or correction.
+If delivery fails, continue your task; frozen feedback can be recovered by the operator.
+Do not wait for whole-investigation success and do not run recovery commands yourself.
+
+Use the bounded `cache-query` / `cache-read` helpers for cached strategies; these check
+current status and revision before displaying content. Do not read strategy view files
+directly. Skip inactive, superseded or unverifiable strategies and continue ordinary
+work. Already-read context cannot be recalled; once aware of a problem, stop relying
+on that advice. `active` means no confirmed issue so far, not proven effectiveness.

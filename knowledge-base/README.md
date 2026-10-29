@@ -8,7 +8,7 @@
 
 独立于 auto-survey pipeline 的知识库服务：PostgreSQL 存储、两个 pi-agent-core Agent、MCP 接口。部署目标为 **Ubuntu 22.04.4 LTS，8 核、32GB、无 GPU**。
 
-**从零部署请按 [中文运行手册](docs/RUNBOOK.zh-CN.md) 操作。** 手册包含 Docker 安装、模型配置、启动、七个工具调用、故障恢复、备份和验收命令。
+**从零部署请按 [中文运行手册](docs/RUNBOOK.zh-CN.md) 操作。** 手册包含 Docker 安装、模型配置、启动、工具调用、故障恢复、备份和验收命令。
 
 ## 本轮实现
 
@@ -66,3 +66,5 @@ python3 -m unittest discover -s embedding -p test_chunking.py
 - 模型和数据库均由用户在云端运行验证。开发过程不读取工作区的 SSH 私钥，也不自动连接服务器。
 
 已部署用户本次请按 [选择性蒸馏 Git 升级手册](../docs/selective-distillation-upgrade.zh-CN.md) 更新。旧任务固定旧提示词，调度和快速收尾优化对全部任务生效，无需新增迁移。
+
+策略管理新增第八个工具 `report_strategy_feedback`。默认检索只返回 active；停用保留历史，修订经独立调用核验后启用。升级及恢复见[中文手册](../docs/strategy-governance-upgrade.zh-CN.md)。

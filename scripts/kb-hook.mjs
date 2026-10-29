@@ -1,3 +1,4 @@
+import {stageFeedback,recordFeedback} from './kb-feedback.mjs';
 import {capture,locateNative} from './kb-trajectory.mjs';
 export {capture} from './kb-trajectory.mjs';
 import fs from 'node:fs';
@@ -98,10 +99,11 @@ export function lifecycle(input) {
 }
 export function hook(input) {
   let output={};
+  if(input.hook_event_name==='PreToolUse'&&input.tool_name===KB_PREFIX+'report_strategy_feedback'){try{stageFeedback(input);}catch(e){const c=resolveCaller(input);if(c)warning(c.root,'feedback-stage',e);}}
   try{observeNativeTasks(input);}catch{/* missing runtime ownership stays denied; never interrupt research */}
   if(input.hook_event_name==='PostToolUse'&&input.tool_name?.startsWith(KB_PREFIX)) {
     let value;
-    try{value=storeResponse(input);}catch(e){value={unavailable:true,error:'KB response could not be safely processed; use original workflow'};const c=resolveCaller(input);if(c)warning(c.root,'response',e);}
+    try{value=input.tool_name===KB_PREFIX+'report_strategy_feedback'?recordFeedback(input):storeResponse(input);}catch(e){value={unavailable:true,error:'KB response could not be safely processed; use original workflow'};const c=resolveCaller(input);if(c)warning(c.root,'response',e);}
     output={hookSpecificOutput:{hookEventName:'PostToolUse',updatedMCPToolOutput:{content:[{type:'text',text:JSON.stringify(value)}],structuredContent:value}}};
   }
   try{lifecycle(input);}catch(e){const c=resolveCaller(input);if(c)warning(c.root,'capture-hook',e);}

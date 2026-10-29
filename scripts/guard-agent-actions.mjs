@@ -1,3 +1,4 @@
+import {stageFeedback} from './kb-feedback.mjs';
 import {reviewerReadAllowed} from './reviewer-inputs.mjs';
 import {formatAccess} from './format-check.mjs';
 import {paperConfig,templateFor,officialURL} from './paper-config.mjs';
@@ -132,7 +133,7 @@ export function evaluateHook(input) {
         const c=kbCaller(input);
         if(tokens.length!==(tokens[2]==='cache-read'?8:7)||!c||tokens[3]!==c.root||tokens[4]!==input.agent_id)throw new Error('KB cache helper requires exact runtime identity and workspace');
         if(c.role==='paper'&&!stageAccess(c.root,'paper',input.agent_id))throw new Error('writing evidence changed; refresh phase');
-        if(tokens[2]==='cache-read')kbCacheRead(c.root,{...c,agentId:input.agent_id},tokens[5],Number(tokens[6]),Number(tokens[7]));
+        if(tokens[2]==='cache-read')kbCacheRead(c.root,{...c,agentId:input.agent_id},tokens[5],Number(tokens[6]),Number(tokens[7]),null,true);
         else kbCacheQuery(c.root,{...c,agentId:input.agent_id},tokens[5],JSON.parse(tokens[6]));
         return allow();
       }catch(e){return deny(e.message);}
@@ -150,6 +151,7 @@ export function evaluateHook(input) {
         const c=kbCaller(input);if(!c||input.tool_name!=='Read')throw new Error('KB artifacts require a bounded role-scoped read');
         if(c.role==='paper'&&!stageAccess(c.root,'paper',input.agent_id))throw new Error('writing evidence changed; refresh phase');
         const scope=scopeFor({...c,agentId:input.agent_id}),match=/[\\/]views[\\/]([a-f0-9]{64})\.json$/.exec(target);
+        if(match){const entry=cacheEntry(c.root,match[1]);if(entry.method==='search_strategies'&&entry.result.results?.length||entry.method==='read'&&entry.args.type==='experience')throw new Error('Strategy cache needs a live status check; use the bounded cache-read command');}
         if(!match||resolved!==kbPath(c.root,`views/${match[1]}.json`)||path.resolve(target)!==resolved||!sameScope(cacheEntry(c.root,match[1]).scope,scope))throw new Error('KB raw cache and other tasks are not readable; use cache-read');
       }catch(e){return deny(e.message);}
     }
@@ -313,6 +315,6 @@ export function evaluateHook(input) {
 
 if(process.argv[1] && path.resolve(process.argv[1]).toLowerCase()===fileURLToPath(import.meta.url).toLowerCase()) {
   let text=''; for await(const chunk of process.stdin) text+=chunk;
-  try { const result=evaluateHook(JSON.parse(text)); if(!result.allowed) { console.error(result.reason); process.exitCode=2; } else if(result.updatedInput)console.log(JSON.stringify({hookSpecificOutput:{hookEventName:'PreToolUse',updatedInput:result.updatedInput}})); }
+  try { const input=JSON.parse(text),result=evaluateHook(input);if(result.allowed&&input.tool_name===KB_PREFIX+'report_strategy_feedback')stageFeedback({...input,tool_input:result.updatedInput}); if(!result.allowed) { console.error(result.reason); process.exitCode=2; } else if(result.updatedInput)console.log(JSON.stringify({hookSpecificOutput:{hookEventName:'PreToolUse',updatedInput:result.updatedInput}})); }
   catch(error) { console.error(error.message); process.exitCode=2; }
 }

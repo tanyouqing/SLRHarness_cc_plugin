@@ -151,3 +151,16 @@ worker 默认一次处理一个任务，最多尝试 3 次；每 15 秒续租，
 七个工具及经验参数不变。仅新任务创建时固定新策略版本；重复提交复用旧任务及其版本。`get_job.progress` 增加 `policy_version`、`triage_kind`、`triage_reason`、`triage_evidence`、`skip_reason`。判别为 failure/recovered_success/unique_success/unknown 时继续提炼，routine_success 时正常完成：status=succeeded、phase=skipped、result.distillation=skipped、result.ids=[]，策略数为零。来源角色无效导致不创建任务的跳过仍沿用原接口。
 
 新任务只合并同一具体问题、等价核心行动和相容条件的策略；相关但独立的建议保持独立，归并没有数量目标。旧任务沿用旧提示词，已入库内容不会重新整理。审稿 JSON 直接进入管理流程，无轨迹判别。完整说明见 [升级手册](../../docs/selective-distillation-upgrade.zh-CN.md)。
+
+
+## 策略管理（迁移 005，第八个 MCP 工具）
+
+前述七工具为历史接口，本次新增 `report_strategy_feedback`，原七个名称与提交正文保持兼容。
+
+输入字段：`strategy_id` UUID、`revision` 正整数、`suggested_status`（disabled / need_revised）、`reason`；`context` 必须含 runId、agentId、role（四类执行角色）、task、situation、action、outcome、非空 evidence 数组。可选 correction、related_feedback_id。身份字段由 Pipeline Hook 核对；直接调用者提供全量字段。审稿经验和轨迹策略均可反馈。
+
+返回 `{status:"accepted"|"duplicate", feedback_id, job_id}`，不意味着状态已经改变。get_job 的 feedback 任务 progress 返回 phase、strategy_id，最终 result 包含 status/outcome/reason，证据不足时可含 evidenceNeeded。重复反馈复用原任务，服务器失败用 admin retry，不重新上传策略。
+
+read experience 返回 status / reason 两个别名及 strategy_status、status_reason、status_detail、status_version、status_updated_at、current_revision。指定历史 revision 仍返回实体当前状态，历史内容不代表当前有效建议。search_strategies 只返回 active，结果含 status、status_version；不提供公开 include_disabled 开关。
+
+完整状态流、后台检查、管理员命令及发布限制见 [策略管理升级手册](../../docs/strategy-governance-upgrade.zh-CN.md)。

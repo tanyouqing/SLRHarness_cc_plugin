@@ -93,10 +93,10 @@ test('cache hit and miss are normal local results; repeated MCP calls no longer 
   const view=storeResponse({...input,tool_response:{results:[{id:'strategy',revision:1,role:'worker',snippet:'check evidence'}]}});
   assert.equal(evaluateHook(input).allowed,true);
   const cached=cacheQuery(f.root,callerForId(f.root,'worker'),'search_strategies',{query:'compare'});
-  assert.equal(cached.hit,true);assert.equal(cached.cacheKey,view.cacheKey);assert.equal(cached.results[0].snippet,'check evidence');
+  assert.equal(cached.hit,false);assert.equal(cached.requiresValidation,true);assert.equal(cached.cacheKey,view.cacheKey);assert.equal(cached.results,undefined);
   const cli=path.join(plugin,'scripts/kb-control.mjs');
-  const result=JSON.parse(execFileSync(process.execPath,[cli,'cache-query',f.root,'worker','search_strategies','{"query":"compare"}'],{encoding:'utf8'}));
-  assert.equal(result.hit,true);
+  const result=JSON.parse(execFileSync(process.execPath,[cli,'cache-query',f.root,'worker','search_strategies','{"query":"compare"}'],{encoding:'utf8',env:{...process.env,SURVEY_KB_TOKEN:''}}));
+  assert.equal(result.hit,false);assert.equal(result.unavailable,true);
   const command=`node "${cli}" cache-query "${f.root}" "worker" search_strategies '{"query":"compare"}'`;
   assert.equal(evaluateHook(f.input('Bash',{command},'worker','worker')).allowed,true);
   assert.equal(evaluateHook(f.input('Bash',{command})).allowed,false);

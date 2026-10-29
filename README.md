@@ -169,3 +169,5 @@ submission hashes and job IDs preserved. See the [upgrade and recovery manual](d
 ## 轨迹与 Git 升级
 
 当前方案以 [轨迹与 Git 升级手册](docs/trajectory-git-upgrade.zh-CN.md) 为准：四类角色投影、身份元信息、分段上传、6 小时跟踪及逐段调度。已有远程任务保留原 ID。知识库源码现位于同一仓库 knowledge-base/；不再使用增量安装包。
+
+策略反馈、停用与自动修订已接入；现有部署请按[策略管理升级手册](docs/strategy-governance-upgrade.zh-CN.md)更新。反馈独立恢复不依赖调研成功，默认 90 天未被对外检索返回的策略会停用。

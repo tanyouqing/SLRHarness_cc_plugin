@@ -493,3 +493,7 @@ docker compose exec -T db psql -U kb -d kb -c \
 ## 14. 选择性蒸馏和严格重复判定
 
 按 [新版 Git 升级手册](../../docs/selective-distillation-upgrade.zh-CN.md) 更新 API/worker，无需新增迁移。新任务固定 selective-v2，缺少版本的旧任务继续 legacy-v1 和原进度。普通直接成功返回已跳过/零策略；这属于正常完成。判别不明继续分段检查；独立建议不因相关而归并。完成/提炼按 2:1 分配，最终候选连续入队，waiting 状态通过轻量扫描收尾。查询字段、恢复边界和回退步骤见上述手册。
+
+## 策略状态管理升级
+
+本次新增迁移 005 和第八个 MCP 反馈工具，保留全部现有数据。已有部署直接按[策略管理 Git 升级手册](../../docs/strategy-governance-upgrade.zh-CN.md)操作；不要重新安装数据库或模型。手册包含 feedback status/resume、管理 Agent 重试、历史查询、期限豁免与重新启用复核。

@@ -1,3 +1,4 @@
+import {refreshStrategyEntry,isStrategy} from './kb-cache-refresh.mjs';
 import fs from 'node:fs';
 import path from 'node:path';
 import {fileURLToPath} from 'node:url';
@@ -24,10 +25,11 @@ export function bindScoper(root,agentId) {
     a.bound=true;atomic(kbPath(root,'runtime.json'),rt);return {bound:true,role:'scoper'};
   });
 }
-export function cacheRead(root,caller,key,offset=0,limit=24000) {
-  const scope=scopeFor({...caller,root}),e=cacheEntry(root,key);
+export function cacheRead(root,caller,key,offset=0,limit=24000,validatedEntry=null,validationOnly=false) {
+  const scope=scopeFor({...caller,root}),e=validatedEntry??cacheEntry(root,key);
   if(!sameScope(scope,e.scope)||e.method==='search_papers'&&scope.role!=='worker'||e.args.type==='paper'&&scope.role!=='worker')throw new Error('cache belongs to another task/role');
   if(!Number.isInteger(offset)||offset<0||!Number.isInteger(limit)||limit<1||limit>config(root).budgets.readChars-300)throw new Error('invalid cache slice; limit at most 23700');
+  if(isStrategy(e)&&!validatedEntry&&!validationOnly)throw new Error('strategy cache requires current status validation; use cache-read command');
   const text=JSON.stringify(e.result,null,2),all=chars(text),body=all.slice(offset,offset+limit).join('');
   return fitView({cacheKey:key,offset,text:body,nextOffset:offset+chars(body).length,totalChars:all.length},config(root).budgets.readChars);
 }
@@ -85,8 +87,8 @@ if(process.argv[1]&&path.resolve(process.argv[1])===fileURLToPath(import.meta.ur
     if(action==='attach')result={enabled:enabled(root),attached:Object.keys(runtime(root).sessions).length>0};
     else if(action==='bind-scoper')result=bindScoper(root,args[0]);
     else if(action==='confirm-stopped')result=confirmStopped(root,args[0],args[1]);
-    else if(action==='cache-read')result=cacheRead(root,callerForId(root,args[0]),args[1],Number(args[2]??0),Number(args[3]??23700));
-    else if(action==='cache-query')result=cacheQuery(root,callerForId(root,args[0]),args[1],JSON.parse(args[2]));
+    else if(action==='cache-read'){const caller=callerForId(root,args[0]);cacheRead(root,caller,args[1],Number(args[2]??0),Number(args[3]??23700),null,true);const old=cacheEntry(root,args[1]),fresh=await refreshStrategyEntry(root,old);const changed=old.method==='read'&&fresh.result.revision!==old.result.revision;result={...cacheRead(root,caller,args[1],changed?0:Number(args[2]??0),Number(args[3]??23700),fresh),...(changed?{revisionChanged:true,revision:fresh.result.revision}: {})};}
+    else if(action==='cache-query'){result=cacheQuery(root,callerForId(root,args[0]),args[1],JSON.parse(args[2]));if(result.requiresValidation){const fresh=await refreshStrategyEntry(root,cacheEntry(root,result.cacheKey));const {displayResult}=await import('./kb-core.mjs');result={...displayResult(fresh.result,fresh.method,config(root).budgets),hit:!fresh.result.unavailable,cacheKey:result.cacheKey};}}
     else if(action==='status')result={config:config(root),imports:fs.existsSync(kbPath(root,'imports.json'))?Object.keys(json(kbPath(root,'imports.json'))).length:0};
     else throw new Error('use attach, bind-scoper, cache-query, cache-read, confirm-stopped or status');
     console.log(JSON.stringify(result));
