@@ -220,3 +220,14 @@ Stop 批次逐源冻结；已冻结副本保持不可变，缺失轨迹不再阻
 - 增加私有配置模板和 import-search-mcp.py，可从 Claude 全局或项目配置导入指定服务，原文件不变；目标文件默认 0600，重复覆盖需明确 --replace。Docker 新增固定 uv/uvx、沿用 npx，为搜索进程准备持久缓存。
 - 只读确认服务器全局配置有 arxiv/uvx、tavily/npx、scholar/uvx；未输出凭据，未复制服务器配置、启动 MCP、推送 Git 或升级服务器。用户准备部署时按论文门控手册执行导入、构建与迁移。
 - TypeScript check/build 通过；完整离线回归 Pipeline 195、知识库 126、Python 23，共 344 项通过。最终局部修正后重跑类型检查、构建及论文门控/MCP 测试。测试使用模拟连接和临时文件，不调用真实数据库、Embedding、模型、搜索工具或论文下载。Docker 构建、真实 MCP 握手及核验质量尚待云端验收。
+
+
+### 论文门控与搜索 MCP 服务器升级（2026-10-30）
+
+- 功能提交 c3d6a6e 已推送 auto-survey；服务器 Pipeline 和独立 KB checkout 通过 git pull --ff-only 更新。部署镜像实现版本为 1975924（含构建修正），API/worker 已替换且健康；DB/Embedding 原容器与全部挂载保留。
+- 迁移 006 成功；paper_revision_admission、immutable_completed_paper_checks、immutable_revisions 三个保护触发器启用。核验、内部检索、调度与收尾查询通过只读 EXPLAIN；没有上传论文或执行真实模型检查。
+- 从服务器 /root/.claude.json 导入 arxiv、tavily、scholar 到私有 config/search-mcp.json，权限 0600、owner 1000。原 Claude 文件未被导入脚本修改；未导入 survey-kb。容器内配置解析、变量展开和 npx/uvx/Python/Poppler 命令检查通过。未启动外部 MCP，握手、实际凭据及搜索质量仍待用户测试；第一次启动可能下载第三方 MCP 包。
+- 构建时遇到国际下载源缓慢；uv 固定镜像层下载完成后复用缓存。PyPI 替代尝试因文件超时已撤回。增加 DEBIAN_MIRROR 构建参数，服务器使用 http://mirrors.aliyun.com，保留 Debian 签名校验并安装 CA。基础 slim 镜像安装 CA 前不能使用 HTTPS APT 源。
+- 首次迁移因 checkout 文件权限过严失败，事务完整回滚并恢复旧服务。Docker COPY 现明确由 node 用户拥有运行资源；重新构建并确认可读后完成迁移。没有关闭保护触发器或绕过准入规则。
+- 升级前后原有表内容摘要一致：28 篇论文、51 条经验、93 条轨迹、113 个已成功任务，未完成任务为 0，新 paper_checks 为 0。没有重查旧论文、补传、反馈或模型测试。
+- 数据库与私有配置备份、构建日志和逐表摘要保存在 /root/survey-kb/backups/paper-gate-c3d6a6e/。新增全库基线 v-026c33abe32d4129aa9b57895b9c4eb8，2026-10-30 00:13:04（北京时间），45,085,651 字节，SHA-256 2ed00fc641a8f8277cde519b823eacc85a4ec589b5ba3f072a6e65c5c8da0b22。此基线包含迁移 006；原迁移 005 基线保留但不能直接恢复到 006 环境。
