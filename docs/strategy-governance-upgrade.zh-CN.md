@@ -117,3 +117,12 @@ bash "$KB/scripts/compose-git.sh" exec -T worker node dist/admin.js retry "$JOB_
 本机只运行离线 TypeScript、Node 和 Python 测试，覆盖实际工具 schema、模拟事务、版本冲突、独立核验、失败恢复、角色权限、缓存失效和自动弃用时钟。没有启动真实 DB/Embedding/模型。
 
 服务器升级只运行迁移、静态 SQL 规划、版本/挂载/数据一致性检查，不主动提交真实反馈或触发模型验证。后续需用户用专门测试策略检查一次有效反馈、证据不足、修订核验、重新启用与缓存刷新。不要用生产策略随意试验停用；不要将模型核验或策略数量减少当作质量已验证。
+
+
+### 服务器部署核验（2026-10-29）
+
+- 实现提交 `3a77bfb` 已通过 Git 更新两个 checkout；API/worker 使用 `survey-kb:git-3a77bfb`，镜像中 Node.js 22。Pipeline 保留服务器已有 Node.js 26.10.0（依赖要求 >=22），通过语法与 SDK 导入静态检查，未改服务器运行时。
+- 备份：`/root/survey-kb/backups/governance-20261029-213023-3a77bfb/`，包含数据库 dump、可读目录清单、私有配置、旧镜像、挂载和升级前后摘要。
+- 迁移 005 成功。28 篇论文、51 条经验、93 条轨迹保留；全部原任务、修订内容哈希、轨迹哈希及清理标记、来源关联逐项比较一致。51 条经验均 active、status_version=1，last_retrieved_at 为空，期限从迁移时开始。
+- 公开功能相关新 SQL 与原检索/调度 SQL 的只读规划检查通过；当前修订缺失为 0。历史修订、草稿和审计记录的不可变触发器均启用。
+- API/worker/DB/Embedding 均 healthy，重启计数 0；DB/Embedding 原容器和所有持久挂载保持不变。未完成任务、反馈、草稿、策略状态事件均为 0。只执行迁移、静态及数据一致性检查，未执行真实搜索、反馈、上传、模型测试或恢复旧任务。
