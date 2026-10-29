@@ -149,4 +149,8 @@ Stop 批次逐源冻结；已冻结副本保持不可变，缺失轨迹不再阻
 - 保留入库五次上限，蒸馏完成队列与提炼按 2:1 调度，15 分钟等待提升；生产性让出无三秒冷却，等待子任务检查间隔 15 秒。保持单 worker，不增加 TPM 并发。
 - 新增迁移 004、get_job 进度字段、只读 SQL EXPLAIN 运维检查，以及 [Git 升级手册](retrieval-consolidation-upgrade.zh-CN.md)。索引表不进入公共检索，任务删除时级联清理。
 - 本机：Pipeline 184 项、知识库 70 项、Python 5 项离线测试通过；TypeScript check/build、插件校验通过（原有图标提示）。20 条独立候选的模拟归并为 20 次 Agent 调用。未启动真实数据库、Embedding 或大模型；质量与召回不能用模拟性能结果代替。
-- 服务器升级及数据一致性结果随后补录。原任务正常继续处理，不执行新上传或主动模型测试，不自动重试新出现的 failed 任务。
+- 代码 fa40beb 已推送 auto-survey，两个服务器 checkout 已 Git 更新；新应用镜像 survey-kb:git-fa40beb 构建成功。备份目录 `/root/survey-kb/backups/retrieval-20261029-fa40beb/` 保存数据库、私有配置、旧镜像 ID 与一致性摘要。
+- 服务器迁移 004 成功；迁移前后全部 77 个任务（37 个 queued 蒸馏任务、40 个已成功入库任务）的 ID/status/payload/checkpoint/result 摘要一致，原始轨迹身份/内容哈希和分段传输回执摘要一致。没有重传轨迹、删除或重建任务。
+- 在只读事务中对生产使用的关键词、向量和调度 SQL 执行 EXPLAIN，三项均通过；没有 ANALYZE、真实检索请求或模型测试。API/worker 语法、插件与配置校验通过，Top-K 实际为 5，immutable_revisions 触发器保持启用。
+- 仅重新创建 API/worker，数据库与 Embedding 容器 ID 不变；私有配置和 Pi 挂载相同（Docker 返回挂载顺序变化，排序后核对一致）。四个服务健康，重启计数均为 0。
+- worker 已自然继续原队列；归并检查点在各任务下次执行时转换到 retrieval-v1，提炼分段继续原进度。没有主动上传、once/resume 或额外模型测试，也没有自动 retry 新失败项。实际语义质量、数量和总耗时等待原任务运行结果验证。
