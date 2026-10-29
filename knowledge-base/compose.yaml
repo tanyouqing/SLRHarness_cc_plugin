@@ -1,7 +1,10 @@
 name: survey-kb
 x-app: &app
   image: ${KB_APP_IMAGE:-survey-kb:0.1.0}
-  build: .
+  build:
+    context: .
+    args:
+      DEBIAN_MIRROR: ${DEBIAN_MIRROR:-https://deb.debian.org}
   env_file: .env
   environment: &app-env
     DATABASE_URL: postgresql://kb:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}@db:5432/kb

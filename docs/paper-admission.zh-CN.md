@@ -110,6 +110,8 @@ bash "$KB/scripts/compose-git.sh" exec -T worker node --input-type=module -e 'im
 
 本轮有迁移 006 和容器运行依赖变化，需要重建 API 镜像并更新 API/worker。不能只给旧镜像添加 Git 别名。先结束使用 KB 的调研和同步；不重建数据库、Embedding 或模型卷。命令会修改服务及数据库，以下不属于真实模型测试。
 
+应用镜像支持 `.env` 中的 `DEBIAN_MIRROR`，默认 `https://deb.debian.org`。服务器默认源下载缓慢时可设为 `https://mirrors.aliyun.com`，同时提供 Debian 主库与安全更新库，仍使用原 Debian 签名验证。该设置只影响构建时的 Python/Poppler 系统依赖下载。uv 镜像层使用固定版本 GHCR 镜像；下载成功后后续构建复用 Docker 缓存。
+
 ```bash
 source /root/.config/survey-kb/env.sh
 PIPE=/root/JiahaoCAO/SLRHarness_cc_plugin
