@@ -91,7 +91,7 @@ chmod 600 /root/survey-kb/knowledge-base/config/search-mcp.json
 
 预期只输出保存位置、服务名和传输类型，不显示密钥。目标文件已存在时先检查，仅在确实需要覆盖时附加 `--replace`。也可从普通 `.mcp.json` 导入，或加 `--project /root/JiahaoCAO/SLRHarness_cc_plugin` 选取 Claude 项目配置覆盖全局定义。原文件不会改动。新配置已排除在 Git 和 Docker 构建上下文之外，不要粘贴到公开报告。
 
-Dockerfile 已为 stdio 准备 Node/npx 和 [uv/uvx 0.13.6](https://docs.astral.sh/uv/guides/integration/docker/)，仍需重建 API/worker 镜像。现有配置挂载会映射新文件到 `/app/config/search-mcp.json`，无需新增卷。uv/npm 缓存放到已有 Pi 数据卷 `/data/mcp-cache`。第一次启动 MCP 可能下载第三方依赖，需能访问对应包源；导入会保留 Claude 原始包参数，若原参数未固定版本，建议固定为已验证版本后使用。
+Dockerfile 已为 stdio 准备 Node/npx 和 uv/uvx 0.13.6（在独立 Python 构建阶段从 PyPI 安装固定版本二进制 wheel，再复制到应用镜像，避免服务器 GHCR 层下载停滞），仍需重建 API/worker 镜像。现有配置挂载会映射新文件到 `/app/config/search-mcp.json`，无需新增卷。uv/npm 缓存放到已有 Pi 数据卷 `/data/mcp-cache`。第一次启动 MCP 可能下载第三方依赖，需能访问对应包源；导入会保留 Claude 原始包参数，若原参数未固定版本，建议固定为已验证版本后使用。
 
 配置中的宿主机绝对路径和 localhost 需按容器环境调整；容器 localhost 指向容器自身。`${VAR}`/`${VAR:-fallback}` 从容器环境展开；已有 env/header 字面凭据可原样放在私有文件。若变量仅存在于宿主机 shell，需要加入知识库私有 `.env`，不要只在宿主机 export。Docker 应用已通过 env_file 加载它。stdio 子进程只取得基础运行环境和明确配置的 env，不自动继承模型密钥。
 
