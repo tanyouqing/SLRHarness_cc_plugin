@@ -1,3 +1,4 @@
+import {currentPolicy,policyOf,type Policy} from './policy.js';
 import { trajectoryInput, assemble, sha256, type TrajectoryMetadata } from './trajectory.js';
 import { pool, transaction, type DB } from './db.js';
 import { config } from './config.js';
@@ -32,9 +33,11 @@ export async function sourcesFor(id: string, db: DB = pool): Promise<Source[]> {
   const rows = (await db.query('SELECT * FROM experience_sources WHERE experience_id=$1 ORDER BY trajectory_id,start_line NULLS FIRST', [id])).rows;
   return rows.map(r => ({ type:'trajectory', id:r.trajectory_id, ...(r.start_line ? {event_range:{start:r.start_line,end:r.end_line}} : {}) }));
 }
-export async function submit(kind: Kind, content: Payload, sources: Source[] = []) {
+export async function submit(kind: Kind, content: Payload, sources: Source[] = [],options:{policyVersion?:Policy;parentJob?:Job}={}) {
   const fingerprint = hash(content);
   return transaction(async db => {
+    if(options.parentJob)await lockJob(db,options.parentJob);
+    const policyVersion=policyOf({policyVersion:options.policyVersion??currentPolicy});
     await db.query('SELECT pg_advisory_xact_lock(hashtext($1))', [`${kind}:${fingerprint}`]);
     await validateSources(db, sources);
     await validateExperienceRole(db, content, sources);
@@ -60,7 +63,7 @@ export async function submit(kind: Kind, content: Payload, sources: Source[] = [
       if (kind === 'experience') await addSources(db,same.id,sources);
       return {status:'duplicate',id:same.id,job_id:null};
     }
-    const job = (await db.query("INSERT INTO jobs(kind,payload) VALUES('ingest',$1) RETURNING id", [JSON.stringify({kind,content,sources,fingerprint})])).rows[0];
+    const job = (await db.query("INSERT INTO jobs(kind,payload) VALUES('ingest',$1) RETURNING id", [JSON.stringify({kind,content,sources,fingerprint,policyVersion})])).rows[0];
     await db.query('INSERT INTO ingestions(kind,content_hash,job_id) VALUES($1,$2,$3)',[kind,fingerprint,job.id]);
     return { status:'pending', id:null, job_id:job.id };
   });
@@ -78,7 +81,7 @@ async function persistTrajectory(db:DB,content:string,metadata?:TrajectoryMetada
   catch(error){reason=(error as Error).message;}
   if(reason)return {status:duplicate?'duplicate':'stored',id:row.id,job_id:null,distillation:'skipped',reason};
   let job=(await db.query("SELECT id FROM jobs WHERE kind='distill' AND payload->>'trajectory_id'=$1",[row.id])).rows[0];
-  if(!job)job=(await db.query("INSERT INTO jobs(kind,payload) VALUES('distill',$1) RETURNING id",[JSON.stringify({trajectory_id:row.id})])).rows[0];
+  if(!job)job=(await db.query("INSERT INTO jobs(kind,payload) VALUES('distill',$1) RETURNING id",[JSON.stringify({trajectory_id:row.id,policyVersion:currentPolicy})])).rows[0];
   return {status:duplicate?'duplicate':'stored',id:row.id,job_id:job.id};
 }
 export async function submitTrajectory(content:string,metadata?:TrajectoryMetadata,transfer?:unknown) {
@@ -121,10 +124,10 @@ export async function read(type: 'paper' | 'experience' | 'trajectory', id: stri
   return {...row,sources:type === 'experience' ? await sourcesFor(id) : [],conflicts};
 }
 export async function getJob(id: string) {
-  const row = (await pool.query('SELECT id,kind,status,attempts,result,error,created_at,updated_at,checkpoint FROM jobs WHERE id=$1',[id])).rows[0];
+  const row = (await pool.query('SELECT id,kind,status,attempts,result,error,created_at,updated_at,checkpoint,payload FROM jobs WHERE id=$1',[id])).rows[0];
   if (!row) throw new Error('job not found');
-  const checkpoint=row.checkpoint;delete row.checkpoint;
-  return {...row,...(row.kind==='distill'?{progress:distillationProgress({...row,checkpoint})}:{})};
+  const checkpoint=row.checkpoint,payload=row.payload;delete row.checkpoint;delete row.payload;
+  return {...row,...(row.kind==='distill'?{progress:distillationProgress({...row,checkpoint,payload})}:{})};
 }
 export async function search(kind: Kind, query: string, filters: Record<string,unknown> = {}, limit=10) {
   const vector = await queryVector(query);
@@ -189,13 +192,11 @@ export async function lockJob(db: DB, job: Job) {
   return row;
 }
 const schedulingPhase=`COALESCE(checkpoint->>'phase',CASE WHEN jsonb_typeof(checkpoint->'children')='array' THEN 'waiting' ELSE 'segments' END)`;
-const agedDistillation=`kind='distill' AND COALESCE(scheduled_at,created_at)<=now()-interval '15 minutes'`;
 export const claimQuery=`SELECT id,kind,${schedulingPhase} AS phase FROM jobs
       WHERE (status='queued' AND run_after<=now() OR status='running' AND lease_until<now()) AND attempts<$1
+        AND NOT (kind='distill' AND ${schedulingPhase}='waiting')
       ORDER BY CASE WHEN kind=$2 THEN 0 ELSE 1 END,
-        CASE WHEN ${agedDistillation} THEN 0 ELSE 1 END,
-        CASE WHEN ${agedDistillation} THEN COALESCE(scheduled_at,created_at) END ASC NULLS LAST,
-        CASE WHEN kind='distill' AND (${schedulingPhase}<>'segments')=$3::boolean THEN 0 ELSE 1 END,
+        CASE WHEN kind='distill' AND (${schedulingPhase} NOT IN ('segments','triage'))=$3::boolean THEN 0 ELSE 1 END,
         scheduled_at NULLS FIRST, created_at,id FOR UPDATE SKIP LOCKED LIMIT 1`;
 export async function claim(): Promise<Job | undefined> {
   return transaction(async db => {
@@ -206,7 +207,7 @@ export async function claim(): Promise<Job | undefined> {
     if (!row) return undefined;
     await db.query('UPDATE worker_scheduler SET ingest_streak=$1,completion_streak=$2 WHERE id=true',[
       row.kind==='ingest'?Math.min(5,scheduler.ingest_streak+1):0,
-      row.kind==='ingest'?scheduler.completion_streak:row.phase==='segments'?0:Math.min(2,scheduler.completion_streak+1)]);
+      row.kind==='ingest'?scheduler.completion_streak:['segments','triage'].includes(row.phase)?0:Math.min(2,scheduler.completion_streak+1)]);
     return (await db.query("UPDATE jobs SET status='running',scheduled_at=now(),attempts=attempts+1,lease_token=gen_random_uuid(),lease_until=now()+$2*interval '1 second',updated_at=now() WHERE id=$1 RETURNING *",[row.id,config.leaseSeconds])).rows[0];
   });
 }
@@ -222,6 +223,47 @@ export async function finish(job: Job, result: unknown) {
 export async function defer(job: Job, delaySeconds=0) {
   if(!Number.isInteger(delaySeconds)||delaySeconds<0)throw new Error('invalid defer delay');
   await transaction(async db => {await lockJob(db,job);await db.query("UPDATE jobs SET status='queued',attempts=GREATEST(attempts-1,0),run_after=now()+$2*interval '1 second',lease_token=NULL,lease_until=NULL WHERE id=$1",[job.id,delaySeconds]);});
+}
+export function waitingOutcome(progress:any,children:Map<string,any>) {
+  const ids=new Set<string>();let pending=false;
+  for(const child of progress.children??[]) {
+    if(child.id){ids.add(child.id);continue;}
+    const result=children.get(child.job_id);
+    if(!result||result.status==='failed')return {error:'child ingestion failed or unavailable',ids:[],pending:false};
+    if(result.status!=='succeeded')pending=true;
+    else for(const id of result.result?.ids??[])ids.add(id);
+  }
+  return {ids:[...ids],pending,error:null};
+}
+// No model/embedding calls and no scheduler quota consumed. Locks prevent a
+// live worker lease from being taken over; all status updates are transactional.
+export const waitingQuery=`SELECT * FROM jobs WHERE kind='distill' AND ${schedulingPhase}='waiting'
+      AND (status='queued' AND run_after<=now() OR status='running' AND lease_until<now()) AND attempts<$1
+      ORDER BY run_after,created_at,id FOR UPDATE SKIP LOCKED LIMIT 100`;
+export async function sweepWaiting() {
+  return transaction(async db=>{
+    const rows=(await db.query(waitingQuery,[config.maxAttempts])).rows;
+    let completed=0;
+    for(const row of rows) {
+      const p=row.checkpoint;
+      const childIds=(p.children??[]).filter((c:any)=>!c.id).map((c:any)=>c.job_id);
+      const children=childIds.length?(await db.query('SELECT id,status,result FROM jobs WHERE id=ANY($1::uuid[])',[childIds])).rows:[];
+      const outcome=waitingOutcome(p,new Map(children.map(c=>[c.id,c])));
+      if(outcome.error) {
+        await db.query(`UPDATE jobs SET attempts=attempts+1,status=CASE WHEN attempts+1 >= $2 THEN 'failed' ELSE 'queued' END,
+          error=$3,run_after=now()+interval '15 seconds',lease_token=NULL,lease_until=NULL,updated_at=now() WHERE id=$1`,[row.id,config.maxAttempts,outcome.error]);
+      } else if(outcome.pending) {
+        await db.query(`UPDATE jobs SET status='queued',run_after=now()+interval '15 seconds',lease_token=NULL,lease_until=NULL,
+          attempts=GREATEST(attempts-$2,0) WHERE id=$1`,[row.id,row.status==='running'?1:0]);
+      } else {
+        const result={ids:outcome.ids,trajectory_id:row.payload.trajectory_id,candidate_count:p.candidates?.length??0,
+          consolidated_count:p.finalCandidates?.length??null,strategy_count:outcome.ids.length};
+        await db.query(`UPDATE jobs SET status='succeeded',result=$2,error=NULL,lease_token=NULL,lease_until=NULL,updated_at=now() WHERE id=$1`,[row.id,JSON.stringify(result)]);
+        completed++;
+      }
+    }
+    return {checked:rows.length,completed};
+  });
 }
 export async function fail(job: Job, error: unknown) {
   // Do not persist model messages, credentials, or provider response bodies in public errors.

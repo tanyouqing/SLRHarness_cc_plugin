@@ -1,6 +1,6 @@
 // Operator-only static SQL planning. No ANALYZE, model, embedding, or job execution.
 import {pool,transaction} from './db.js';
-import {claimQuery} from './store.js';
+import {claimQuery,waitingQuery} from './store.js';
 import {consolidationQueries} from './consolidation-index.js';
 try {
   await transaction(async db=>{
@@ -11,5 +11,6 @@ try {
       await db.query('EXPLAIN '+sql,args);console.log(`SQL plan valid: ${name}`);
     }
     await db.query('EXPLAIN '+claimQuery,[3,'distill',true]);console.log('SQL plan valid: scheduler');
+    await db.query('EXPLAIN '+waitingQuery,[3]);console.log('SQL plan valid: waiting sweep');
   });
 } finally {await pool.end();}

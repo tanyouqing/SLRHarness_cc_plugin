@@ -1,7 +1,7 @@
 import { setTimeout as delay } from 'node:timers/promises';
 import { writeFile } from 'node:fs/promises';
 import { pool } from './db.js';
-import { claim, heartbeat, fail } from './store.js';
+import { claim, heartbeat, fail, sweepWaiting } from './store.js';
 import { processDistill, processIngest } from './processing.js';
 let stopping=false;
 process.on('SIGTERM',()=>{stopping=true;});process.on('SIGINT',()=>{stopping=true;});
@@ -13,7 +13,13 @@ try {
   const acquired=(await leader.query("SELECT pg_try_advisory_lock(hashtext('kb-worker')) AS acquired")).rows[0].acquired;
   if(!acquired)throw new Error('another knowledge-base worker is active');
   console.log(JSON.stringify({event:'worker_ready'}));
+  let nextSweep=0;
   while(!stopping) {
+    if(Date.now()>=nextSweep) {
+      try {const result=await sweepWaiting();if(result.checked)console.log(JSON.stringify({event:'waiting_sweep',...result}));}
+      catch {console.error(JSON.stringify({event:'waiting_sweep_failed'}));}
+      nextSweep=Date.now()+15000;
+    }
     const job=await claim();
     if(!job){await delay(1000);continue;}
     const timer=setInterval(()=>{void heartbeat(job).catch(()=>{stopping=true;});},15000);

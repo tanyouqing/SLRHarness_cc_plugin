@@ -25,7 +25,7 @@ function database(t:any) {
     else if(sql.startsWith('INSERT INTO trajectories')){const row={id:`trace-${Object.keys(state.trajectories).length}`,content:args[0]};state.trajectories[args[1]]=row;rows=[row];}
     else if(sql.startsWith('INSERT INTO trajectory_origins'))state.origins[args[0]+args[1]]=JSON.parse(args[2]);
     else if(sql.startsWith('SELECT id FROM jobs'))rows=state.jobs[args[0]]?[state.jobs[args[0]]]:[];
-    else if(sql.startsWith('INSERT INTO jobs')){const key=JSON.parse(args[0]).trajectory_id;const row={id:`job-${key}`};state.jobs[key]=row;rows=[row];}
+    else if(sql.startsWith('INSERT INTO jobs')){const key=JSON.parse(args[0]).trajectory_id;const row={id:`job-${key}`,payload:JSON.parse(args[0])};state.jobs[key]=row;rows=[row];}
     else if(sql.startsWith('UPDATE trajectory_transfers'))state.transfers[args[0]].receipt=args[1]?JSON.parse(args[1]):null;
     else throw new Error('unexpected SQL '+sql);
     return {rows,rowCount:rows.length};
@@ -98,4 +98,12 @@ test('administratively cleared raw trajectory never recreates a job on repeated 
   const again=await submitTrajectory('{"cleared":true}',metadata);
   assert.equal(again.id,receipt.id);assert.equal(again.job_id,null);assert.equal(again.distillation,'skipped');
   assert.equal(Object.keys(state().jobs).length,0);
+});
+
+test('new trajectory pins selective policy; duplicate upload does not upgrade an existing legacy job',async t=>{
+  const state=database(t);const receipt=await submitTrajectory('{"done":true}',metadata);
+  const j=state().jobs[receipt.id];assert.equal(j.payload.policyVersion,'selective-v2');
+  delete j.payload.policyVersion;
+  assert.equal((await submitTrajectory('{"done":true}',metadata)).job_id,receipt.job_id);
+  assert.equal(state().jobs[receipt.id].payload.policyVersion,undefined);
 });

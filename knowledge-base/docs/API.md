@@ -83,7 +83,7 @@ event_range 可省略，否则为闭区间、从 1 开始的 JSONL 行号。后�
 
 `transfer` 可选，格式 `{id,index,count,contentHash}`：id/contentHash 为 64 位小写十六进制 SHA-256，index 从 0 开始且小于 count，count 范围 1..10000。分段 content 不超过 4 MiB UTF-8 字节；完整请求仍受 16 MiB 限制。contentHash 对完整连接文本的 UTF-8 字节计算，不先规范化。每段的 metadata 必须相同。
 
-传输 ID 固定，重复同序号内容幂等，不同内容或元信息冲突报错。最后收齐时完整验证 JSONL、保存轨迹并按上述角色条件创建唯一蒸馏任务；此前仅保存传输分段。完成后重传任意原分段可重新获得最终回执。read trajectory 返回 origins 数组；get_job 对蒸馏返回 progress，包括 completed_segments、total_segments（旧检查点可能为 null）、waiting_for_children、candidate_count，以及 phase（segments/consolidating/submitting/waiting）、consolidated_count、strategy_count。candidate_count 为分段候选数，consolidated_count 为整条归并后的候选数，strategy_count 为任务完成时关联的去重策略数。不返回原始模型错误或检查点正文。
+传输 ID 固定，重复同序号内容幂等，不同内容或元信息冲突报错。最后收齐时完整验证 JSONL、保存轨迹并按上述角色条件创建唯一蒸馏任务；此前仅保存传输分段。完成后重传任意原分段可重新获得最终回执。read trajectory 返回 origins 数组；get_job 对蒸馏返回 progress，包括 completed_segments、total_segments（旧检查点可能为 null）、waiting_for_children、candidate_count，以及 phase（triage/segments/consolidating/submitting/waiting/skipped）、consolidated_count、strategy_count。candidate_count 为分段候选数，consolidated_count 为整条归并后的候选数，strategy_count 为任务完成时关联的去重策略数。不返回原始模型错误或检查点正文。
 
 分段保存、清理及升级命令见 [Git 升级手册](../../docs/trajectory-git-upgrade.zh-CN.md)。
 
@@ -145,3 +145,9 @@ worker 默认一次处理一个任务，最多尝试 3 次；每 15 秒续租，
 轨迹候选在任务内部的私有索引中，以同角色、内容版本和模型版本进行关键词＋向量召回（两路各 20，RRF 后默认 5 条），不按 stage/task 过滤。Agent 一次比较检索出的集合；多目标合并后保留真实来源、更新索引并重新检索。没有全量逐对比较分支。公开 search_strategies 只返回已发布实体，外部 stage 过滤语义不变。
 
 配置、调度、旧任务迁移及恢复见[检索归并升级手册](../../docs/retrieval-consolidation-upgrade.zh-CN.md)。
+
+## 选择性蒸馏（selective-v2）
+
+七个工具及经验参数不变。仅新任务创建时固定新策略版本；重复提交复用旧任务及其版本。`get_job.progress` 增加 `policy_version`、`triage_kind`、`triage_reason`、`triage_evidence`、`skip_reason`。判别为 failure/recovered_success/unique_success/unknown 时继续提炼，routine_success 时正常完成：status=succeeded、phase=skipped、result.distillation=skipped、result.ids=[]，策略数为零。来源角色无效导致不创建任务的跳过仍沿用原接口。
+
+新任务只合并同一具体问题、等价核心行动和相容条件的策略；相关但独立的建议保持独立，归并没有数量目标。旧任务沿用旧提示词，已入库内容不会重新整理。审稿 JSON 直接进入管理流程，无轨迹判别。完整说明见 [升级手册](../../docs/selective-distillation-upgrade.zh-CN.md)。

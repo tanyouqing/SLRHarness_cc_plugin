@@ -10,7 +10,7 @@ test('queued ingestion with a legacy unsupported role cannot bypass current vali
   await assert.rejects(processIngest({...job(),payload:{kind:'experience',content:{...candidate.experience,role:'reviewer'}}},deps));
   assert.equal(reachedStore,false);
 });
-function harness(candidates:any[]=[candidate],checkpoint:any=null) {
+function harness(candidates:any[]=[candidate],checkpoint:any=null,policyVersion?:string) {
   let saved=checkpoint,finished:any,modelCalls=0,submitCalls=0;
   const receipts=new Map();
   const deps:any={store:{
@@ -21,7 +21,7 @@ function harness(candidates:any[]=[candidate],checkpoint:any=null) {
   },distillSegment:async()=>{modelCalls++;return {summary:'summary',candidates};},
     ensureIndexes:async()=> 'test-model',retrieveCandidates:async(_j:any,_c:any,items:any[])=>({targets:items.slice(0,5),modelVersion:'test-model'}),
     consolidate:async(current:any)=>({action:'keep',candidateId:current.candidateId,candidateVersion:current.version,reason:'independent supported lesson'})};
-  const step=()=>processDistill(job(structuredClone(saved)),deps);
+  const step=()=>{const j=job(structuredClone(saved));if(policyVersion)j.payload.policyVersion=policyVersion;return processDistill(j,deps);};
   return {deps,step,get saved(){return saved;},get finished(){return finished;},get modelCalls(){return modelCalls;},get submitCalls(){return submitCalls;},receipts};
 }
 async function drain(h:any){for(let i=0;i<100&&!h.finished;i++)await h.step();assert.ok(h.finished);}
@@ -155,4 +155,42 @@ test('failure before decision checkpoint commit cannot duplicate retained candid
   };
   await assert.rejects(h.step(),/transaction rollback/);assert.equal(h.saved.consolidation.items.length,0);
   await drain(h);assert.equal(h.saved.consolidation.items.length,1);assert.equal(h.submitCalls,1);
+});
+
+for(const kind of ['failure','recovered_success','unique_success','unknown'])test(`new ${kind} triage is saved once and passed to extraction`,async()=>{
+  const h=harness([],null,'selective-v2');let calls=0;
+  h.deps.assessTrajectory=async()=>{calls++;return {kind,reason:'task outcome',evidence:[{start:1,end:1,observation:'result'}],...(kind==='unique_success'?{uniqueValue:'non-obvious evidenced technique'}:{})};};
+  h.deps.distillSegment=async(...args:any[])=>{assert.equal(args[6],'selective-v2');assert.equal(args[7].kind,kind);return {summary:'later repair resolved earlier error',candidates:[]};};
+  await h.step();assert.equal(h.saved.triage.kind,kind);await drain(h);assert.equal(calls,1);assert.equal(h.submitCalls,0);
+});
+test('ordinary successful trajectory finishes without extraction, indexing or consolidation',async()=>{
+  const h=harness([],null,'selective-v2');let calls=0;
+  h.deps.assessTrajectory=async()=>{calls++;return {kind:'routine_success',reason:'ordinary task completed',evidence:[{start:1,end:1,observation:'completed'}]};};
+  h.deps.distillSegment=h.deps.consolidate=h.deps.ensureIndexes=async()=>assert.fail('routine success must skip');
+  const finish=h.deps.store.finish;let fail=true;
+  h.deps.store.finish=async(...args:any[])=>{if(fail){fail=false;throw new Error('lost finish');}return finish(...args);};
+  await assert.rejects(h.step(),/lost finish/);assert.equal(h.saved.phase,'skipped');await drain(h);
+  assert.equal(calls,1);assert.equal(h.finished.distillation,'skipped');assert.deepEqual(h.finished.ids,[]);
+});
+test('triage provider failure is recoverable and never treated as a skip',async()=>{
+  const h=harness([],null,'selective-v2');h.deps.assessTrajectory=async()=>{throw new Error('provider timeout');};
+  await assert.rejects(h.step(),/provider timeout/);assert.equal(h.finished,undefined);assert.equal(h.modelCalls,0);
+  h.deps.assessTrajectory=async()=>({kind:'unknown',reason:'outcome missing',evidence:[]});await drain(h);
+});
+test('legacy task and its ingestion children retain old policy; all final candidates enqueue in one turn',async()=>{
+  const finals=Array.from({length:3},(_,i)=>({...candidate,experience:{...candidate.experience,strategy:`independent ${i}`}}));
+  const h=harness([],{phase:'submitting',candidates:finals,finalCandidates:finals,children:[],submitted:0});
+  const original=h.deps.store.submit;const saved:number[]=[];
+  h.deps.store.submit=async(...args:any[])=>{assert.equal(args[3].policyVersion,'legacy-v1');assert.equal(args[3].parentJob.id,id);return original(...args);};
+  const save=h.deps.store.checkpoint;h.deps.store.checkpoint=async(j:any,p:any)=>{saved.push(p.submitted);return save(j,p);};
+  h.deps.assessTrajectory=async()=>assert.fail('legacy must not triage');
+  await h.step();assert.equal(h.submitCalls,3);assert.equal(h.finished.strategy_count,3);assert.ok(saved.includes(1)&&saved.includes(2)&&saved.includes(3));
+});
+test('interrupted continuous enqueue resumes stable receipts without duplicate children',async()=>{
+  const finals=Array.from({length:3},(_,i)=>({...candidate,experience:{...candidate.experience,strategy:`independent ${i}`}}));
+  const h=harness([],{phase:'submitting',candidates:finals,finalCandidates:finals,children:[],submitted:0});
+  const save=h.deps.store.checkpoint;let fail=true;
+  h.deps.store.checkpoint=async(j:any,p:any)=>{if(fail&&p.submitted===2){fail=false;throw new Error('checkpoint lost');}return save(j,p);};
+  await assert.rejects(h.step(),/checkpoint lost/);assert.equal(h.saved.submitted,1);await drain(h);
+  assert.equal(h.receipts.size,3);assert.equal(h.saved.children.length,3);assert.equal(h.finished.strategy_count,3);
 });

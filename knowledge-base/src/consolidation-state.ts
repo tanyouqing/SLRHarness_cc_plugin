@@ -1,3 +1,4 @@
+import {policyOf} from './policy.js';
 import {hash} from './domain.js';
 import type {Draft,ConsolidationDecision} from './agents.js';
 
@@ -50,7 +51,9 @@ export function applyConsolidation(c:any,decision:ConsolidationDecision) {
 export function distillationProgress(row:any) {
   const p=row.checkpoint,c=p?.consolidation;
   const phase=p?.phase??(Array.isArray(p?.children)?'waiting':'segments');
-  return {phase,completed_segments:p?.next??0,total_segments:p?.total??null,waiting_for_children:phase==='waiting',
+  return {phase,policy_version:p?.policyVersion??policyOf(row.payload),triage_kind:p?.triage?.kind??null,
+    triage_reason:p?.triage?.reason??null,triage_evidence:p?.triage?.evidence??[],
+    skip_reason:phase==='skipped'?p?.triage?.reason??null:null,completed_segments:p?.next??0,total_segments:p?.total??null,waiting_for_children:phase==='waiting',
     candidate_count:p?.candidates?.length??0,consolidated_count:p?.finalCandidates?.length??null,strategy_count:row.result?.ids?.length??null,
     consolidation_algorithm:c?.algorithm??(c?'legacy-pairwise':null),
     processed_candidates:c?Math.max(0,c.next-(c.current?1:0)):0,retained_count:c?.items?.length??0,

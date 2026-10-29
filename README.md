@@ -1,3 +1,5 @@
+> 2026-10-29：本轮选择性蒸馏、严格去重及快速收尾见 [实施与升级说明](docs/selective-distillation-upgrade.zh-CN.md)。新提炼规则仅用于新任务。
+
 > 2026-10-29：本轮轨迹角色、归并与清理更新见 [实施及升级说明](docs/distillation-role-upgrade.zh-CN.md)。下文较早记录保留历史语义。
 
 # SLR Harness

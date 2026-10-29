@@ -7,6 +7,9 @@ import { z } from 'zod';
 import { config, agentConfig } from './config.js';
 import { validateDecision, paperSchema, experienceSchema, sourceSchema, type Kind, type Payload, type Decision } from './domain.js';
 import * as store from './store.js';
+import {currentPolicy,legacyPolicy,type Policy} from './policy.js';
+import {triageSchema,checkTriage,triageOverview,type Triage} from './triage.js';
+import {validateTrajectory} from './domain.js';
 import { sourceRole, assertExperienceRole, type ExecutionRole } from './roles.js';
 
 let runtimePromise: Promise<ModelRuntime> | undefined;
@@ -20,12 +23,16 @@ function tool(name: string, description: string, properties: Record<string,any>,
   return {name,label:name,description,parameters:Type.Object(properties,{additionalProperties:false}),executionMode:'sequential',
     execute:async (_id,args) => ({content:[{type:'text',text:JSON.stringify(await fn(args))}],details:{},...(terminal?{terminate:true}:{})})};
 }
-async function run(role: 'manager'|'distiller', prompt: unknown, tools: AgentTool<any>[]) {
+export async function loadPrompts(role:'manager'|'distiller',policy:Policy) {
+  const prefix=policy===legacyPolicy?'legacy-v1/':'';
+  return (await Promise.all(['project-context',role].map(name=>readFile(new URL(`../prompts/${prefix}${name}.md`,import.meta.url),'utf8')))).join('\n\n');
+}
+async function run(role: 'manager'|'distiller', prompt: unknown, tools: AgentTool<any>[],policy:Policy=legacyPolicy) {
   const rc = agentConfig()[role], models = await runtime();
   if (models.getError()) throw new Error('Pi model configuration is invalid; inspect config/models.json');
   const model = models.getModel(rc.provider,rc.model);
   if (!model) throw new Error(`configured ${role} model is unavailable`);
-  const systemPrompt = (await Promise.all(['project-context',role].map(name=>readFile(new URL(`../prompts/${name}.md`,import.meta.url),'utf8')))).join('\n\n');
+  const systemPrompt = await loadPrompts(role,policy);
   let turns=0, timedOut=false, exhausted=false;
   const agent = new Agent({initialState:{model,systemPrompt,tools},streamFn:models.streamSimple.bind(models),toolExecution:'sequential',
     prepareRequest:async ({context}) => {
@@ -61,7 +68,7 @@ function schemaTool(name:string,description:string,schema:z.ZodType,fn:(args:any
   // Type.Object from plain properties loses Zod's optional-field information.
   return {...tool(name,description,{},fn,terminal),parameters};
 }
-export async function manage(kind: Kind, content: Payload, initial: any[], incomingSources:any[]=[]): Promise<Decision> {
+export async function manage(kind: Kind, content: Payload, initial: any[], incomingSources:any[]=[],policy:Policy=legacyPolicy): Promise<Decision> {
   const allowed = new Map(initial.map(c=>[c.id,c]));
   let decision: Decision | undefined;
   const tools = [
@@ -85,7 +92,7 @@ export async function manage(kind: Kind, content: Payload, initial: any[], incom
       targetId:Type.Optional(Type.String()),expectedRevision:Type.Optional(Type.Integer({minimum:1})),reason:Type.String(),evidence:Type.Array(Type.String()),proposedContent:Type.Optional(toolSchema(kind==='paper'?paperSchema:experienceSchema)),
     },async args=>{decision=validateDecision(args,kind,[...allowed.keys()]);return {accepted:true};},true),
   ];
-  await run('manager',{kind,incoming:preview({id:'incoming',content,sources:incomingSources}),candidates:initial.map(preview)},tools);
+  await run('manager',{kind,incoming:preview({id:'incoming',content,sources:incomingSources}),candidates:initial.map(preview)},tools,policy);
   if(!decision)throw new Error('manager did not submit a valid decision');
   return decision;
 }
@@ -104,13 +111,13 @@ export function checkDistilled(value:unknown, trajectoryId:string, lineCount:num
   }
   return parsed;
 }
-export async function distillSegment(trajectoryId:string,lineCount:number,segment:unknown,summary:string,origins:unknown[]=[],invoke=run):Promise<Distilled> {
+export async function distillSegment(trajectoryId:string,lineCount:number,segment:unknown,summary:string,origins:unknown[]=[],invoke=run,policy:Policy=legacyPolicy,triage?:Triage):Promise<Distilled> {
   const requiredRole=sourceRole(origins);
   let output:Distilled|undefined;
-  await invoke('distiller',{mode:'extract',requiredRole,trajectoryId,lineCount,origins,previousSummary:summary,segment},[
+  await invoke('distiller',{mode:'extract',requiredRole,trajectoryId,lineCount,origins,previousSummary:summary,segment,...(policy===currentPolicy?{triage}: {})},[
     schemaTool('submit_candidates','Return a bounded running summary and reusable strategies supported by this trajectory; an empty candidate list is valid.',distilledSchema,
       async args=>{output=checkDistilled(args,trajectoryId,lineCount,requiredRole);return {accepted:true};},true),
-  ]);
+  ],policy);
   if(!output)throw new Error('distiller did not submit candidates');
   return output;
 }
@@ -120,11 +127,13 @@ export type Draft = Candidate & {candidateId:string;version:string};
 const consolidationSchema=z.object({
   action:z.enum(['keep','drop','merge']),candidateId:z.string(),candidateVersion:z.string(),
   targets:z.array(z.object({candidateId:z.string(),version:z.string()}).strict()).min(1).max(12).optional(),
+  duplicateBasis:z.array(z.object({candidateId:z.string(),problem:z.string().min(1),coreAction:z.string().min(1),conditions:z.string().min(1)}).strict()).min(1).max(12).optional(),
   reason:z.string().min(1),experience:experienceSchema.extend({sourceType:z.literal('trajectory')}).optional(),
 }).strict();
 export type ConsolidationDecision=z.infer<typeof consolidationSchema>;
-export function checkConsolidation(value:unknown,current:Draft,targets:Draft[],role:ExecutionRole,allowDrop=true):ConsolidationDecision {
-  const d=consolidationSchema.parse(value);
+const legacyConsolidationSchema=consolidationSchema.omit({duplicateBasis:true});
+export function checkConsolidation(value:unknown,current:Draft,targets:Draft[],role:ExecutionRole,allowDrop=true,policy:Policy=legacyPolicy):ConsolidationDecision {
+  const d:ConsolidationDecision=(policy===legacyPolicy?legacyConsolidationSchema:consolidationSchema).parse(value);
   assertExperienceRole(current.experience,role);
   targets.forEach(t=>assertExperienceRole(t.experience,role));
   if(d.candidateId!==current.candidateId || d.candidateVersion!==current.version)throw new Error('unknown or stale consolidation candidate');
@@ -132,18 +141,19 @@ export function checkConsolidation(value:unknown,current:Draft,targets:Draft[],r
   if(d.action==='merge') {
     if(!d.targets?.length || !d.experience || new Set(d.targets.map(t=>t.candidateId)).size!==d.targets.length ||
       d.targets.some(t=>!targets.some(other=>other.candidateId===t.candidateId && other.version===t.version)))throw new Error('invalid consolidation merge target or version');
+    if(policy===currentPolicy && (!d.duplicateBasis || d.duplicateBasis.length!==d.targets.length || new Set(d.duplicateBasis.map(b=>b.candidateId)).size!==d.targets.length || d.duplicateBasis.some(b=>!d.targets!.some(t=>t.candidateId===b.candidateId))))throw new Error('merge requires duplicate basis for every target');
     assertExperienceRole(d.experience,role);
-  } else if(d.targets !== undefined || d.experience !== undefined)throw new Error('keep/drop cannot rewrite evidence');
+  } else if(d.targets !== undefined || d.experience !== undefined || d.duplicateBasis !== undefined)throw new Error('keep/drop cannot rewrite evidence');
   return d;
 }
-export async function consolidate(current:Draft,targets:Draft[],role:ExecutionRole,invoke=run,allowDrop=true):Promise<ConsolidationDecision> {
+export async function consolidate(current:Draft,targets:Draft[],role:ExecutionRole,invoke=run,allowDrop=true,policy:Policy=legacyPolicy):Promise<ConsolidationDecision> {
   let output:ConsolidationDecision|undefined;
   const records=new Map([current,...targets].map(c=>[c.candidateId,c]));
   if(records.size!==targets.length+1)throw new Error('duplicate candidate ID in retrieved set');
   const read=new Set<string>();
   const next=new Map([...records.keys()].map(id=>[id,0]));
   await invoke('distiller',{mode:'consolidate',requiredRole:role,allowDrop,
-    instruction:'Assess current value and compare with this retrieved set in ONE decision. Read all supplied records completely. Keep independent advice, merge with one or more compatible targets, or drop only low-value/unsupported current advice. Already-covered advice must merge sources, never drop them. Retrieval is not proof of duplication. Aim for 0–5 strategies per trajectory, not a quota or hard cap.',
+    instruction:policy===currentPolicy?'Read all supplied records. Keep useful independent advice; drop low-value advice. Merge ONLY the same concrete problem and equivalent core action with compatible conditions, never merely complementary steps. For each target provide duplicateBasis explaining problem, coreAction and conditions. All targets must express ONE core recommendation; no broad bridging candidates. Preserve sources for covered advice. There is no target output count.':'Assess current value and compare with this retrieved set in ONE decision. Read all supplied records completely. Keep independent advice, merge with one or more compatible targets, or drop only low-value/unsupported current advice. Already-covered advice must merge sources, never drop them. Retrieval is not proof of duplication. Aim for 0–5 strategies per trajectory, not a quota or hard cap.',
     current:{id:current.candidateId,version:current.version,characters:JSON.stringify(current).length},
     targets:targets.map(t=>({id:t.candidateId,version:t.version,characters:JSON.stringify(t).length}))},[
     tool('read_candidate','Read candidate JSON in consecutive bounded windows; continue until next_start is null.',{
@@ -155,11 +165,28 @@ export async function consolidate(current:Draft,targets:Draft[],role:ExecutionRo
       next.set(id,end);if(end===text.length)read.add(id);
       return {id,text:text.slice(start,end),next_start:end<text.length?end:null};
     }),
-    schemaTool('submit_consolidation','Submit ONE decision over the retrieved set with candidateId and candidateVersion. For keep/drop omit targets and experience. For merge supply nonempty targets [{candidateId,version}] and complete experience. Sources are combined by the server, never generated.',consolidationSchema,async args=>{
+    schemaTool('submit_consolidation','Submit ONE decision over the retrieved set with candidateId and candidateVersion. For keep/drop omit targets and experience. For merge supply nonempty targets [{candidateId,version}] and complete experience. Sources are combined by the server, never generated.'+(policy===currentPolicy?' Merge also requires duplicateBasis for each target: shared problem, equivalent coreAction and compatible conditions. Do not combine complementary independent advice.':''),policy===legacyPolicy?legacyConsolidationSchema:consolidationSchema,async args=>{
       if(read.size!==records.size)throw new Error('read complete candidates before consolidation');
-      output=checkConsolidation(args,current,targets,role,allowDrop);return {accepted:true};
+      output=checkConsolidation(args,current,targets,role,allowDrop,policy);return {accepted:true};
     },true),
-  ]);
+  ],policy);
   if(!output)throw new Error('distiller did not submit consolidation');
   return output;
+}
+
+export async function assessTrajectory(trajectory:any,invoke=run):Promise<Triage> {
+  const lines=validateTrajectory(trajectory.content),overview=triageOverview(trajectory.content);
+  const requiredRole=sourceRole(trajectory.origins??[]);let output:Triage|undefined;
+  await invoke('distiller',{mode:'triage',requiredRole,trajectoryId:trajectory.id,origins:trajectory.origins,overview},[
+    tool('read_trajectory','Read one stored JSONL line in bounded character windows. Use next_start until null; omitted contents are not evidence.',{
+      line:Type.Integer({minimum:1}),start:Type.Optional(Type.Integer({minimum:0})),
+    },async({line,start=0})=>{
+      const text=lines[line-1];if(!text||start>=text.length)throw new Error('trajectory window outside range');
+      const end=Math.min(start+12000,text.length);
+      return {line,start,text:text.slice(start,end),next_start:end<text.length?end:null};
+    }),
+    schemaTool('submit_triage','Classify this actor task using supported outcome evidence. Unknown is valid; routine_success skips extraction. Never infer success from the overall investigation.',triageSchema,
+      async args=>{output=checkTriage(args,lines.length);return {accepted:true};},true),
+  ],currentPolicy);
+  if(!output)throw new Error('distiller did not submit triage');return output;
 }

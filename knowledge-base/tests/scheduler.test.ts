@@ -19,9 +19,10 @@ test('distillation scheduling grants two completion turns then extraction, with 
   for(let i=0;i<6;i++)await claim();
   assert.deepEqual(chosen,['consolidating','consolidating','segments','consolidating','consolidating','segments']);
   const sql=queries.find(q=>q.startsWith('SELECT id,kind,'))!;
-  assert.match(sql,/interval '15 minutes'/);
-  assert.ok(sql.indexOf('CASE WHEN kind=$2')<sql.indexOf("interval '15 minutes'"));
-  assert.ok(sql.indexOf('ASC NULLS LAST')<sql.indexOf('=$3::boolean'));
+  assert.doesNotMatch(sql,/interval '15 minutes'/);
+  assert.match(sql,/NOT IN \('segments','triage'\)/);
+  assert.match(sql,/AND NOT \(kind='distill'.*='waiting'\)/);
+  assert.ok(sql.indexOf('=$3::boolean')<sql.indexOf('scheduled_at NULLS FIRST'));
   assert.match(sql,/scheduled_at NULLS FIRST, created_at,id FOR UPDATE SKIP LOCKED/);
 });
 

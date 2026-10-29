@@ -486,6 +486,10 @@ docker compose exec -T db psql -U kb -d kb -c \
 
 ## 13. 已部署服务：检索驱动归并升级
 
-使用 [Git 升级手册](../../docs/retrieval-consolidation-upgrade.zh-CN.md)，执行兼容迁移 004，不重新部署数据库/Embedding，不补传轨迹。默认 CONSOLIDATION_TOP_K=5（1–12）；同一任务私有索引不对外公开。归并与提炼按 2:1 调度，15 分钟等待提升，子任务轮询 15 秒；仍为单 worker。
+使用 [Git 升级手册](../../docs/retrieval-consolidation-upgrade.zh-CN.md)，执行兼容迁移 004，不重新部署数据库/Embedding，不补传轨迹。默认 CONSOLIDATION_TOP_K=5（1–12）；同一任务私有索引不对外公开。归并与提炼按 2:1 调度；最新版本取消跨队列的 15 分钟提升，子任务采用独立轻量收尾扫描，仍为单 worker。
 
 旧归并任务按原 ID 惰性转换，原分段、已合并内容、来源与历史决策保留。索引失败不等于无命中，决策已落盘则只补索引。失败任务先检查错误，再按原任务 retry；不要通过再次上传创建替代任务。升级后只读观察 get_job.progress 的新字段，暂存保留数不能当作已发布数。
+
+## 14. 选择性蒸馏和严格重复判定
+
+按 [新版 Git 升级手册](../../docs/selective-distillation-upgrade.zh-CN.md) 更新 API/worker，无需新增迁移。新任务固定 selective-v2，缺少版本的旧任务继续 legacy-v1 和原进度。普通直接成功返回已跳过/零策略；这属于正常完成。判别不明继续分段检查；独立建议不因相关而归并。完成/提炼按 2:1 分配，最终候选连续入队，waiting 状态通过轻量扫描收尾。查询字段、恢复边界和回退步骤见上述手册。
