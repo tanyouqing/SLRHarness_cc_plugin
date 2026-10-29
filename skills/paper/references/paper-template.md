@@ -1,6 +1,6 @@
 # Survey writing contract
 
-For configured workspaces use the selected catalog skeleton, compact guide and original dependencies. Unconfigured legacy workspaces use template/neurips_2026.tex and neurips_2026.sty. Both use preprint mode and a single main.tex plus references.bib. Keep author empty absent supplied identity. Do not include checklist. Default English, author–year citations, 6,000–9,000 words, no imposed conference page limit. For Chinese enable surveychinesetrue; use the verified template-language compiler configuration; AAAI Chinese/XeLaTeX is unsupported.
+For configured workspaces use the selected catalog skeleton, compact guide and original dependencies. Unconfigured legacy workspaces use template/neurips_2026.tex and neurips_2026.sty. Both use preprint mode and a single main.tex plus references.bib. Keep author empty absent supplied identity. Do not include checklist. Default English, author–year citations, 6,000–15,000 words, no imposed conference page limit. For Chinese enable surveychinesetrue; use the verified template-language compiler configuration; AAAI Chinese/XeLaTeX is unsupported.
 
 Required ordered sections and labels:
 - Abstract: question, organization, central findings and scope boundaries.

@@ -105,6 +105,30 @@ docker ps --format '{{.Names}} {{.Status}}'
 
 预期 immutable_revisions 的 tgenabled 为 `O`；迁移 003 已记录；api/worker 就绪。worker 会自然继续处理保留任务。本轮不要运行 smoke、once、resume 或真实上传；后续质量验收需用新运行检查角色、归并前后条数和具体建议质量。
 
+## 归并工具 schema 修复与原任务恢复（2026-10-29）
+
+归并工具曾将 Zod 的 properties 重新包装为 Type.Object，丢失可选字段信息，导致模型看到 targetId 和 experience 都是必填。keep/drop 又禁止这些字段，无法提交合法决策。现在直接保留完整 JSON Schema；keep/drop 只需 action、candidateId、reason，merge 仍由服务端要求合法 targetId 和 experience，并校验角色和完整读取。
+
+按 Git 升级手册更新两个 checkout、构建应用镜像并备份数据库/配置，暂停 API/worker 后执行以下恢复。此次无需新增迁移，不重新上传轨迹，也不清理数据。先保存失败任务的 payload/checkpoint 摘要，再重置原任务；启动 worker 前核对 ID、payload/checkpoint 摘要一致、状态为 queued、attempts 为 0。
+
+```bash
+cd /root/survey-kb-source
+for id in \
+  0466d83c-44cc-489a-ac72-5a86ad8b971a \
+  bcec792b-2fba-4025-aacf-15a23d8167c1 \
+  c64c2600-e643-4ae3-9999-20736dd76b6d; do
+  bash knowledge-base/scripts/compose-git.sh --profile tools run --rm -T --no-deps \
+    --entrypoint node migrate dist/admin.js retry "$id" </dev/null
+done
+bash knowledge-base/scripts/compose-git.sh up -d --no-deps api worker
+```
+
+只对状态为 failed 的原任务执行 retry；已恢复后不要再次执行。命令保留候选、分段进度及已成功子任务，恢复失败子任务，清除失败次数及租约。新的失败需先调查，不能通过反复上传替代恢复。服务启动后已有任务会自然继续调用模型，这不等同于新测试已通过。
+
+离线回归使用 Pi 的 validateToolArguments 检查真正传给模型的 JSON Schema，并经工具 execute 校验 keep/drop、merge、完整读取、角色和嵌套可选字段；不只验证内部函数。
+
+同批 Pipeline 更新将默认综述篇幅从 6,000–9,000 改为 6,000–15,000 words（不含参考文献），同步 Paper skill、六个会议指南及 catalog 的 guideHash。这是提示词中的默认写作要求，没有新增字数截断器。已交付论文与工作区配置不自动重写；恢复旧论文若提示 `local guide changed; explicitly refresh configuration`，应在没有活动写作/审稿单元时，按 `scripts/paper-config.mjs configure` 的显式变更流程，保留原 templateId/language 并给出更新篇幅要求的 reason。已有用户指定篇幅继续优先，交接与摘要字符预算未变。
+
 ## 回退
 
 优先修复后向前升级。紧急回退时先停止 API/worker，再以 `KB_APP_IMAGE=$(cat "$BACKUP/old-image-id")` 运行 compose-git.sh 启动命令，源码切回事先记录的 Git 提交。新增数据库字段无需删除。旧代码没有角色和克制蒸馏保护，不应长期恢复 worker。

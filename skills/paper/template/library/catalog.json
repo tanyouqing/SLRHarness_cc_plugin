@@ -49,7 +49,7 @@
         "media.neurips.cc",
         "neurips.cc"
       ],
-      "guideHash": "dc27ffde642a7dcc9e7b31e0bc4848fbd4f1a132bda710e5c83ad4911f0e6576",
+      "guideHash": "45b3f26f0b9f250d46b6bfea1efd112543e2ad4b610f57660aef204b08f3c1db",
       "styleOwnsBibliography": false
     },
     {
@@ -97,7 +97,7 @@
         "iclr.cc",
         "media.iclr.cc"
       ],
-      "guideHash": "c84ac556853d08f939d5ab2e8d313ddf9d5b4aeab321ff2759c412a9677996c3",
+      "guideHash": "a78610d004ac58674ba729cde22d5228186f6bd7be7c4023c6b163b393bfdae2",
       "styleOwnsBibliography": false,
       "protectedAdapter": true
     },
@@ -145,7 +145,7 @@
         "icml.cc",
         "media.icml.cc"
       ],
-      "guideHash": "3fbefbbf8ff1f35ab7586f9940755e9d9271b5c8c8b51f4c21861dff463f0709",
+      "guideHash": "d0ea31726ce6d4bfaf08d12a6c7c60511f807808e0231233d092daa575d69e20",
       "styleOwnsBibliography": false,
       "protectedAdapter": true
     },
@@ -197,7 +197,7 @@
       "officialHosts": [
         "aaai.org"
       ],
-      "guideHash": "1683928634c71ca67ce4c450c1146fde2c9668e60bc34058173d28d119d365f1",
+      "guideHash": "29d739bc37b7be59e9c727a0b2f5006f7f4743b0440326a5c24a076aeea1aa2e",
       "styleOwnsBibliography": true
     },
     {
@@ -252,7 +252,7 @@
         "aclrollingreview.org",
         "www.aclweb.org"
       ],
-      "guideHash": "4e347fa2b1cdad98e8b9a0a4ac4fbfccda8708bcc2769dc3f2fd2739592f4330",
+      "guideHash": "dd2788c18fdec2605d08aa2863d28bc9ea115e4916de7281fcaca0f085a81a05",
       "styleOwnsBibliography": true
     },
     {
@@ -307,7 +307,7 @@
         "acl-org.github.io",
         "aclrollingreview.org"
       ],
-      "guideHash": "9b8411714a7f56cebe4713cffad9b491758ba85941737a11482b84f5feb6a3d0",
+      "guideHash": "3e2313c55c026106e85050eb2eb3b2315cb9b9949c8a581dfb1be73d8e19a38f",
       "styleOwnsBibliography": true
     }
   ]

@@ -69,7 +69,7 @@ If inputs are incomplete or an interrupted draft fails validation, continue the
 writer with the existing source; never reinitialize or overwrite it with a skeleton.
 
 Automatic invocation inherits review language and uses any explicitly supplied
-paper settings, otherwise domain researchers, 6,000–9,000 words excluding references,
+paper settings, otherwise domain researchers, 6,000–15,000 words excluding references,
 and author-year citations. Do not ask another configuration question automatically.
 For explicit first generation, ask once for missing audience, length and citation
 style; use these defaults if requested or interactive questions are unavailable.

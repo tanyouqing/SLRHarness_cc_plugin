@@ -55,6 +55,12 @@ function toolSchema(schema:z.ZodType):any {
   const {$schema,...json}=z.toJSONSchema(schema,{target:'draft-7'});
   return json;
 }
+function schemaTool(name:string,description:string,schema:z.ZodType,fn:(args:any)=>Promise<unknown>,terminal=false):AgentTool<any> {
+  const parameters=toolSchema(schema);
+  // Preserve the complete JSON Schema, especially its required array. Rebuilding
+  // Type.Object from plain properties loses Zod's optional-field information.
+  return {...tool(name,description,{},fn,terminal),parameters};
+}
 export async function manage(kind: Kind, content: Payload, initial: any[], incomingSources:any[]=[]): Promise<Decision> {
   const allowed = new Map(initial.map(c=>[c.id,c]));
   let decision: Decision | undefined;
@@ -98,11 +104,11 @@ export function checkDistilled(value:unknown, trajectoryId:string, lineCount:num
   }
   return parsed;
 }
-export async function distillSegment(trajectoryId:string,lineCount:number,segment:unknown,summary:string,origins:unknown[]=[]):Promise<Distilled> {
+export async function distillSegment(trajectoryId:string,lineCount:number,segment:unknown,summary:string,origins:unknown[]=[],invoke=run):Promise<Distilled> {
   const requiredRole=sourceRole(origins);
   let output:Distilled|undefined;
-  await run('distiller',{mode:'extract',requiredRole,trajectoryId,lineCount,origins,previousSummary:summary,segment},[
-    tool('submit_candidates','Return a bounded running summary and reusable strategies supported by this trajectory; an empty candidate list is valid.',distilledToolSchema.properties,
+  await invoke('distiller',{mode:'extract',requiredRole,trajectoryId,lineCount,origins,previousSummary:summary,segment},[
+    schemaTool('submit_candidates','Return a bounded running summary and reusable strategies supported by this trajectory; an empty candidate list is valid.',distilledSchema,
       async args=>{output=checkDistilled(args,trajectoryId,lineCount,requiredRole);return {accepted:true};},true),
   ]);
   if(!output)throw new Error('distiller did not submit candidates');
@@ -125,7 +131,7 @@ export function checkConsolidation(value:unknown,current:Draft,other:Draft|undef
   if(d.action==='merge') {
     if(!other || d.targetId!==other.candidateId || !d.experience)throw new Error('invalid consolidation merge');
     assertExperienceRole(d.experience,role);
-  } else if(d.targetId || d.experience)throw new Error('keep/drop cannot rewrite evidence');
+  } else if(d.targetId !== undefined || d.experience !== undefined)throw new Error('keep/drop cannot rewrite evidence');
   return d;
 }
 export async function consolidate(current:Draft,other:Draft|undefined,role:ExecutionRole,invoke=run):Promise<ConsolidationDecision> {
@@ -133,7 +139,6 @@ export async function consolidate(current:Draft,other:Draft|undefined,role:Execu
   const records=new Map([current,...(other?[other]:[])].map(c=>[c.candidateId,c]));
   const read=new Set<string>();
   const next=new Map([...records.keys()].map(id=>[id,0]));
-  const schema=toolSchema(consolidationSchema);
   await invoke('distiller',{mode:'consolidate',requiredRole:role,
     instruction:'Assess current for reusable value, or compare it with target. Keep distinct actions; merge equivalent/complementary advice with compatible conditions; drop unsupported, incidental or already-covered advice. Read both records completely before deciding. Aim for 0–5 strategies per whole trajectory, not a quota or hard cap.',
     current:{id:current.candidateId,characters:JSON.stringify(current).length},
@@ -147,7 +152,7 @@ export async function consolidate(current:Draft,other:Draft|undefined,role:Execu
       next.set(id,end);if(end===text.length)read.add(id);
       return {id,text:text.slice(start,end),next_start:end<text.length?end:null};
     }),
-    tool('submit_consolidation','Decide after reading all supplied candidates. Sources are combined by the server, never generated.',schema.properties,async args=>{
+    schemaTool('submit_consolidation','Decide after reading all supplied candidates. For keep/drop omit targetId and experience. For merge both are required. Sources are combined by the server, never generated.',consolidationSchema,async args=>{
       if(read.size!==records.size)throw new Error('read complete candidates before consolidation');
       output=checkConsolidation(args,current,other,role);return {accepted:true};
     },true),

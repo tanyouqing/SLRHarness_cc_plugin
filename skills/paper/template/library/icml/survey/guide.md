@@ -15,7 +15,7 @@ The local preprint wrapper suppresses the upstream missing-corresponding-author 
 
 ## Survey writing
 
-Default English, 6,000–9,000 words excluding references, author–year citations with \citet/\citep. Use the conference bibliography style. Abstract summarizes scope, synthesis and limits. Write Introduction, choose Background OR Preliminaries and Taxonomy OR Unified Framework, assemble each approved substantive topic as its own section, then Comparative Analysis and Evaluation, Challenges and Future Directions, Conclusion. Keep stable section labels and dynamic topic names. Paper Agent authors global chapters and preserves Managers' accepted technical meaning.
+Default English, 6,000–15,000 words excluding references, author–year citations with \citet/\citep. Use the conference bibliography style. Abstract summarizes scope, synthesis and limits. Write Introduction, choose Background OR Preliminaries and Taxonomy OR Unified Framework, assemble each approved substantive topic as its own section, then Comparative Analysis and Evaluation, Challenges and Future Directions, Conclusion. Keep stable section labels and dynamic topic names. Paper Agent authors global chapters and preserves Managers' accepted technical meaning.
 
 ## Applicable constraints and exclusions
 

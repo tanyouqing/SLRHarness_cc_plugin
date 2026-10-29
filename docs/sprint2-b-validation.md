@@ -128,3 +128,11 @@ Stop 批次逐源冻结；已冻结副本保持不可变，缺失轨迹不再阻
 - 首次清理遇到 PostgreSQL deferred FK pending trigger events，整个事务回滚，核对 80 条策略、221 个任务及保护触发器均保留。修复维护事务约束检查顺序后重新执行成功；未禁用外键或跳过一致性检查。
 - 迁移记录、immutable_revisions 保护状态、父子任务/传输回执孤立引用均已核对。DB 与 Embedding 容器 ID 未改变，原配置和 Pi 卷继续挂载。四个服务健康，worker 已自然继续处理原有保留任务。
 - 未运行 smoke、真实上传、手动 once/resume 或新模型测试。策略语义质量和产出数量仍需用户后续验收。操作步骤见 [升级手册](distillation-role-upgrade.zh-CN.md)。
+
+## 2026-10-29：归并参数与论文篇幅修正
+
+- 保留 Zod 转换后的完整工具 JSON Schema，修复 targetId/experience 被错误标为必填的问题。keep/drop 可以省略归并专用参数；merge 继续验证目标、经验角色和完整读取。候选提炼工具复用同一 schema 构建方式。
+- 新增实际工具 schema 回归：通过 Pi validateToolArguments 验证模型实际看到的参数结构，再调用 execute，覆盖 keep/drop、merge、缺失/额外参数、跨角色及嵌套可选字段。不调用真实模型。
+- 最终综述默认篇幅改为 6,000–15,000 words，不含参考文献；更新 Paper skill、模板说明、六个会议指南和内容哈希。用户指定篇幅优先，既有论文不自动重写。蒸馏摘要 6000 字符、交接 8000 字符保持原值。
+- Pipeline 全量 184 项、知识库 51 项与 Python 5 项离线测试通过，TypeScript check/build 通过；论文指南专项 13 项通过，插件校验通过（已有图标提示）。服务器升级结果随后记录。
+- 计划仅恢复三个已确认失败的原任务：0466d83c-44cc-489a-ac72-5a86ad8b971a、bcec792b-2fba-4025-aacf-15a23d8167c1、c64c2600-e643-4ae3-9999-20736dd76b6d。通过 admin retry 保留 ID、payload/checkpoint 和已处理分段，不重新上传轨迹。
