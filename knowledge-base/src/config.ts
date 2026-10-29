@@ -10,6 +10,7 @@ export const config = {
   piDir: resolve(process.env.PI_CONFIG_DIR ?? './config'),
   maxAttempts: positive('JOB_MAX_ATTEMPTS', 3), leaseSeconds: positive('JOB_LEASE_SECONDS', 120),
   agentConfig: resolve(process.env.AGENT_CONFIG ?? './config/agents.json'),
+  consolidationTopK: z.coerce.number().int().min(1).max(12).parse(process.env.CONSOLIDATION_TOP_K ?? 5),
 };
 export const roleConfigSchema = z.object({ provider: z.string().min(1), model: z.string().min(1), maxTurns: z.number().int().positive().default(20), timeoutSeconds: z.number().int().positive().default(300) });
 export function agentConfig() {

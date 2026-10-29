@@ -4,6 +4,7 @@ import { config } from './config.js';
 import { canonical, hash, validateTrajectory, keywords, normalizeDoi, normalizeArxiv, fuse, type Kind, type Payload, type Source, type Paper, type Experience, type Decision } from './domain.js';
 import { queryVector, vectorSql, type Prepared } from './embedding.js';
 import { sourceRole, assertExperienceRole } from './roles.js';
+import {distillationProgress} from './consolidation-state.js';
 
 export async function validateExperienceRole(db: DB, content: Payload, sources: Source[]) {
   if (!('sourceType' in content) || content.sourceType === 'review') return;
@@ -123,8 +124,7 @@ export async function getJob(id: string) {
   const row = (await pool.query('SELECT id,kind,status,attempts,result,error,created_at,updated_at,checkpoint FROM jobs WHERE id=$1',[id])).rows[0];
   if (!row) throw new Error('job not found');
   const checkpoint=row.checkpoint;delete row.checkpoint;
-  const phase=checkpoint?.phase??(Array.isArray(checkpoint?.children)?'waiting':'segments');
-  return {...row,...(row.kind==='distill'?{progress:{phase,completed_segments:checkpoint?.next??0,total_segments:checkpoint?.total??null,waiting_for_children:phase==='waiting',candidate_count:checkpoint?.candidates?.length??0,consolidated_count:checkpoint?.finalCandidates?.length??null,strategy_count:row.result?.ids?.length??null}}:{})};
+  return {...row,...(row.kind==='distill'?{progress:distillationProgress({...row,checkpoint})}:{})};
 }
 export async function search(kind: Kind, query: string, filters: Record<string,unknown> = {}, limit=10) {
   const vector = await queryVector(query);
@@ -188,14 +188,25 @@ export async function lockJob(db: DB, job: Job) {
   if (!row) throw new Error('job lease lost');
   return row;
 }
+const schedulingPhase=`COALESCE(checkpoint->>'phase',CASE WHEN jsonb_typeof(checkpoint->'children')='array' THEN 'waiting' ELSE 'segments' END)`;
+const agedDistillation=`kind='distill' AND COALESCE(scheduled_at,created_at)<=now()-interval '15 minutes'`;
+export const claimQuery=`SELECT id,kind,${schedulingPhase} AS phase FROM jobs
+      WHERE (status='queued' AND run_after<=now() OR status='running' AND lease_until<now()) AND attempts<$1
+      ORDER BY CASE WHEN kind=$2 THEN 0 ELSE 1 END,
+        CASE WHEN ${agedDistillation} THEN 0 ELSE 1 END,
+        CASE WHEN ${agedDistillation} THEN COALESCE(scheduled_at,created_at) END ASC NULLS LAST,
+        CASE WHEN kind='distill' AND (${schedulingPhase}<>'segments')=$3::boolean THEN 0 ELSE 1 END,
+        scheduled_at NULLS FIRST, created_at,id FOR UPDATE SKIP LOCKED LIMIT 1`;
 export async function claim(): Promise<Job | undefined> {
   return transaction(async db => {
     await db.query("UPDATE jobs SET status='failed',error='worker lease expired after final attempt',lease_token=NULL,lease_until=NULL,updated_at=now() WHERE status='running' AND lease_until<now() AND attempts >= $1",[config.maxAttempts]);
-    const scheduler=(await db.query('SELECT ingest_streak FROM worker_scheduler WHERE id=true FOR UPDATE')).rows[0];
-    const row = (await db.query(`SELECT id,kind FROM jobs WHERE (status='queued' AND run_after<=now() OR status='running' AND lease_until<now()) AND attempts<$1
-      ORDER BY CASE WHEN kind=$2 THEN 0 ELSE 1 END, scheduled_at NULLS FIRST, created_at,id FOR UPDATE SKIP LOCKED LIMIT 1`,[config.maxAttempts,scheduler.ingest_streak>=5?'distill':'ingest'])).rows[0];
+    const scheduler=(await db.query('SELECT ingest_streak,completion_streak FROM worker_scheduler WHERE id=true FOR UPDATE')).rows[0];
+    const row = (await db.query(claimQuery,
+      [config.maxAttempts,scheduler.ingest_streak>=5?'distill':'ingest',scheduler.completion_streak<2])).rows[0];
     if (!row) return undefined;
-    await db.query('UPDATE worker_scheduler SET ingest_streak=$1 WHERE id=true',[row.kind==='ingest'?Math.min(5,scheduler.ingest_streak+1):0]);
+    await db.query('UPDATE worker_scheduler SET ingest_streak=$1,completion_streak=$2 WHERE id=true',[
+      row.kind==='ingest'?Math.min(5,scheduler.ingest_streak+1):0,
+      row.kind==='ingest'?scheduler.completion_streak:row.phase==='segments'?0:Math.min(2,scheduler.completion_streak+1)]);
     return (await db.query("UPDATE jobs SET status='running',scheduled_at=now(),attempts=attempts+1,lease_token=gen_random_uuid(),lease_until=now()+$2*interval '1 second',updated_at=now() WHERE id=$1 RETURNING *",[row.id,config.leaseSeconds])).rows[0];
   });
 }
@@ -208,8 +219,9 @@ export async function checkpoint(job: Job, value: unknown) {
 export async function finish(job: Job, result: unknown) {
   await transaction(async db => {await lockJob(db,job);await db.query("UPDATE jobs SET status='succeeded',result=$2,error=NULL,lease_token=NULL,lease_until=NULL,updated_at=now() WHERE id=$1",[job.id,JSON.stringify(result)]);});
 }
-export async function defer(job: Job) {
-  await transaction(async db => {await lockJob(db,job);await db.query("UPDATE jobs SET status='queued',attempts=GREATEST(attempts-1,0),run_after=now()+interval '3 seconds',lease_token=NULL,lease_until=NULL WHERE id=$1",[job.id]);});
+export async function defer(job: Job, delaySeconds=0) {
+  if(!Number.isInteger(delaySeconds)||delaySeconds<0)throw new Error('invalid defer delay');
+  await transaction(async db => {await lockJob(db,job);await db.query("UPDATE jobs SET status='queued',attempts=GREATEST(attempts-1,0),run_after=now()+$2*interval '1 second',lease_token=NULL,lease_until=NULL WHERE id=$1",[job.id,delaySeconds]);});
 }
 export async function fail(job: Job, error: unknown) {
   // Do not persist model messages, credentials, or provider response bodies in public errors.

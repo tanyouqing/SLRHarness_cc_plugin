@@ -3,6 +3,8 @@ import { prepare } from './embedding.js';
 import * as store from './store.js';
 import { manage, distillSegment, consolidate, checkDistilled, checkConsolidation, type Draft } from './agents.js';
 import { sourceRole, assertExperienceRole } from './roles.js';
+import {ensureIndexes,retrieveCandidates} from './consolidation-index.js';
+import {migrateConsolidation,advanceCandidate,snapshotTargets,applyConsolidation} from './consolidation-state.js';
 
 export function trajectorySegments(content:string, budget=16000) {
   const lines=validateTrajectory(content),segments:{start:number;end:number;text:string}[]=[];
@@ -23,7 +25,7 @@ export function checkSupplement(kind:Kind, old:Payload, next:Payload) {
     for(const [x,y] of [[normalizeDoi(a.doi),normalizeDoi(b.doi)],[normalizeArxiv(a.arxivId),normalizeArxiv(b.arxivId)]])if(x && x!==y)throw new Error('supplement cannot remove or change established paper identifiers');
   }
 }
-const defaultDependencies={store,prepare,manage,distillSegment,consolidate};
+const defaultDependencies={store,prepare,manage,distillSegment,consolidate,ensureIndexes,retrieveCandidates};
 export async function processIngest(job:store.Job,deps=defaultDependencies) {
   const {store,prepare,manage}=deps;
   const {kind}=job.payload;
@@ -41,54 +43,56 @@ export async function processIngest(job:store.Job,deps=defaultDependencies) {
   await store.publish(job,decision,result,encoded);
 }
 export async function processDistill(job:store.Job,deps=defaultDependencies) {
-  const {store,distillSegment,consolidate}=deps;
+  const {store,distillSegment,consolidate,ensureIndexes,retrieveCandidates}=deps;
   const trajectory=await store.read('trajectory',job.payload.trajectory_id);
   if(trajectory.distillation_blocked_reason)throw new Error('trajectory administratively removed');
   const role=sourceRole(trajectory.origins??[]);
-  const segments=trajectorySegments(trajectory.content);
-  const progress=job.checkpoint ?? {next:0,summary:'',candidates:[],children:null};
+  const progress=structuredClone(job.checkpoint ?? {next:0,summary:'',candidates:[],children:null});
   // Old checkpoints with submitted children continue tracking their original IDs.
   progress.phase??=progress.children?'waiting':'segments';
-  progress.version=2;progress.total=segments.length;
+  progress.version=3;
   for(const c of progress.candidates??[])assertExperienceRole(c.experience,role);
   const save=()=>store.checkpoint(job,progress);
-  const yieldJob=async()=>{await save();await store.defer(job);};
+  const yieldJob=async(delay=0)=>{await save();await store.defer(job,delay);};
   if(progress.phase==='segments') {
+    const segments=trajectorySegments(trajectory.content);progress.total=segments.length;
     if(progress.next<segments.length) {
       const result=checkDistilled(await distillSegment(trajectory.id,trajectory.line_count,segments[progress.next],progress.summary,trajectory.origins),trajectory.id,trajectory.line_count,role);
       progress.summary=result.summary;progress.candidates.push(...result.candidates);progress.next++;
     }
     if(progress.next===segments.length) {
       progress.phase='consolidating';
-      progress.consolidation={next:0,current:null,compare:0,assessed:false,items:[],decisions:[]};
+      migrateConsolidation(progress);advanceCandidate(progress);
     }
-    await yieldJob();return;
+    if(progress.phase!=='submitting'){await yieldJob();return;}
   }
   if(progress.phase==='consolidating') {
+    if(migrateConsolidation(progress))await save();
     const c=progress.consolidation;
-    if(!c.current && c.next<progress.candidates.length) {
-      c.current={...progress.candidates[c.next],candidateId:`candidate-${c.next}`};
-      c.next++;c.compare=0;c.assessed=false;
+    c.items.forEach((d:Draft)=>assertExperienceRole(d.experience,role));
+    if(c.current)assertExperienceRole(c.current.experience,role);
+    // A previously committed decision is never rerun just because indexing failed.
+    if(c.indexPending) {
+      c.modelVersion=await ensureIndexes(job,[...c.items,...(c.current?[c.current]:[])],c.modelVersion);
+      c.indexPending=false;await save();
     }
+    advanceCandidate(progress);await save();
     if(c.current) {
-      const other:Draft|undefined=c.assessed?c.items[c.compare]:undefined;
-      if(!c.assessed||other) {
-        const decision=checkConsolidation(await consolidate(c.current,other,role),c.current,other,role);
-        c.decisions.push(decision);
-        if(decision.action==='drop')c.current=null;
-        else if(decision.action==='merge') {
-          const sources=[...new Map([...c.current.sources,...other!.sources].map((s:any)=>[hash(s),s])).values()];
-          c.current={candidateId:c.current.candidateId,experience:decision.experience,sources};
-          c.items.splice(c.compare,1);c.compare=0;c.assessed=true;
-        } else if(!c.assessed)c.assessed=true;
-        else c.compare++;
-      } else {c.items.push(c.current);c.current=null;}
+      if(!c.snapshot) {
+        const retrieved=await retrieveCandidates(job,c.current,c.items,c.modelVersion);
+        c.modelVersion=retrieved.modelVersion;
+        c.snapshot={currentId:c.current.candidateId,version:c.current.version,
+          targets:retrieved.targets.map((d:Draft)=>({candidateId:d.candidateId,version:d.version}))};
+        c.retrievalCount++;await save();
+      }
+      const targets=snapshotTargets(c);
+      const decision=checkConsolidation(await consolidate(c.current,targets,role,undefined,!c.currentProtected),c.current,targets,role,!c.currentProtected);
+      applyConsolidation(c,decision);await save();
+      c.modelVersion=await ensureIndexes(job,[...c.items,...(c.current?[c.current]:[])],c.modelVersion);
+      c.indexPending=false;
+      advanceCandidate(progress);await save();
     }
-    if(!c.current && c.next===progress.candidates.length) {
-      progress.finalCandidates=c.items.map(({candidateId,...rest}:Draft)=>rest);
-      progress.phase='submitting';progress.children=[];progress.submitted=0;
-    }
-    await yieldJob();return;
+    if(progress.phase==='consolidating'){await store.defer(job);return;}
   }
   if(progress.phase==='submitting') {
     for(const c of progress.finalCandidates)assertExperienceRole(c.experience,role);
@@ -96,7 +100,8 @@ export async function processDistill(job:store.Job,deps=defaultDependencies) {
     if(progress.submitted<progress.finalCandidates.length) {
       const c=progress.finalCandidates[progress.submitted];
       progress.children.push(await store.submit('experience',c.experience,c.sources));
-      progress.submitted++;await yieldJob();return;
+      progress.submitted++;
+      if(progress.submitted<progress.finalCandidates.length){await yieldJob();return;}
     }
     progress.phase='waiting';await save();
   }
@@ -108,5 +113,5 @@ export async function processDistill(job:store.Job,deps=defaultDependencies) {
     if(status.status!=='succeeded')waiting=true;
     else for(const id of status.result.ids)ids.add(id);
   }
-  if(waiting)await store.defer(job);else await store.finish(job,{ids:[...ids],trajectory_id:trajectory.id,candidate_count:progress.candidates.length,consolidated_count:progress.finalCandidates?.length??null,strategy_count:ids.size});
+  if(waiting)await store.defer(job,15);else await store.finish(job,{ids:[...ids],trajectory_id:trajectory.id,candidate_count:progress.candidates.length,consolidated_count:progress.finalCandidates?.length??null,strategy_count:ids.size});
 }

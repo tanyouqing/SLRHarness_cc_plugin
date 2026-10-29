@@ -7,7 +7,7 @@
 - 轨迹经验的 role 必须等于来源元信息中的 agentRole，只自动蒸馏 worker/manager/scoper/paper。多个来源必须一致；不根据正文猜角色。审稿 JSON 仍可以给四类角色分别提出建议。
 - 无可信角色的轨迹可保存，返回 `job_id:null, distillation:"skipped", reason`；不会自动产生任务。`stored` 只代表原文保存。
 - 提示词软目标：每段通常 0–1 条、整条通常 0–5 条。允许独立且有依据的例外，允许零策略。不得从一次失败概括出普遍禁用某工具。
-- 分段结束后先进行整条轨迹归并，再入库。完整候选通过 12000 字符窗口读取；先评估价值，再逐项比较。合并保留真实来源并重新比较，每次合并减少条数。
+- 分段结束后先进行整条轨迹归并，再入库。完整候选通过 12000 字符窗口读取；当前版本检索相关候选后一次联合判断价值与重复，合并保留真实来源并重新检索，每次合并减少条数。最新升级步骤见 [检索归并手册](retrieval-consolidation-upgrade.zh-CN.md)。
 - 内部去重按 role/sourceType 筛选，不按自由文本 stage 硬过滤。同源最多 12 条（范围重叠/邻近优先）与混合检索最多 12 条共同比较。对外显式 stage 查询不变。
 - checkpoints 保存 segments/consolidating/submitting/waiting 阶段、游标、决策及逐项提交回执。恢复只继续未完成步骤；已提交旧子任务继续原 ID。
 - get_job.progress 增加 phase、consolidated_count、strategy_count。candidate_count 是原始分段候选数，不能当作最终入库条数。
@@ -107,7 +107,7 @@ docker ps --format '{{.Names}} {{.Status}}'
 
 ## 归并工具 schema 修复与原任务恢复（2026-10-29）
 
-归并工具曾将 Zod 的 properties 重新包装为 Type.Object，丢失可选字段信息，导致模型看到 targetId 和 experience 都是必填。keep/drop 又禁止这些字段，无法提交合法决策。现在直接保留完整 JSON Schema；keep/drop 只需 action、candidateId、reason，merge 仍由服务端要求合法 targetId 和 experience，并校验角色和完整读取。
+归并工具曾将 Zod 的 properties 重新包装为 Type.Object，丢失可选字段信息，导致模型看到 targetId 和 experience 都是必填。keep/drop 又禁止这些字段，无法提交合法决策。4555726 修复保留完整 JSON Schema。后续检索归并版本在公共参数中增加 candidateVersion，merge 改用 targets（含 ID/版本）和 experience，继续校验角色和完整读取；这些是内部 Agent 工具参数，七个公开 MCP 接口不变。
 
 按 Git 升级手册更新两个 checkout、构建应用镜像并备份数据库/配置，暂停 API/worker 后执行以下恢复。此次无需新增迁移，不重新上传轨迹，也不清理数据。先保存失败任务的 payload/checkpoint 摘要，再重置原任务；启动 worker 前核对 ID、payload/checkpoint 摘要一致、状态为 queued、attempts 为 0。
 

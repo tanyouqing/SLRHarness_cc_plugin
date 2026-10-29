@@ -16,6 +16,7 @@
 - 审稿经验：JSON 直接提交，去重、索引完成后可检索，无需其他材料。
 - 经验必填 sourceType、role、executionSummary、strategy；role 为 worker/manager/scoper/paper 四选一，stage、task、applicability 可省略。两个知识库 Agent 使用共享项目与角色背景及各自任务提示词。更新步骤见 [经验格式与提示词升级说明](docs/UPGRADE-optional-experience.zh-CN.md)。
 - 运行经验：可信四类角色轨迹保存后排队，策略 role 继承来源；分段提炼后整条归并，再由管理 Agent 去重入库。身份不明的轨迹只保存。
+- 轨迹内部归并统一检索相关候选后一次判断，默认混合召回 Top-5；候选索引不对外公开。完成队列与分段提炼按 2:1 调度，保留旧任务进度。已部署用户见 [检索归并升级手册](../docs/retrieval-consolidation-upgrade.zh-CN.md)。
 - BGE-M3 CPU dense embedding＋PostgreSQL 关键词检索；论文与策略各有搜索接口。
 - 数据库分配 ID，保存历史修订、策略来源和处理任务，支持重复提交及后台重试。
 

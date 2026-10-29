@@ -68,8 +68,8 @@ test('distillation yields after one segment, carries identity and resumes legacy
 test('scheduler prioritizes ingestion at most five times, then rotates distillation via scheduled_at',async t=>{
   let streak=0;const kinds:string[]=[];
   t.mock.method(pool,'connect',async()=>({release(){},async query(sql:string,args:any[]=[]) {
-    if(sql.startsWith('SELECT ingest_streak'))return {rows:[{ingest_streak:streak}]};
-    if(sql.startsWith('SELECT id,kind FROM jobs')){assert.match(sql,/scheduled_at NULLS FIRST/);kinds.push(args[1]);return {rows:[{id:'job',kind:args[1]}]};}
+    if(sql.startsWith('SELECT ingest_streak'))return {rows:[{ingest_streak:streak,completion_streak:0}]};
+    if(sql.startsWith('SELECT id,kind,')){assert.match(sql,/scheduled_at NULLS FIRST/);kinds.push(args[1]);return {rows:[{id:'job',kind:args[1]}]};}
     if(sql.startsWith('UPDATE worker_scheduler'))streak=args[0];
     if(sql.includes("SET status='running'")){assert.match(sql,/scheduled_at=now\(\)/);return {rows:[{id:'job'}]};}
     return {rows:[]};

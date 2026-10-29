@@ -136,3 +136,12 @@ worker 默认一次处理一个任务，最多尝试 3 次；每 15 秒续租，
 ## 内部蒸馏与去重
 
 分段候选在整条轨迹结束后统一归并，通常每段 0–1 条、整条 0–5 条为软目标，允许零条和有依据的例外。归并保留来源与条件，再经管理 Agent 入库。内部去重不按 stage 硬过滤：同源邻近策略最多 12 条，加同 role/sourceType 的混合检索最多 12 条。对外搜索的显式过滤语义不变。清理及恢复见 [角色升级手册](../../docs/distillation-role-upgrade.zh-CN.md)。
+
+
+## 检索归并进度（retrieval-v1）
+
+七个工具名称和输入不变。get_job.progress 新增 consolidation_algorithm、processed_candidates、retained_count、retrieval_count、agent_decision_count、wait_reason。retained_count 是尚未正式入库的保留数，strategy_count 仍为最终关联策略数，未完成时为 null。retrieval_count / agent_decision_count 只统计新算法已保存的检索快照和决策，不统计失败的模型调用或旧算法历史。
+
+轨迹候选在任务内部的私有索引中，以同角色、内容版本和模型版本进行关键词＋向量召回（两路各 20，RRF 后默认 5 条），不按 stage/task 过滤。Agent 一次比较检索出的集合；多目标合并后保留真实来源、更新索引并重新检索。没有全量逐对比较分支。公开 search_strategies 只返回已发布实体，外部 stage 过滤语义不变。
+
+配置、调度、旧任务迁移及恢复见[检索归并升级手册](../../docs/retrieval-consolidation-upgrade.zh-CN.md)。

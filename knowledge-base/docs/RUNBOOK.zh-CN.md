@@ -463,6 +463,8 @@ cd ~/survey-kb/knowledge-base
 docker compose stop api worker
 docker compose exec -T db psql -U kb -d kb -v ON_ERROR_STOP=1 <<'SQL'
 TRUNCATE TABLE
+  distillation_candidate_chunks, distillation_candidate_indexes,
+  trajectory_transfer_parts, trajectory_transfers, trajectory_origins,
   experience_sources, search_chunks, decisions, conflicts,
   ingestions, jobs, revisions, entities, trajectories;
 SQL
@@ -480,3 +482,10 @@ docker compose exec -T db psql -U kb -d kb -c \
 ```
 
 三个值应均为 0。不要用 `down -v` 代替清空，也不要再次运行 smoke，否则会重新产生测试记录。旧的持久化报告引用已删除的 ID，清空后不能用它验证原记录；需要重新验收时先运行新一轮 smoke。
+
+
+## 13. 已部署服务：检索驱动归并升级
+
+使用 [Git 升级手册](../../docs/retrieval-consolidation-upgrade.zh-CN.md)，执行兼容迁移 004，不重新部署数据库/Embedding，不补传轨迹。默认 CONSOLIDATION_TOP_K=5（1–12）；同一任务私有索引不对外公开。归并与提炼按 2:1 调度，15 分钟等待提升，子任务轮询 15 秒；仍为单 worker。
+
+旧归并任务按原 ID 惰性转换，原分段、已合并内容、来源与历史决策保留。索引失败不等于无命中，决策已落盘则只补索引。失败任务先检查错误，再按原任务 retry；不要通过再次上传创建替代任务。升级后只读观察 get_job.progress 的新字段，暂存保留数不能当作已发布数。

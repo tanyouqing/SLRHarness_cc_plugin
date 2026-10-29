@@ -116,33 +116,36 @@ export async function distillSegment(trajectoryId:string,lineCount:number,segmen
 }
 
 export type Candidate = Distilled['candidates'][number];
-export type Draft = Candidate & {candidateId:string};
+export type Draft = Candidate & {candidateId:string;version:string};
 const consolidationSchema=z.object({
-  action:z.enum(['keep','drop','merge']),candidateId:z.string(),targetId:z.string().optional(),
-  reason:z.string().min(1),experience:experienceSchema.optional(),
+  action:z.enum(['keep','drop','merge']),candidateId:z.string(),candidateVersion:z.string(),
+  targets:z.array(z.object({candidateId:z.string(),version:z.string()}).strict()).min(1).max(12).optional(),
+  reason:z.string().min(1),experience:experienceSchema.extend({sourceType:z.literal('trajectory')}).optional(),
 }).strict();
 export type ConsolidationDecision=z.infer<typeof consolidationSchema>;
-export function checkConsolidation(value:unknown,current:Draft,other:Draft|undefined,role:ExecutionRole):ConsolidationDecision {
+export function checkConsolidation(value:unknown,current:Draft,targets:Draft[],role:ExecutionRole,allowDrop=true):ConsolidationDecision {
   const d=consolidationSchema.parse(value);
   assertExperienceRole(current.experience,role);
-  if(other)assertExperienceRole(other.experience,role);
-  if(d.candidateId!==current.candidateId)throw new Error('unknown consolidation candidate');
-  if(d.action==='drop' && other)throw new Error('covered advice must merge sources; drop only during initial value assessment');
+  targets.forEach(t=>assertExperienceRole(t.experience,role));
+  if(d.candidateId!==current.candidateId || d.candidateVersion!==current.version)throw new Error('unknown or stale consolidation candidate');
+  if(d.action==='drop' && !allowDrop)throw new Error('cannot drop previously merged retained evidence');
   if(d.action==='merge') {
-    if(!other || d.targetId!==other.candidateId || !d.experience)throw new Error('invalid consolidation merge');
+    if(!d.targets?.length || !d.experience || new Set(d.targets.map(t=>t.candidateId)).size!==d.targets.length ||
+      d.targets.some(t=>!targets.some(other=>other.candidateId===t.candidateId && other.version===t.version)))throw new Error('invalid consolidation merge target or version');
     assertExperienceRole(d.experience,role);
-  } else if(d.targetId !== undefined || d.experience !== undefined)throw new Error('keep/drop cannot rewrite evidence');
+  } else if(d.targets !== undefined || d.experience !== undefined)throw new Error('keep/drop cannot rewrite evidence');
   return d;
 }
-export async function consolidate(current:Draft,other:Draft|undefined,role:ExecutionRole,invoke=run):Promise<ConsolidationDecision> {
+export async function consolidate(current:Draft,targets:Draft[],role:ExecutionRole,invoke=run,allowDrop=true):Promise<ConsolidationDecision> {
   let output:ConsolidationDecision|undefined;
-  const records=new Map([current,...(other?[other]:[])].map(c=>[c.candidateId,c]));
+  const records=new Map([current,...targets].map(c=>[c.candidateId,c]));
+  if(records.size!==targets.length+1)throw new Error('duplicate candidate ID in retrieved set');
   const read=new Set<string>();
   const next=new Map([...records.keys()].map(id=>[id,0]));
-  await invoke('distiller',{mode:'consolidate',requiredRole:role,
-    instruction:'Assess current for reusable value, or compare it with target. Keep distinct actions; merge equivalent/complementary advice with compatible conditions; drop unsupported, incidental or already-covered advice. Read both records completely before deciding. Aim for 0–5 strategies per whole trajectory, not a quota or hard cap.',
-    current:{id:current.candidateId,characters:JSON.stringify(current).length},
-    target:other?{id:other.candidateId,characters:JSON.stringify(other).length}:null},[
+  await invoke('distiller',{mode:'consolidate',requiredRole:role,allowDrop,
+    instruction:'Assess current value and compare with this retrieved set in ONE decision. Read all supplied records completely. Keep independent advice, merge with one or more compatible targets, or drop only low-value/unsupported current advice. Already-covered advice must merge sources, never drop them. Retrieval is not proof of duplication. Aim for 0–5 strategies per trajectory, not a quota or hard cap.',
+    current:{id:current.candidateId,version:current.version,characters:JSON.stringify(current).length},
+    targets:targets.map(t=>({id:t.candidateId,version:t.version,characters:JSON.stringify(t).length}))},[
     tool('read_candidate','Read candidate JSON in consecutive bounded windows; continue until next_start is null.',{
       id:Type.String(),start:Type.Integer({minimum:0}),
     },async({id,start})=>{
@@ -152,9 +155,9 @@ export async function consolidate(current:Draft,other:Draft|undefined,role:Execu
       next.set(id,end);if(end===text.length)read.add(id);
       return {id,text:text.slice(start,end),next_start:end<text.length?end:null};
     }),
-    schemaTool('submit_consolidation','Decide after reading all supplied candidates. For keep/drop omit targetId and experience. For merge both are required. Sources are combined by the server, never generated.',consolidationSchema,async args=>{
+    schemaTool('submit_consolidation','Submit ONE decision over the retrieved set with candidateId and candidateVersion. For keep/drop omit targets and experience. For merge supply nonempty targets [{candidateId,version}] and complete experience. Sources are combined by the server, never generated.',consolidationSchema,async args=>{
       if(read.size!==records.size)throw new Error('read complete candidates before consolidation');
-      output=checkConsolidation(args,current,other,role);return {accepted:true};
+      output=checkConsolidation(args,current,targets,role,allowDrop);return {accepted:true};
     },true),
   ]);
   if(!output)throw new Error('distiller did not submit consolidation');
