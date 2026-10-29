@@ -171,3 +171,5 @@ submission hashes and job IDs preserved. See the [upgrade and recovery manual](d
 当前方案以 [轨迹与 Git 升级手册](docs/trajectory-git-upgrade.zh-CN.md) 为准：四类角色投影、身份元信息、分段上传、6 小时跟踪及逐段调度。已有远程任务保留原 ID。知识库源码现位于同一仓库 knowledge-base/；不再使用增量安装包。
 
 策略反馈、停用与自动修订已接入；现有部署请按[策略管理升级手册](docs/strategy-governance-upgrade.zh-CN.md)更新。反馈独立恢复不依赖调研成功，默认 90 天未被对外检索返回的策略会停用。
+
+完整调研及本轮远程处理结束后，Stop 同步自动保存全库快照；保存失败可以继续原批次，不重复上传。全库恢复包含恢复前备份，并阻止旧工作区补传。现有部署升级、查看与恢复命令见[全库快照手册](docs/knowledge-base-snapshots.zh-CN.md)。本次无新 MCP 工具或数据库迁移。

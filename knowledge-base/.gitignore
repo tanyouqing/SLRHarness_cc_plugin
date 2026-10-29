@@ -7,6 +7,7 @@ config/auth.json
 config/agents.json
 reports/
 backups/
+snapshots/
 __pycache__/
 .pytest_cache/
 models/

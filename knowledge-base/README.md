@@ -68,3 +68,5 @@ python3 -m unittest discover -s embedding -p test_chunking.py
 已部署用户本次请按 [选择性蒸馏 Git 升级手册](../docs/selective-distillation-upgrade.zh-CN.md) 更新。旧任务固定旧提示词，调度和快速收尾优化对全部任务生效，无需新增迁移。
 
 策略管理新增第八个工具 `report_strategy_feedback`。默认检索只返回 active；停用保留历史，修订经独立调用核验后启用。升级及恢复见[中文手册](../docs/strategy-governance-upgrade.zh-CN.md)。
+
+全库版本由宿主机 `scripts/snapshot.py` 管理，覆盖 PostgreSQL 全部数据与向量；Pipeline 成功同步后自动保存，管理员可恢复指定版本。模型文件、密钥与 Pipeline 工作区继续独立保留。见[全库快照与 Git 升级手册](../docs/knowledge-base-snapshots.zh-CN.md)。

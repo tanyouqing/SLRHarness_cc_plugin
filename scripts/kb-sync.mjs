@@ -1,3 +1,4 @@
+import {saveRunSnapshot} from './kb-snapshot.mjs';
 import {connect} from './kb-transport.mjs';
 export {connect} from './kb-transport.mjs';
 import {distillRoles,frozenProjection,splitParts,requestBytes} from './kb-projection.mjs';
@@ -176,7 +177,7 @@ export function summary(root) {
     if(x.jobId){trajectories.stored++;if(x.status==='succeeded')trajectories.succeeded++;else if(x.status==='failed')trajectories.failed++;else if(x.remoteStatus==='running')trajectories.running++;else trajectories.queued++;}
     else if(x.status==='failed')trajectories.failed++;else trajectories.uploading++;
   }
-  return {trajectories,enabled:enabled(root),readyForUpload:uploadReady(root),counts,administrativeCleanup:fs.existsSync(kbPath(root,'role-cleanup.json'))?json(kbPath(root,'role-cleanup.json')):null,records:'.slr/kb/outbox/',warningsPath:'.slr/kb/warnings/',
+  return {snapshot:fs.existsSync(kbPath(root,'snapshot.json'))?json(kbPath(root,'snapshot.json')):null,trajectories,enabled:enabled(root),readyForUpload:uploadReady(root),counts,administrativeCleanup:fs.existsSync(kbPath(root,'role-cleanup.json'))?json(kbPath(root,'role-cleanup.json')):null,records:'.slr/kb/outbox/',warningsPath:'.slr/kb/warnings/',
     automatic:batch?{batchId:id,status:batch.status,frozen:batch.frozen,
       trajectories:{frozen:batch.frozenSourceKeys?.length??(batch.frozen?batch.sources.length:0),errors:batch.errors?.length??0,skipped:batch.skipped?.length??0},
       log:`.slr/kb/batches/${id}.log`}:null,
@@ -251,6 +252,21 @@ export async function runOnce(root,options={}) {
   const timer=setInterval(()=>{try{locked(root,'sync-process',()=>{const s=json(file);if(s.token===token)atomic(file,{...s,until:Date.now()+120000});});}catch{}},30000);timer.unref();
   try {
     const result=await drainOnce(root,{...options,isReady:r=>identity(runtime(r).finishRequested)===identity(finish)&&isReady(r)});
+    if(['complete','complete_with_exclusions'].includes(result.status)) {
+      const snapshot=options.snapshot??(options.transport?async()=>({status:'skipped',reason:'injected test transport'}):saveRunSnapshot);
+      const deadline=result.startedAt+(options.maxWaitMs??syncBudgetMs());
+      const clock=options.clock??Date.now,sleep=options.sleep??(ms=>new Promise(r=>setTimeout(r,ms)));
+      let receipt;
+      while(true) {
+        if(!enabled(root)||!isReady(root)||identity(runtime(root).finishRequested)!==identity(finish)){receipt={status:'failed',reason:'completion changed or database restored'};break;}
+        try{receipt=await snapshot(root);}catch{receipt={status:'failed',reason:'snapshot failed; use once/resume to retry without resubmitting saved content'};}
+        if(receipt.status!=='waiting'||clock()>=deadline||options.signal?.aborted)break;
+        await sleep(Math.min(15000,Math.max(1,deadline-clock())));
+      }
+      result.snapshot=receipt;result.uploadStatus=result.status;
+      if(!['saved','skipped'].includes(receipt.status)){result.status='pending';result.reason='snapshot_pending';}
+      result.finishedAt=clock();atomic(kbPath(root,'last-sync.json'),result);
+    }
     const id=finish?.batchId;
     if(id)locked(root,'auto-sync',()=>{const f=batchFile(root,id),b=json(f);atomic(f,{...b,status:result.status,finishedAt:Date.now()});});
     return result;

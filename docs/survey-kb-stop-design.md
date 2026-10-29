@@ -53,3 +53,8 @@
 ## 轨迹与 Git 升级
 
 当前方案以 [轨迹与 Git 升级手册](trajectory-git-upgrade.zh-CN.md) 为准：四类角色投影、身份元信息、分段上传、6 小时跟踪及逐段调度。已有远程任务保留原 ID。知识库源码现位于同一仓库 knowledge-base/；不再使用增量安装包。
+# 全库快照补充（2026-10-29）
+
+Stop 启动的一次性同步在 complete/complete_with_exclusions 后调用宿主机快照助手。本轮全部远程任务及反馈、全库任务和分段传输完成才保存；失败或预算耗尽时保留 snapshot_pending，once/resume 继续原批次。相同库代次/runId/batchId 复用已有快照。保存短暂停 API/worker，DB/Embedding 不重建。
+
+全库恢复仅提供管理员命令，恢复前备份当前库；持久恢复意图和库代次位于数据库之外。恢复前工作区禁止再次调用 KB 或补传，需新建工作区。现有策略状态与历史机制保留。详细时机、范围与命令见[快照手册](knowledge-base-snapshots.zh-CN.md)。

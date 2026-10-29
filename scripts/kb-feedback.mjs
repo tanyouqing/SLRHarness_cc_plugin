@@ -26,6 +26,7 @@ export async function recoverFeedback(root,{transport,now=Date.now}={}) {
   let client=transport;
   try {
     for(const item of feedbackItems(root)) {
+      if(!enabled(root))break;
       if(item.status==='succeeded')continue;
       const lease=sha(`${now()}:${Math.random()}`);
       const claimed=locked(root,'feedback',()=>{
@@ -37,6 +38,7 @@ export async function recoverFeedback(root,{transport,now=Date.now}={}) {
       let change;
       try {
         client??=await (await import('./kb-transport.mjs')).connect();
+        if(!enabled(root))throw new Error('database restored or KB disabled');
         const r=await client.call(claimed.jobId?'get_job':'report_strategy_feedback',claimed.jobId?{job_id:claimed.jobId}:claimed.payload);
         if(claimed.jobId)change={status:r.status==='succeeded'?'succeeded':r.status==='failed'?'server_failed':'accepted',result:r};
         else {

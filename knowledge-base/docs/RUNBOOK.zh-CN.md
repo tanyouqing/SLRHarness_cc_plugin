@@ -497,3 +497,6 @@ docker compose exec -T db psql -U kb -d kb -c \
 ## 策略状态管理升级
 
 本次新增迁移 005 和第八个 MCP 反馈工具，保留全部现有数据。已有部署直接按[策略管理 Git 升级手册](../../docs/strategy-governance-upgrade.zh-CN.md)操作；不要重新安装数据库或模型。手册包含 feedback status/resume、管理 Agent 重试、历史查询、期限豁免与重新启用复核。
+# 全库快照运维补充（2026-10-29）
+
+当前 Git 部署支持每轮成功调研及全部远程处理完成后的自动全库版本。日常查看、快照失败恢复、指定版本全库恢复和旧工作区隔离见[全库快照手册](../../docs/knowledge-base-snapshots.zh-CN.md)。它使用宿主机 Python 标准库和数据库容器内 pg_dump，无新 MCP 工具、数据库迁移或模型调用；恢复前会自动安全备份，不对生产库自动进行恢复演练。以下早期部署中的单独 pg_dump 命令仍可作额外备份，但不具备 Pipeline 库代次隔离，正常版本恢复请使用 snapshot.py。

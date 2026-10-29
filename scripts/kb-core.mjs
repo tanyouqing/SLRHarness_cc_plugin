@@ -38,12 +38,17 @@ export function configure(root,input={}) {
   if(input===null||typeof input!=='object'||Array.isArray(input)||Object.keys(input).some(k=>k!=='enabled'))throw new Error('surveyKb accepts enabled only');
   if(input.enabled!==undefined&&typeof input.enabled!=='boolean')throw new Error('surveyKb.enabled must be boolean');
   if(fs.existsSync(safe(root,'.slr/survey-kb.json')))throw new Error('Survey KB configuration is immutable; resume existing run');
-  const c={version:1,enabled:input.enabled??true,runId:randomUUID(),server:KB_SERVER,
+  const c={version:1,enabled:input.enabled??true,runId:randomUUID(),server:KB_SERVER,snapshotGeneration:snapshotControl().generation,
     budgets:{strategies:3,strategySnippet:1200,strategyChars:4500,papers:5,paperSnippet:1000,paperChars:8000,readChars:24000},
     requestTimeoutMs:20000,createdAt:new Date().toISOString()};
   atomic(safe(root,'.slr/survey-kb.json'),c);return c;
 }
-export function enabled(root) {try{return config(root)?.enabled===true;}catch{return false;}}
+export function snapshotControl() {
+  const file=path.join(process.env.SURVEY_KB_SNAPSHOT_DIR??'/root/survey-kb/snapshots','control.json');
+  const state=fs.existsSync(file)?json(file):{generation:0};
+  if(!Number.isInteger(state.generation)||state.generation<0)throw new Error('invalid KB snapshot generation');return state;
+}
+export function enabled(root) {try{const c=config(root),state=snapshotControl();return c?.enabled===true&&!state.pending_restore&&(c.snapshotGeneration??0)===state.generation;}catch{return false;}}
 export function warning(root,kind,error) {
   try {atomic(kbPath(root,`warnings/${sha(kind)}.json`),{kind,error:String(error?.message??error).slice(0,1000),at:new Date().toISOString()});}catch{/* never fail the research operation */}
 }
