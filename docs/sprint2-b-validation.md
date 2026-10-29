@@ -134,5 +134,8 @@ Stop 批次逐源冻结；已冻结副本保持不可变，缺失轨迹不再阻
 - 保留 Zod 转换后的完整工具 JSON Schema，修复 targetId/experience 被错误标为必填的问题。keep/drop 可以省略归并专用参数；merge 继续验证目标、经验角色和完整读取。候选提炼工具复用同一 schema 构建方式。
 - 新增实际工具 schema 回归：通过 Pi validateToolArguments 验证模型实际看到的参数结构，再调用 execute，覆盖 keep/drop、merge、缺失/额外参数、跨角色及嵌套可选字段。不调用真实模型。
 - 最终综述默认篇幅改为 6,000–15,000 words，不含参考文献；更新 Paper skill、模板说明、六个会议指南和内容哈希。用户指定篇幅优先，既有论文不自动重写。蒸馏摘要 6000 字符、交接 8000 字符保持原值。
-- Pipeline 全量 184 项、知识库 51 项与 Python 5 项离线测试通过，TypeScript check/build 通过；论文指南专项 13 项通过，插件校验通过（已有图标提示）。服务器升级结果随后记录。
-- 计划仅恢复三个已确认失败的原任务：0466d83c-44cc-489a-ac72-5a86ad8b971a、bcec792b-2fba-4025-aacf-15a23d8167c1、c64c2600-e643-4ae3-9999-20736dd76b6d。通过 admin retry 保留 ID、payload/checkpoint 和已处理分段，不重新上传轨迹。
+- Pipeline 全量 184 项、知识库 51 项与 Python 5 项离线测试通过，TypeScript check/build 通过；论文指南专项 13 项通过，插件校验通过（已有图标提示）。
+- 代码提交 4555726 已推送 auto-survey，两个服务器 checkout 均通过 Git 更新，新应用镜像 survey-kb:git-4555726 构建成功。静态检查确认真实工具 schema 仅要求 action/candidateId/reason、六个指南哈希及 15000 上限一致；服务器插件校验通过（已有图标/隐私 URL 提示）。
+- 备份目录 `/root/survey-kb/backups/schema-20261029-4555726/` 保存数据库、私有配置、旧镜像 ID 与恢复前后摘要。此次不需要数据库迁移。
+- 已通过 admin retry 恢复三个失败原任务：0466d83c-44cc-489a-ac72-5a86ad8b971a、bcec792b-2fba-4025-aacf-15a23d8167c1、c64c2600-e643-4ae3-9999-20736dd76b6d。启动 worker 前均为 queued/attempts=0；已完成分段分别为 24、19、23，候选分别为 11、6、4，仍处于 consolidating。ID、payload/checkpoint 摘要逐条一致，没有重新上传轨迹。
+- 仅更换 API/worker，数据库与 Embedding 容器 ID 未变，私有配置和 Pi 卷挂载一致。worker 恢复后自然处理既有队列；未主动执行 smoke、新上传或真实模型测试。恢复入队不代表归并已全部完成，后续语义质量仍需观察。
